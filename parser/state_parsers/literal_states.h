@@ -22,7 +22,7 @@ inline void handleStateArrayLiteralStart(ParserContext& ctx, char c) {
     } else {
         // Start parsing first element
         ctx.state = STATE::ARRAY_LITERAL_ELEMENT;
-        handleStateArrayLiteralElement(ctx, c);
+        ctx.index--;
     }
 }
 
@@ -44,7 +44,7 @@ inline void handleStateArrayLiteralElement(ParserContext& ctx, char c) {
         ctx.currentNode->children.push_back(expr);
         ctx.currentNode = expr;
         ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;
-        handleStateExpressionExpectOperand(ctx, c);
+        ctx.index--;
     }
 }
 
@@ -59,7 +59,7 @@ inline void handleStateArrayLiteralSeparator(ParserContext& ctx, char c) {
     } else {
         // Parse next element
         ctx.state = STATE::ARRAY_LITERAL_ELEMENT;
-        handleStateArrayLiteralElement(ctx, c);
+        ctx.index--;
     }
 }
 
@@ -74,7 +74,7 @@ inline void handleStateObjectLiteralStart(ParserContext& ctx, char c) {
     } else {
         // Start parsing first property
         ctx.state = STATE::OBJECT_LITERAL_PROPERTY_KEY;
-        handleStateObjectLiteralPropertyKey(ctx, c);
+        ctx.index--;
     }
 }
 
@@ -172,7 +172,7 @@ inline void handleStateObjectLiteralPropertyValue(ParserContext& ctx, char c) {
         }
         ctx.currentNode = expr;
         ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;
-        handleStateExpressionExpectOperand(ctx, c);
+        ctx.index--;
     }
 }
 
@@ -187,6 +187,6 @@ inline void handleStateObjectLiteralSeparator(ParserContext& ctx, char c) {
     } else {
         // Parse next property
         ctx.state = STATE::OBJECT_LITERAL_PROPERTY_KEY;
-        handleStateObjectLiteralPropertyKey(ctx, c);
+        ctx.index--;
     }
 }

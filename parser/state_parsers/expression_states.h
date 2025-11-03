@@ -143,7 +143,7 @@ inline void handleStateExpressionNumber(ParserContext& ctx, char c) {
     auto* literal = new LiteralExpressionNode(nullptr, text);
     addExpressionOperand(ctx, literal);
     ctx.state = STATE::EXPRESSION_AFTER_OPERAND;
-    handleStateExpressionAfterOperand(ctx, c);
+    ctx.index--;
 }
 
 inline void handleStateExpressionIdentifier(ParserContext& ctx, char c) {
@@ -158,7 +158,7 @@ inline void handleStateExpressionIdentifier(ParserContext& ctx, char c) {
     auto* identifier = new IdentifierExpressionNode(nullptr, text);
     addExpressionOperand(ctx, identifier);
     ctx.state = STATE::EXPRESSION_AFTER_OPERAND;
-    handleStateExpressionAfterOperand(ctx, c);
+    ctx.index--;
 }
 
 inline void handleStateExpressionSingleQuote(ParserContext& ctx, char c) {

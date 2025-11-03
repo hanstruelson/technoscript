@@ -28,10 +28,7 @@ inline void handleStateNone(ParserContext& ctx, char c) {
     // Check for else keyword after a control statement
     if (c == 'e' && ctx.currentNode && dynamic_cast<ControlStatement*>(ctx.currentNode)) {
         ctx.state = STATE::NONE_E;
-        return;
-    }
-
-    if (c == '}') {
+    } else if (c == '}') {
         // End of block - pop back to parent
         if (ctx.currentNode && ctx.currentNode->nodeType == ASTNodeType::BLOCK_STATEMENT) {
             ctx.currentNode = ctx.currentNode->parent;
@@ -62,11 +59,8 @@ inline void handleStateNone(ParserContext& ctx, char c) {
                 return;
             }
         }
-        // Regular semicolon - ignore for now
-        return;
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace
-        return;
     } else if (c == 'v') {
         ctx.state = STATE::NONE_V;
     } else if (c == 'c') {
@@ -89,9 +83,6 @@ inline void handleStateNone(ParserContext& ctx, char c) {
         // Handle expression starts at top level
         auto* expr = new ExpressionNode(ctx.currentNode);
         ctx.currentNode->addChild(expr);
-
-
-
         ctx.currentNode = expr;
         ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;
         ctx.index--; // Re-process this character
@@ -133,8 +124,7 @@ inline void handleStateNoneELS(ParserContext& ctx, char c) {
 
 inline void handleStateNoneELSE(ParserContext& ctx, char c) {
     if (std::isspace(static_cast<unsigned char>(c))) {
-        // Skip whitespace
-        return;
+        
     } else if (c == '{') {
         // Else block - create else clause with block
         auto* elseClause = new ElseClause(ctx.currentNode);

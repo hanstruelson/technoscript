@@ -250,15 +250,6 @@ inline void parse(const std::string& code) {
                 case STATE::IF_ALTERNATE_START:
                     handleStateIfAlternateStart(ctx, c);
                     break;
-                case STATE::IF_ALTERNATE_E:
-                    handleStateIfAlternateE(ctx, c);
-                    break;
-                case STATE::IF_ALTERNATE_L:
-                    handleStateIfAlternateL(ctx, c);
-                    break;
-                case STATE::IF_ALTERNATE_S:
-                    handleStateIfAlternateS(ctx, c);
-                    break;
                 case STATE::IF_ALTERNATE:
                     handleStateIfAlternate(ctx, c);
                     break;
@@ -619,9 +610,6 @@ inline void parse(const std::string& code) {
                     break;
                 case STATE::CLASS_EXTENDS_START:
                     handleStateClassExtendsStart(ctx, c);
-                    break;
-                case STATE::CLASS_IMPLEMENTS_START:
-                    handleStateClassImplementsStart(ctx, c);
                     break;
                 case STATE::CLASS_BODY_START:
                     handleStateClassBodyStart(ctx, c);

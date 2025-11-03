@@ -349,6 +349,6 @@ inline void handleStateExpressionNullishAssign(ParserContext& ctx, char c) {
         applyExpressionOperator(ctx, BinaryExpressionOperator::OP_NULLISH_ASSIGN);
         ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;
     } else {
-        throw std::runtime_error("Expected '?' for '??=' operator");
+        throw std::runtime_error(R"(Expected '?' for '??=' operator)");
     }
 }

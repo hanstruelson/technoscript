@@ -54,7 +54,7 @@ inline void handleStateTypeAnnotation(ParserContext& ctx, char c) {
     if (c == '<') {
         // Generic type usage: Array<T>, Promise<T, U>
         ctx.state = STATE::TYPE_GENERIC_TYPE_START;
-        handleStateTypeGenericTypeStart(ctx, c);
+        ctx.index--;
         return;
     }
 
@@ -62,7 +62,7 @@ inline void handleStateTypeAnnotation(ParserContext& ctx, char c) {
         // This might be the end of a generic type that we just parsed
         // Continue to EXPECT_EQUALS state
         ctx.state = STATE::EXPECT_EQUALS;
-        handleStateExpectEquals(ctx, c);
+        ctx.index--;
         return;
     }
 
@@ -152,5 +152,5 @@ inline void handleStateTypeAnnotation(ParserContext& ctx, char c) {
     }
 
     ctx.state = STATE::EXPECT_EQUALS;
-    handleStateExpectEquals(ctx, c);
+    ctx.index--;
 }

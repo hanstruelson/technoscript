@@ -92,18 +92,6 @@ inline void handleStateClassDeclarationName(ParserContext& ctx, char c) {
         ctx.state = STATE::CLASS_EXTENDS_START;
         // Re-process this character
         ctx.index--;
-    } else if (c == 'i') {
-        // Class name complete, extract it
-        if (ctx.stringStart < ctx.index) {
-            std::string className = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
-            if (auto* classNode = dynamic_cast<ClassDeclarationNode*>(ctx.currentNode)) {
-                classNode->name = className;
-            }
-        }
-        // Check for 'implements'
-        ctx.state = STATE::CLASS_IMPLEMENTS_START;
-        // Re-process this character
-        ctx.index--;
     } else {
         reportParseError(ctx.code, ctx.index, "Expected class name or '{', 'extends', or 'implements'", ctx.state);
     }
@@ -118,15 +106,11 @@ inline void handleStateClassExtendsStart(ParserContext& ctx, char c) {
     } else {
         // Not 'extends', go back to name parsing
         ctx.state = STATE::CLASS_DECLARATION_NAME;
-        handleStateClassDeclarationName(ctx, c);
+        ctx.index--;
     }
 }
 
-inline void handleStateClassImplementsStart(ParserContext& ctx, char c) {
-    // Similar to extends, would need full parsing
-    ctx.state = STATE::CLASS_DECLARATION_NAME;
-    handleStateClassDeclarationName(ctx, c);
-}
+
 
 inline void handleStateClassBodyStart(ParserContext& ctx, char c) {
     if (c == '{') {
@@ -167,7 +151,7 @@ inline void handleStateClassStaticStart(ParserContext& ctx, char c) {
     } else {
         // Not 'static', treat as regular identifier
         ctx.state = STATE::CLASS_PROPERTY_KEY;
-        handleStateClassPropertyKey(ctx, c);
+        ctx.index--;
     }
 }
 

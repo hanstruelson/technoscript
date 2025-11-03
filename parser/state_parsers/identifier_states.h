@@ -77,10 +77,10 @@ inline void handleStateIdentifierName(ParserContext& ctx, char c) {
         auto* varDefNode = dynamic_cast<VariableDefinitionNode*>(ctx.currentNode);
         varDefNode->name = identifier;
         ctx.state = STATE::VARIABLE_CREATE_IDENTIFIER_COMPLETE;
-        handleStateVariableCreateIdentifierComplete(ctx, c);
+        ctx.index--;
     } else {
         ctx.state = STATE::IDENTIFIER_COMPLETE;
-        handleStateIdentifierComplete(ctx, c);
+        ctx.index--;
     }
 }
 

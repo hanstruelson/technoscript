@@ -20,7 +20,7 @@ inline void handleStateNoneI(ParserContext& ctx, char c) {
 inline void handleStateIfConditionStart(ParserContext& ctx, char c) {
     if (c == '(') {
         // Check if we're parsing else if
-        if (auto* elseIfNode = dynamic_cast<ElseIfClause*>(ctx.currentNode)) {
+        if (dynamic_cast<ElseIfClause*>(ctx.currentNode)) {
             // Else if - create condition expression as child
             auto* expr = new ExpressionNode(ctx.currentNode);
             ctx.currentNode->addChild(expr);
@@ -68,45 +68,14 @@ inline void handleStateIfConsequent(ParserContext& ctx, char c) {
 
 inline void handleStateIfAlternateStart(ParserContext& ctx, char c) {
     if (c == 'e') {
-        ctx.state = STATE::IF_ALTERNATE_E;
+        // Start of "else" - let main loop handle it
+        ctx.state = STATE::NONE;
+        ctx.index--; // Re-process this character
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace
         return;
     } else {
         // No else clause, end if statement
-        ctx.currentNode = ctx.currentNode->parent;
-        ctx.state = STATE::NONE;
-        ctx.index--; // Re-process this character
-    }
-}
-
-inline void handleStateIfAlternateE(ParserContext& ctx, char c) {
-    if (c == 'l') {
-        ctx.state = STATE::IF_ALTERNATE_L;
-    } else {
-        // Invalid, end if statement
-        ctx.currentNode = ctx.currentNode->parent;
-        ctx.state = STATE::NONE;
-        ctx.index--; // Re-process this character
-    }
-}
-
-inline void handleStateIfAlternateL(ParserContext& ctx, char c) {
-    if (c == 's') {
-        ctx.state = STATE::IF_ALTERNATE_S;
-    } else {
-        // Invalid, end if statement
-        ctx.currentNode = ctx.currentNode->parent;
-        ctx.state = STATE::NONE;
-        ctx.index--; // Re-process this character
-    }
-}
-
-inline void handleStateIfAlternateS(ParserContext& ctx, char c) {
-    if (c == 'e') {
-        ctx.state = STATE::IF_ALTERNATE;
-    } else {
-        // Invalid, end if statement
         ctx.currentNode = ctx.currentNode->parent;
         ctx.state = STATE::NONE;
         ctx.index--; // Re-process this character

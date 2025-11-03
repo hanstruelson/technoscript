@@ -360,33 +360,41 @@ inline void handleStateFunctionExpressionParametersStart(ParserContext& ctx, cha
 }
 
 inline void handleStateFunctionExpressionParameterName(ParserContext& ctx, char c) {
-    handleStateFunctionParameterName(ctx, c);
+    ctx.state = STATE::FUNCTION_PARAMETER_NAME;
+    ctx.index--;
 }
 
 inline void handleStateFunctionExpressionParameterTypeAnnotation(ParserContext& ctx, char c) {
-    handleStateFunctionParameterTypeAnnotation(ctx, c);
+    ctx.state = STATE::FUNCTION_PARAMETER_TYPE_ANNOTATION;
+    ctx.index--;
 }
 
 inline void handleStateFunctionExpressionParameterDefaultValue(ParserContext& ctx, char c) {
-    handleStateFunctionParameterDefaultValue(ctx, c);
+    ctx.state = STATE::FUNCTION_PARAMETER_DEFAULT_VALUE;
+    ctx.index--;
 }
 
 inline void handleStateFunctionExpressionParameterSeparator(ParserContext& ctx, char c) {
-    handleStateFunctionParameterSeparator(ctx, c);
+    ctx.state = STATE::FUNCTION_PARAMETER_SEPARATOR;
+    ctx.index--;
 }
 
 inline void handleStateFunctionExpressionParametersEnd(ParserContext& ctx, char c) {
-    handleStateFunctionParametersEnd(ctx, c);
+    ctx.state = STATE::FUNCTION_PARAMETERS_END;
+    ctx.index--;
 }
 
 inline void handleStateFunctionExpressionReturnTypeAnnotation(ParserContext& ctx, char c) {
-    handleStateFunctionReturnTypeAnnotation(ctx, c);
+    ctx.state = STATE::FUNCTION_RETURN_TYPE_ANNOTATION;
+    ctx.index--;
 }
 
 inline void handleStateFunctionExpressionBodyStart(ParserContext& ctx, char c) {
-    handleStateFunctionBodyStart(ctx, c);
+    ctx.state = STATE::FUNCTION_BODY_START;
+    ctx.index--;
 }
 
 inline void handleStateFunctionExpressionBody(ParserContext& ctx, char c) {
-    handleStateFunctionBody(ctx, c);
+    ctx.state = STATE::FUNCTION_BODY;
+    ctx.index--;
 }
