@@ -14,12 +14,10 @@ int main(int argc, char* argv[]) {
             code += argv[i];
         }
     } else {
-        // Read from stdin only if it's not a terminal (to avoid hanging)
-        if (!isatty(fileno(stdin))) {
-            std::string line;
-            while (std::getline(std::cin, line)) {
-                code += line + "\n";
-            }
+        // Read from stdin
+        std::string line;
+        while (std::getline(std::cin, line)) {
+            code += line + "\n";
         }
     }
 

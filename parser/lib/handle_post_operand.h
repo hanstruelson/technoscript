@@ -34,23 +34,18 @@ inline bool handlePostOperand(ParserContext& ctx, char c) {
         // Regular parenthesis closing
         ParenthesisExpressionNode::closeParenthesis(ctx);
     } else if (c == '+') {
-        auto* binaryNode = new BinaryExpressionNode(ctx.currentNode->parent, BinaryExpressionOperator::OP_ADD);
-        binaryNode->setLeft(static_cast<ExpressionNode*>(ctx.currentNode));
-        ctx.currentNode->parent->children.back() = binaryNode;
-        ctx.currentNode = binaryNode;
+        applyExpressionOperator(ctx, BinaryExpressionOperator::OP_ADD);
         ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;
     } else if (c == '-') {
-        auto* binaryNode = new BinaryExpressionNode(ctx.currentNode->parent, BinaryExpressionOperator::OP_SUBTRACT);
-        binaryNode->setLeft(static_cast<ExpressionNode*>(ctx.currentNode));
-        ctx.currentNode->parent->children.back() = binaryNode;
-        ctx.currentNode = binaryNode;
+        applyExpressionOperator(ctx, BinaryExpressionOperator::OP_SUBTRACT);
+        ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;
+    } else if (c == '*') {
+        applyExpressionOperator(ctx, BinaryExpressionOperator::OP_MULTIPLY);
+        ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;
+    } else if (c == '/') {
+        applyExpressionOperator(ctx, BinaryExpressionOperator::OP_DIVIDE);
         ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;
     }
-    // else if (c == '*') {
-    //     handleStateExpressionAsterisk(ctx, BinaryExpressionOperator::OP_MULTIPLY);
-    // } else if (c == '/') {
-    //     handleStateExpressionSlash(ctx, BinaryExpressionOperator::OP_DIVIDE);
-    // }
     else if (c == ',') {
         // Check if we're in an array or object literal context
         auto* node = ctx.currentNode;
