@@ -16,3 +16,6 @@
 #include "function_states.h"
 #include "literal_states.h"
 #include "control_flow_states.h"
+#include "operator_states.h"
+#include "class_states.h"
+#include "interface_states.h"

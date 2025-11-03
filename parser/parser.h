@@ -203,9 +203,6 @@ inline void parse(const std::string& code) {
                 case STATE::OBJECT_LITERAL_SEPARATOR:
                     handleStateObjectLiteralSeparator(ctx, c);
                     break;
-                case STATE::NONE_I:
-                    handleStateNoneI(ctx, c);
-                    break;
                 case STATE::IF_CONDITION_START:
                     handleStateIfConditionStart(ctx, c);
                     break;
@@ -245,6 +242,422 @@ inline void parse(const std::string& code) {
                 case STATE::WHILE_BODY:
                     handleStateWhileBody(ctx, c);
                     break;
+                case STATE::EXPRESSION_LESS:
+                    handleStateExpressionLess(ctx, c);
+                    break;
+                case STATE::EXPRESSION_GREATER:
+                    handleStateExpressionGreater(ctx, c);
+                    break;
+                case STATE::EXPRESSION_EQUALS:
+                    handleStateExpressionEquals(ctx, c);
+                    break;
+                case STATE::EXPRESSION_EQUALS_DOUBLE:
+                    handleStateExpressionEqualsDouble(ctx, c);
+                    break;
+                case STATE::EXPRESSION_NOT:
+                    handleStateExpressionNot(ctx, c);
+                    break;
+                case STATE::EXPRESSION_NOT_EQUALS:
+                    handleStateExpressionNotEquals(ctx, c);
+                    break;
+                case STATE::EXPRESSION_AND:
+                    handleStateExpressionAnd(ctx, c);
+                    break;
+                case STATE::EXPRESSION_OR:
+                    handleStateExpressionOr(ctx, c);
+                    break;
+                // New states for missing TypeScript features
+                case STATE::EXPRESSION_PLUS_PLUS:
+                    handleStateExpressionPlusPlus(ctx, c);
+                    break;
+                case STATE::EXPRESSION_MINUS_MINUS:
+                    handleStateExpressionMinusMinus(ctx, c);
+                    break;
+                case STATE::EXPRESSION_LOGICAL_NOT:
+                    handleStateExpressionLogicalNot(ctx, c);
+                    break;
+                case STATE::EXPRESSION_UNARY_PLUS:
+                    handleStateExpressionUnaryPlus(ctx, c);
+                    break;
+                case STATE::EXPRESSION_UNARY_MINUS:
+                    handleStateExpressionUnaryMinus(ctx, c);
+                    break;
+                case STATE::EXPRESSION_BITWISE_NOT:
+                    handleStateExpressionBitwiseNot(ctx, c);
+                    break;
+                case STATE::EXPRESSION_EXPONENT:
+                    handleStateExpressionExponent(ctx, c);
+                    break;
+                case STATE::EXPRESSION_BIT_AND:
+                    handleStateExpressionBitAnd(ctx, c);
+                    break;
+                case STATE::EXPRESSION_BIT_OR:
+                    handleStateExpressionBitOr(ctx, c);
+                    break;
+                case STATE::EXPRESSION_BIT_XOR:
+                    handleStateExpressionBitXor(ctx, c);
+                    break;
+                case STATE::EXPRESSION_LEFT_SHIFT:
+                    handleStateExpressionLeftShift(ctx, c);
+                    break;
+                case STATE::EXPRESSION_RIGHT_SHIFT:
+                    handleStateExpressionRightShift(ctx, c);
+                    break;
+                case STATE::EXPRESSION_UNSIGNED_RIGHT_SHIFT:
+                    handleStateExpressionUnsignedRightShift(ctx, c);
+                    break;
+                case STATE::EXPRESSION_ADD_ASSIGN:
+                    handleStateExpressionAddAssign(ctx, c);
+                    break;
+                case STATE::EXPRESSION_SUBTRACT_ASSIGN:
+                    handleStateExpressionSubtractAssign(ctx, c);
+                    break;
+                case STATE::EXPRESSION_MULTIPLY_ASSIGN:
+                    handleStateExpressionMultiplyAssign(ctx, c);
+                    break;
+                case STATE::EXPRESSION_DIVIDE_ASSIGN:
+                    handleStateExpressionDivideAssign(ctx, c);
+                    break;
+                case STATE::EXPRESSION_MODULO_ASSIGN:
+                    handleStateExpressionModuloAssign(ctx, c);
+                    break;
+                case STATE::EXPRESSION_EXPONENT_ASSIGN:
+                    handleStateExpressionExponentAssign(ctx, c);
+                    break;
+                case STATE::EXPRESSION_LEFT_SHIFT_ASSIGN:
+                    handleStateExpressionLeftShiftAssign(ctx, c);
+                    break;
+                case STATE::EXPRESSION_RIGHT_SHIFT_ASSIGN:
+                    handleStateExpressionRightShiftAssign(ctx, c);
+                    break;
+                case STATE::EXPRESSION_UNSIGNED_RIGHT_SHIFT_ASSIGN:
+                    handleStateExpressionUnsignedRightShiftAssign(ctx, c);
+                    break;
+                case STATE::EXPRESSION_BIT_AND_ASSIGN:
+                    handleStateExpressionBitAndAssign(ctx, c);
+                    break;
+                case STATE::EXPRESSION_BIT_OR_ASSIGN:
+                    handleStateExpressionBitOrAssign(ctx, c);
+                    break;
+                case STATE::EXPRESSION_BIT_XOR_ASSIGN:
+                    handleStateExpressionBitXorAssign(ctx, c);
+                    break;
+                case STATE::EXPRESSION_AND_ASSIGN:
+                    handleStateExpressionAndAssign(ctx, c);
+                    break;
+                case STATE::EXPRESSION_OR_ASSIGN:
+                    handleStateExpressionOrAssign(ctx, c);
+                    break;
+                case STATE::EXPRESSION_NULLISH_ASSIGN:
+                    handleStateExpressionNullishAssign(ctx, c);
+                    break;
+                case STATE::EXPRESSION_TEMPLATE_LITERAL_START:
+                    handleStateExpressionTemplateLiteralStart(ctx, c);
+                    break;
+                case STATE::EXPRESSION_TEMPLATE_LITERAL:
+                    handleStateExpressionTemplateLiteral(ctx, c);
+                    break;
+                case STATE::EXPRESSION_TEMPLATE_LITERAL_ESCAPE:
+                    handleStateExpressionTemplateLiteralEscape(ctx, c);
+                    break;
+                case STATE::EXPRESSION_TEMPLATE_LITERAL_INTERPOLATION:
+                    handleStateExpressionTemplateLiteralInterpolation(ctx, c);
+                    break;
+                case STATE::EXPRESSION_REGEXP_START:
+                    handleStateExpressionRegExpStart(ctx, c);
+                    break;
+                case STATE::EXPRESSION_REGEXP:
+                    handleStateExpressionRegExp(ctx, c);
+                    break;
+                case STATE::EXPRESSION_REGEXP_ESCAPE:
+                    handleStateExpressionRegExpEscape(ctx, c);
+                    break;
+                case STATE::EXPRESSION_REGEXP_FLAGS:
+                    handleStateExpressionRegExpFlags(ctx, c);
+                    break;
+                case STATE::NONE_D:
+                    handleStateNoneD(ctx, c);
+                    break;
+                case STATE::NONE_DO:
+                    handleStateNoneDO(ctx, c);
+                    break;
+                case STATE::NONE_DOW:
+                    handleStateNoneDOW(ctx, c);
+                    break;
+                case STATE::NONE_DOWH:
+                    handleStateNoneDOWH(ctx, c);
+                    break;
+                case STATE::NONE_DOWHI:
+                    handleStateNoneDOWHI(ctx, c);
+                    break;
+                case STATE::NONE_DOWHIL:
+                    handleStateNoneDOWHIL(ctx, c);
+                    break;
+                case STATE::NONE_DOWHILE:
+                    handleStateNoneDOWHILE(ctx, c);
+                    break;
+                case STATE::DO_BODY_START:
+                    handleStateDoBodyStart(ctx, c);
+                    break;
+                case STATE::DO_BODY:
+                    handleStateDoBody(ctx, c);
+                    break;
+                case STATE::DO_WHILE_CONDITION_START:
+                    handleStateDoWhileConditionStart(ctx, c);
+                    break;
+                case STATE::NONE_FO:
+                    handleStateNoneFO(ctx, c);
+                    break;
+                case STATE::NONE_FOR:
+                    handleStateNoneFOR(ctx, c);
+                    break;
+                case STATE::FOR_INIT_START:
+                    handleStateForInitStart(ctx, c);
+                    break;
+                case STATE::FOR_INIT:
+                    handleStateForInit(ctx, c);
+                    break;
+                case STATE::FOR_TEST_START:
+                    handleStateForTestStart(ctx, c);
+                    break;
+                case STATE::FOR_TEST:
+                    handleStateForTest(ctx, c);
+                    break;
+                case STATE::FOR_UPDATE_START:
+                    handleStateForUpdateStart(ctx, c);
+                    break;
+                case STATE::FOR_UPDATE:
+                    handleStateForUpdate(ctx, c);
+                    break;
+                case STATE::FOR_BODY_START:
+                    handleStateForBodyStart(ctx, c);
+                    break;
+                case STATE::FOR_BODY:
+                    handleStateForBody(ctx, c);
+                    break;
+                case STATE::NONE_S:
+                    handleStateNoneS(ctx, c);
+                    break;
+                case STATE::NONE_SW:
+                    handleStateNoneSW(ctx, c);
+                    break;
+                case STATE::NONE_SWI:
+                    handleStateNoneSWI(ctx, c);
+                    break;
+                case STATE::NONE_SWIT:
+                    handleStateNoneSWIT(ctx, c);
+                    break;
+                case STATE::NONE_SWITC:
+                    handleStateNoneSWITC(ctx, c);
+                    break;
+                case STATE::NONE_SWITCH:
+                    handleStateNoneSWITCH(ctx, c);
+                    break;
+                case STATE::SWITCH_CONDITION_START:
+                    handleStateSwitchConditionStart(ctx, c);
+                    break;
+                case STATE::SWITCH_BODY_START:
+                    handleStateSwitchBodyStart(ctx, c);
+                    break;
+                case STATE::SWITCH_BODY:
+                    handleStateSwitchBody(ctx, c);
+                    break;
+                case STATE::SWITCH_CASE_START:
+                    handleStateSwitchCaseStart(ctx, c);
+                    break;
+                case STATE::SWITCH_CASE:
+                    handleStateSwitchCase(ctx, c);
+                    break;
+                case STATE::SWITCH_DEFAULT_START:
+                    handleStateSwitchDefaultStart(ctx, c);
+                    break;
+                case STATE::SWITCH_DEFAULT:
+                    handleStateSwitchDefault(ctx, c);
+                    break;
+                case STATE::NONE_T:
+                    handleStateNoneT(ctx, c);
+                    break;
+                case STATE::NONE_TR:
+                    handleStateNoneTR(ctx, c);
+                    break;
+                case STATE::NONE_TRY:
+                    handleStateNoneTRY(ctx, c);
+                    break;
+                case STATE::TRY_BODY_START:
+                    handleStateTryBodyStart(ctx, c);
+                    break;
+                case STATE::TRY_BODY:
+                    handleStateTryBody(ctx, c);
+                    break;
+                case STATE::TRY_CATCH_START:
+                    handleStateTryCatchStart(ctx, c);
+                    break;
+                case STATE::TRY_CATCH:
+                    handleStateTryCatch(ctx, c);
+                    break;
+                case STATE::TRY_CATCH_PARAM_START:
+                    handleStateTryCatchParamStart(ctx, c);
+                    break;
+                case STATE::TRY_CATCH_PARAM:
+                    handleStateTryCatchParam(ctx, c);
+                    break;
+                case STATE::TRY_CATCH_BODY_START:
+                    handleStateTryCatchBodyStart(ctx, c);
+                    break;
+                case STATE::TRY_CATCH_BODY:
+                    handleStateTryCatchBody(ctx, c);
+                    break;
+                case STATE::TRY_FINALLY_START:
+                    handleStateTryFinallyStart(ctx, c);
+                    break;
+                case STATE::TRY_FINALLY:
+                    handleStateTryFinally(ctx, c);
+                    break;
+                case STATE::TRY_FINALLY_BODY_START:
+                    handleStateTryFinallyBodyStart(ctx, c);
+                    break;
+                case STATE::TRY_FINALLY_BODY:
+                    handleStateTryFinallyBody(ctx, c);
+                    break;
+                case STATE::FUNCTION_EXPRESSION_START:
+                    handleStateFunctionExpressionStart(ctx, c);
+                    break;
+                case STATE::FUNCTION_EXPRESSION_PARAMETERS_START:
+                    handleStateFunctionExpressionParametersStart(ctx, c);
+                    break;
+                case STATE::FUNCTION_EXPRESSION_PARAMETER_NAME:
+                    handleStateFunctionExpressionParameterName(ctx, c);
+                    break;
+                case STATE::FUNCTION_EXPRESSION_PARAMETER_TYPE_ANNOTATION:
+                    handleStateFunctionExpressionParameterTypeAnnotation(ctx, c);
+                    break;
+                case STATE::FUNCTION_EXPRESSION_PARAMETER_DEFAULT_VALUE:
+                    handleStateFunctionExpressionParameterDefaultValue(ctx, c);
+                    break;
+                case STATE::FUNCTION_EXPRESSION_PARAMETER_SEPARATOR:
+                    handleStateFunctionExpressionParameterSeparator(ctx, c);
+                    break;
+                case STATE::FUNCTION_EXPRESSION_PARAMETERS_END:
+                    handleStateFunctionExpressionParametersEnd(ctx, c);
+                    break;
+                case STATE::FUNCTION_EXPRESSION_RETURN_TYPE_ANNOTATION:
+                    handleStateFunctionExpressionReturnTypeAnnotation(ctx, c);
+                    break;
+                case STATE::FUNCTION_EXPRESSION_BODY_START:
+                    handleStateFunctionExpressionBodyStart(ctx, c);
+                    break;
+                case STATE::FUNCTION_EXPRESSION_BODY:
+                    handleStateFunctionExpressionBody(ctx, c);
+                    break;
+                case STATE::NONE_CL:
+                    handleStateNoneCL(ctx, c);
+                    break;
+                case STATE::NONE_CLA:
+                    handleStateNoneCLA(ctx, c);
+                    break;
+                case STATE::NONE_CLAS:
+                    handleStateNoneCLAS(ctx, c);
+                    break;
+                case STATE::NONE_CLASS:
+                    handleStateNoneCLASS(ctx, c);
+                    break;
+                case STATE::CLASS_DECLARATION_NAME:
+                    handleStateClassDeclarationName(ctx, c);
+                    break;
+                case STATE::CLASS_EXTENDS_START:
+                    handleStateClassExtendsStart(ctx, c);
+                    break;
+                case STATE::CLASS_IMPLEMENTS_START:
+                    handleStateClassImplementsStart(ctx, c);
+                    break;
+                case STATE::CLASS_BODY_START:
+                    handleStateClassBodyStart(ctx, c);
+                    break;
+                case STATE::CLASS_BODY:
+                    handleStateClassBody(ctx, c);
+                    break;
+                case STATE::CLASS_STATIC_START:
+                    handleStateClassStaticStart(ctx, c);
+                    break;
+                case STATE::CLASS_PROPERTY_KEY:
+                    handleStateClassPropertyKey(ctx, c);
+                    break;
+                case STATE::CLASS_PROPERTY_TYPE:
+                    handleStateClassPropertyType(ctx, c);
+                    break;
+                case STATE::CLASS_PROPERTY_INITIALIZER:
+                    handleStateClassPropertyInitializer(ctx, c);
+                    break;
+                case STATE::CLASS_METHOD_PARAMETERS_START:
+                    handleStateClassMethodParametersStart(ctx, c);
+                    break;
+                case STATE::CLASS_METHOD_PARAMETERS_END:
+                    handleStateClassMethodParametersEnd(ctx, c);
+                    break;
+                case STATE::CLASS_METHOD_RETURN_TYPE:
+                    handleStateClassMethodReturnType(ctx, c);
+                    break;
+                case STATE::CLASS_METHOD_BODY_START:
+                    handleStateClassMethodBodyStart(ctx, c);
+                    break;
+                case STATE::CLASS_METHOD_BODY:
+                    handleStateClassMethodBody(ctx, c);
+                    break;
+                case STATE::NONE_I:
+                    handleStateNoneI(ctx, c);
+                    break;
+                case STATE::NONE_IN:
+                    handleStateNoneIN(ctx, c);
+                    break;
+                case STATE::NONE_INT:
+                    handleStateNoneINT(ctx, c);
+                    break;
+                case STATE::NONE_INTE:
+                    handleStateNoneINTE(ctx, c);
+                    break;
+                case STATE::NONE_INTER:
+                    handleStateNoneINTER(ctx, c);
+                    break;
+                case STATE::NONE_INTERF:
+                    handleStateNoneINTERF(ctx, c);
+                    break;
+                case STATE::NONE_INTERFA:
+                    handleStateNoneINTERFA(ctx, c);
+                    break;
+                case STATE::NONE_INTERFAC:
+                    handleStateNoneINTERFAC(ctx, c);
+                    break;
+                case STATE::NONE_INTERFACE:
+                    handleStateNoneINTERFACE(ctx, c);
+                    break;
+                case STATE::INTERFACE_DECLARATION_NAME:
+                    handleStateInterfaceDeclarationName(ctx, c);
+                    break;
+                case STATE::INTERFACE_BODY_START:
+                    handleStateInterfaceBodyStart(ctx, c);
+                    break;
+                case STATE::INTERFACE_BODY:
+                    handleStateInterfaceBody(ctx, c);
+                    break;
+                case STATE::INTERFACE_PROPERTY_KEY:
+                    handleStateInterfacePropertyKey(ctx, c);
+                    break;
+                case STATE::INTERFACE_PROPERTY_TYPE:
+                    handleStateInterfacePropertyType(ctx, c);
+                    break;
+                case STATE::INTERFACE_METHOD_PARAMETERS_START:
+                    handleStateInterfaceMethodParametersStart(ctx, c);
+                    break;
+                case STATE::INTERFACE_METHOD_PARAMETERS_END:
+                    handleStateInterfaceMethodParametersEnd(ctx, c);
+                    break;
+                case STATE::INTERFACE_METHOD_RETURN_TYPE:
+                    handleStateInterfaceMethodReturnType(ctx, c);
+                    break;
+            }
+            // Handle index adjustments for multi-character operators
+            if (ctx.index > i) {
+                i = ctx.index; // Skip to the adjusted index
             }
         } catch (const std::exception& e) {
             reportParseError(code, i, e.what(), ctx.state);

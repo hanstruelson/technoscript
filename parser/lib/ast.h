@@ -12,12 +12,19 @@ enum ASTNodeType {
     AST_NODE,
     VARIABLE_DEFINITION,
     TYPE_ANNOTATION,
+    UNION_TYPE,
     EXPRESSION,
     BINARY_EXPRESSION,
     LITERAL_EXPRESSION,
     IDENTIFIER_EXPRESSION,
     PLUS_PLUS_PREFIX_EXPRESSION,
     MINUS_MINUS_PREFIX_EXPRESSION,
+    PLUS_PLUS_POSTFIX_EXPRESSION,
+    MINUS_MINUS_POSTFIX_EXPRESSION,
+    LOGICAL_NOT_EXPRESSION,
+    UNARY_PLUS_EXPRESSION,
+    UNARY_MINUS_EXPRESSION,
+    BITWISE_NOT_EXPRESSION,
     PARENTHESIS_EXPRESSION,
     FUNCTION_DECLARATION,
     FUNCTION_EXPRESSION,
@@ -27,9 +34,24 @@ enum ASTNodeType {
     ARRAY_LITERAL,
     OBJECT_LITERAL,
     PROPERTY,
+    TEMPLATE_LITERAL,
+    REGEXP_LITERAL,
     IF_STATEMENT,
     WHILE_STATEMENT,
-    BLOCK_STATEMENT
+    DO_WHILE_STATEMENT,
+    FOR_STATEMENT,
+    SWITCH_STATEMENT,
+    CASE_CLAUSE,
+    DEFAULT_CLAUSE,
+    TRY_STATEMENT,
+    CATCH_CLAUSE,
+    FINALLY_CLAUSE,
+    BLOCK_STATEMENT,
+    INTERFACE_DECLARATION,
+    INTERFACE_METHOD,
+    CLASS_DECLARATION,
+    CLASS_PROPERTY,
+    CLASS_METHOD
 };
 
 class ASTNode {
@@ -90,7 +112,7 @@ class VariableDefinitionNode : public ASTNode {
 public:
     string name;
     VariableDefinitionType varType;
-    TypeAnnotationNode* typeAnnotation;
+    ASTNode* typeAnnotation;
     ASTNode* initializer;
 
     VariableDefinitionNode(ASTNode* parent, VariableDefinitionType vType)
@@ -102,11 +124,17 @@ public:
 
     void print(std::ostream& os, int indent) const override {
         static const char* varMap[] = {"const","var","let"};
-        static const char* typeMap[] = {"int64","float64","string","raw_memory","object"};
         auto pad = [indent]() { return string(indent * 2, ' '); };
         os << pad() << "VariableDefinition(" << varMap[static_cast<int>(varType)] << "," << name;
         if (typeAnnotation) {
-            os << ":" << typeMap[static_cast<int>(typeAnnotation->dataType)];
+            os << ":";
+            if (typeAnnotation->nodeType == ASTNodeType::TYPE_ANNOTATION) {
+                auto* typeNode = static_cast<TypeAnnotationNode*>(typeAnnotation);
+                static const char* typeMap[] = {"int64","float64","string","raw_memory","object"};
+                os << typeMap[static_cast<int>(typeNode->dataType)];
+            } else if (typeAnnotation->nodeType == ASTNodeType::UNION_TYPE) {
+                os << "union";
+            }
         }
         os << ")\n";
         bool initializerPrinted = false;
@@ -571,5 +599,454 @@ public:
             os << pad() << "  Body:\n";
             body->print(os, indent + 2);
         }
+    }
+};
+
+class InterfaceDeclarationNode : public ASTNode {
+public:
+    std::string name;
+    std::vector<PropertyNode*> properties;
+    std::vector<ASTNode*> methods;
+
+    InterfaceDeclarationNode(ASTNode* parent) : ASTNode(parent) {
+        nodeType = ASTNodeType::INTERFACE_DECLARATION;
+    }
+
+    void addProperty(PropertyNode* property) {
+        properties.push_back(property);
+        if (property) {
+            property->parent = this;
+            children.push_back(property);
+        }
+    }
+
+    void addMethod(ASTNode* method) {
+        methods.push_back(method);
+        if (method) {
+            method->parent = this;
+            children.push_back(method);
+        }
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        os << pad() << "InterfaceDeclaration(" << name << ")\n";
+        for (auto property : properties) if (property) property->print(os, indent + 1);
+        for (auto method : methods) if (method) method->print(os, indent + 1);
+    }
+};
+
+class ClassPropertyNode : public ASTNode {
+public:
+    std::string name;
+    TypeAnnotationNode* typeAnnotation;
+    ExpressionNode* initializer;
+    bool isStatic;
+    bool isReadonly;
+
+    ClassPropertyNode(ASTNode* parent) : ASTNode(parent), typeAnnotation(nullptr), initializer(nullptr), isStatic(false), isReadonly(false) {
+        nodeType = ASTNodeType::CLASS_PROPERTY;
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        os << pad() << "ClassProperty(" << name;
+        if (isStatic) os << ", static";
+        if (isReadonly) os << ", readonly";
+        os << ")\n";
+        if (typeAnnotation) typeAnnotation->print(os, indent + 1);
+        if (initializer) initializer->print(os, indent + 1);
+    }
+};
+
+class ClassMethodNode : public ASTNode {
+public:
+    std::string name;
+    ParameterListNode* parameters;
+    TypeAnnotationNode* returnType;
+    ASTNode* body;
+    bool isStatic;
+
+    ClassMethodNode(ASTNode* parent) : ASTNode(parent), parameters(nullptr), returnType(nullptr), body(nullptr), isStatic(false) {
+        nodeType = ASTNodeType::CLASS_METHOD;
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        os << pad() << "ClassMethod(" << name;
+        if (isStatic) os << ", static";
+        os << ")\n";
+        if (parameters) parameters->print(os, indent + 1);
+        if (returnType) returnType->print(os, indent + 1);
+        if (body) body->print(os, indent + 1);
+    }
+};
+
+class ClassDeclarationNode : public ASTNode {
+public:
+    std::string name;
+    std::string extendsClass;
+    std::vector<std::string> implementsInterfaces;
+    std::vector<ClassPropertyNode*> properties;
+    std::vector<ClassMethodNode*> methods;
+
+    ClassDeclarationNode(ASTNode* parent) : ASTNode(parent) {
+        nodeType = ASTNodeType::CLASS_DECLARATION;
+    }
+
+    void addProperty(ClassPropertyNode* property) {
+        properties.push_back(property);
+        if (property) {
+            property->parent = this;
+            children.push_back(property);
+        }
+    }
+
+    void addMethod(ClassMethodNode* method) {
+        methods.push_back(method);
+        if (method) {
+            method->parent = this;
+            children.push_back(method);
+        }
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        os << pad() << "ClassDeclaration(" << name;
+        if (!extendsClass.empty()) os << " extends " << extendsClass;
+        if (!implementsInterfaces.empty()) {
+            os << " implements ";
+            for (size_t i = 0; i < implementsInterfaces.size(); ++i) {
+                if (i > 0) os << ", ";
+                os << implementsInterfaces[i];
+            }
+        }
+        os << ")\n";
+        for (auto property : properties) if (property) property->print(os, indent + 1);
+        for (auto method : methods) if (method) method->print(os, indent + 1);
+    }
+};
+
+class UnionTypeNode : public ASTNode {
+public:
+    std::vector<ASTNode*> types;
+
+    UnionTypeNode(ASTNode* parent) : ASTNode(parent) {
+        nodeType = ASTNodeType::UNION_TYPE;
+    }
+
+    void addType(ASTNode* type) {
+        types.push_back(type);
+        if (type) {
+            type->parent = this;
+            children.push_back(type);
+        }
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        os << pad() << "UnionType\n";
+        for (auto type : types) if (type) type->print(os, indent + 1);
+    }
+};
+
+class PlusPlusPostfixExpressionNode : public ExpressionNode {
+public:
+    PlusPlusPostfixExpressionNode(ASTNode* parent) : ExpressionNode(parent) {
+        nodeType = ASTNodeType::PLUS_PLUS_POSTFIX_EXPRESSION;
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        os << pad() << "PlusPlusPostfix\n";
+        for (auto child : children) if (child) child->print(os, indent + 1);
+    }
+};
+
+class MinusMinusPostfixExpressionNode : public ExpressionNode {
+public:
+    MinusMinusPostfixExpressionNode(ASTNode* parent) : ExpressionNode(parent) {
+        nodeType = ASTNodeType::MINUS_MINUS_POSTFIX_EXPRESSION;
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        os << pad() << "MinusMinusPostfix\n";
+        for (auto child : children) if (child) child->print(os, indent + 1);
+    }
+};
+
+class LogicalNotExpressionNode : public ExpressionNode {
+public:
+    ExpressionNode* operand;
+
+    LogicalNotExpressionNode(ASTNode* parent) : ExpressionNode(parent), operand(nullptr) {
+        nodeType = ASTNodeType::LOGICAL_NOT_EXPRESSION;
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        os << pad() << "LogicalNot\n";
+        if (operand) operand->print(os, indent + 1);
+    }
+};
+
+class UnaryPlusExpressionNode : public ExpressionNode {
+public:
+    ExpressionNode* operand;
+
+    UnaryPlusExpressionNode(ASTNode* parent) : ExpressionNode(parent), operand(nullptr) {
+        nodeType = ASTNodeType::UNARY_PLUS_EXPRESSION;
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        os << pad() << "UnaryPlus\n";
+        if (operand) operand->print(os, indent + 1);
+    }
+};
+
+class UnaryMinusExpressionNode : public ExpressionNode {
+public:
+    ExpressionNode* operand;
+
+    UnaryMinusExpressionNode(ASTNode* parent) : ExpressionNode(parent), operand(nullptr) {
+        nodeType = ASTNodeType::UNARY_MINUS_EXPRESSION;
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        os << pad() << "UnaryMinus\n";
+        if (operand) operand->print(os, indent + 1);
+    }
+};
+
+class BitwiseNotExpressionNode : public ExpressionNode {
+public:
+    ExpressionNode* operand;
+
+    BitwiseNotExpressionNode(ASTNode* parent) : ExpressionNode(parent), operand(nullptr) {
+        nodeType = ASTNodeType::BITWISE_NOT_EXPRESSION;
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        os << pad() << "BitwiseNot\n";
+        if (operand) operand->print(os, indent + 1);
+    }
+};
+
+class TemplateLiteralNode : public ExpressionNode {
+public:
+    std::vector<std::string> quasis;
+    std::vector<ExpressionNode*> expressions;
+
+    TemplateLiteralNode(ASTNode* parent) : ExpressionNode(parent) {
+        nodeType = ASTNodeType::TEMPLATE_LITERAL;
+    }
+
+    void addQuasi(const std::string& quasi) {
+        quasis.push_back(quasi);
+    }
+
+    void addExpression(ExpressionNode* expr) {
+        expressions.push_back(expr);
+        if (expr) {
+            expr->parent = this;
+            children.push_back(expr);
+        }
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        os << pad() << "TemplateLiteral\n";
+        for (size_t i = 0; i < quasis.size(); ++i) {
+            os << pad() << "  Quasi: \"" << quasis[i] << "\"\n";
+            if (i < expressions.size() && expressions[i]) {
+                os << pad() << "  Expression:\n";
+                expressions[i]->print(os, indent + 2);
+            }
+        }
+    }
+};
+
+class RegExpLiteralNode : public ExpressionNode {
+public:
+    std::string pattern;
+    std::string flags;
+
+    RegExpLiteralNode(ASTNode* parent, const std::string& pat, const std::string& flg = "")
+        : ExpressionNode(parent), pattern(pat), flags(flg) {
+        nodeType = ASTNodeType::REGEXP_LITERAL;
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        os << pad() << "RegExpLiteral(/ " << pattern << " /" << flags << ")\n";
+    }
+};
+
+class DoWhileStatement : public ASTNode {
+public:
+    ASTNode* body;
+    ExpressionNode* condition;
+
+    DoWhileStatement(ASTNode* parent) : ASTNode(parent), body(nullptr), condition(nullptr) {
+        nodeType = ASTNodeType::DO_WHILE_STATEMENT;
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        os << pad() << "DoWhileStatement\n";
+        if (body) {
+            os << pad() << "  Body:\n";
+            body->print(os, indent + 2);
+        }
+        if (condition) {
+            os << pad() << "  Condition:\n";
+            condition->print(os, indent + 2);
+        }
+    }
+};
+
+class ForStatement : public ASTNode {
+public:
+    ASTNode* init;
+    ExpressionNode* test;
+    ExpressionNode* update;
+    ASTNode* body;
+
+    ForStatement(ASTNode* parent) : ASTNode(parent), init(nullptr), test(nullptr), update(nullptr), body(nullptr) {
+        nodeType = ASTNodeType::FOR_STATEMENT;
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        os << pad() << "ForStatement\n";
+        if (init) {
+            os << pad() << "  Init:\n";
+            init->print(os, indent + 2);
+        }
+        if (test) {
+            os << pad() << "  Test:\n";
+            test->print(os, indent + 2);
+        }
+        if (update) {
+            os << pad() << "  Update:\n";
+            update->print(os, indent + 2);
+        }
+        if (body) {
+            os << pad() << "  Body:\n";
+            body->print(os, indent + 2);
+        }
+    }
+};
+
+class CaseClause : public ASTNode {
+public:
+    ExpressionNode* test;
+    std::vector<ASTNode*> consequent;
+
+    CaseClause(ASTNode* parent) : ASTNode(parent), test(nullptr) {
+        nodeType = ASTNodeType::CASE_CLAUSE;
+    }
+
+    void addStatement(ASTNode* statement) {
+        consequent.push_back(statement);
+        if (statement) {
+            statement->parent = this;
+            children.push_back(statement);
+        }
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        if (test) {
+            os << pad() << "CaseClause\n";
+            os << pad() << "  Test:\n";
+            test->print(os, indent + 2);
+        } else {
+            os << pad() << "DefaultClause\n";
+        }
+        for (auto stmt : consequent) if (stmt) stmt->print(os, indent + 1);
+    }
+};
+
+class SwitchStatement : public ASTNode {
+public:
+    ExpressionNode* discriminant;
+    std::vector<CaseClause*> cases;
+
+    SwitchStatement(ASTNode* parent) : ASTNode(parent), discriminant(nullptr) {
+        nodeType = ASTNodeType::SWITCH_STATEMENT;
+    }
+
+    void addCase(CaseClause* caseClause) {
+        cases.push_back(caseClause);
+        if (caseClause) {
+            caseClause->parent = this;
+            children.push_back(caseClause);
+        }
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        os << pad() << "SwitchStatement\n";
+        if (discriminant) {
+            os << pad() << "  Discriminant:\n";
+            discriminant->print(os, indent + 2);
+        }
+        for (auto caseClause : cases) if (caseClause) caseClause->print(os, indent + 1);
+    }
+};
+
+class CatchClause : public ASTNode {
+public:
+    ParameterNode* param;
+    BlockStatement* body;
+
+    CatchClause(ASTNode* parent) : ASTNode(parent), param(nullptr), body(nullptr) {
+        nodeType = ASTNodeType::CATCH_CLAUSE;
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        os << pad() << "CatchClause\n";
+        if (param) param->print(os, indent + 1);
+        if (body) body->print(os, indent + 1);
+    }
+};
+
+class FinallyClause : public ASTNode {
+public:
+    BlockStatement* body;
+
+    FinallyClause(ASTNode* parent) : ASTNode(parent), body(nullptr) {
+        nodeType = ASTNodeType::FINALLY_CLAUSE;
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        os << pad() << "FinallyClause\n";
+        if (body) body->print(os, indent + 1);
+    }
+};
+
+class TryStatement : public ASTNode {
+public:
+    BlockStatement* block;
+    CatchClause* handler;
+    FinallyClause* finalizer;
+
+    TryStatement(ASTNode* parent) : ASTNode(parent), block(nullptr), handler(nullptr), finalizer(nullptr) {
+        nodeType = ASTNodeType::TRY_STATEMENT;
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        os << pad() << "TryStatement\n";
+        if (block) block->print(os, indent + 1);
+        if (handler) handler->print(os, indent + 1);
+        if (finalizer) finalizer->print(os, indent + 1);
     }
 };

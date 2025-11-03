@@ -273,3 +273,59 @@ inline void handleStateArrowFunctionBody(ParserContext& ctx, char c) {
         ctx.state = STATE::NONE;
     }
 }
+
+// Function expression handlers
+inline void handleStateFunctionExpressionStart(ParserContext& ctx, char c) {
+    if (c == 'f') {
+        ctx.state = STATE::NONE_F;
+        // Re-process this character
+        ctx.index--;
+    } else {
+        throw std::runtime_error("Expected 'f' for function expression: " + std::string(1, c));
+    }
+}
+
+inline void handleStateFunctionExpressionParametersStart(ParserContext& ctx, char c) {
+    if (c == '(') {
+        auto* funcExpr = new FunctionExpressionNode(ctx.currentNode);
+        ctx.currentNode->children.push_back(funcExpr);
+        ctx.currentNode = funcExpr;
+        ctx.state = STATE::FUNCTION_PARAMETERS_START;
+        // Re-process this character
+        ctx.index--;
+    } else {
+        throw std::runtime_error("Expected '(' for function expression parameters: " + std::string(1, c));
+    }
+}
+
+inline void handleStateFunctionExpressionParameterName(ParserContext& ctx, char c) {
+    handleStateFunctionParameterName(ctx, c);
+}
+
+inline void handleStateFunctionExpressionParameterTypeAnnotation(ParserContext& ctx, char c) {
+    handleStateFunctionParameterTypeAnnotation(ctx, c);
+}
+
+inline void handleStateFunctionExpressionParameterDefaultValue(ParserContext& ctx, char c) {
+    handleStateFunctionParameterDefaultValue(ctx, c);
+}
+
+inline void handleStateFunctionExpressionParameterSeparator(ParserContext& ctx, char c) {
+    handleStateFunctionParameterSeparator(ctx, c);
+}
+
+inline void handleStateFunctionExpressionParametersEnd(ParserContext& ctx, char c) {
+    handleStateFunctionParametersEnd(ctx, c);
+}
+
+inline void handleStateFunctionExpressionReturnTypeAnnotation(ParserContext& ctx, char c) {
+    handleStateFunctionReturnTypeAnnotation(ctx, c);
+}
+
+inline void handleStateFunctionExpressionBodyStart(ParserContext& ctx, char c) {
+    handleStateFunctionBodyStart(ctx, c);
+}
+
+inline void handleStateFunctionExpressionBody(ParserContext& ctx, char c) {
+    handleStateFunctionBody(ctx, c);
+}

@@ -41,18 +41,96 @@ inline void handleStateTypeAnnotation(ParserContext& ctx, char c) {
         return;
     }
 
+    if (std::isspace(static_cast<unsigned char>(c))) {
+        // Skip whitespace
+        return;
+    }
+
+    if (c == '|') {
+        // Union type - create union type node if not already created
+        std::string currentType = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
+        // Trim trailing whitespace
+        currentType.erase(currentType.find_last_not_of(" \t\n\r\f\v") + 1);
+
+        // Find the variable definition node
+        ASTNode* current = ctx.currentNode;
+        while (current && current->nodeType != ASTNodeType::VARIABLE_DEFINITION) {
+            current = current->parent;
+        }
+        auto* varDefNode = dynamic_cast<VariableDefinitionNode*>(current);
+        if (!varDefNode) {
+            throw std::runtime_error("Current context is not a VariableDefinitionNode for union type");
+        }
+
+        // Create union type node if this is the first |
+        if (!varDefNode->typeAnnotation || varDefNode->typeAnnotation->nodeType != ASTNodeType::UNION_TYPE) {
+            auto* unionType = new UnionTypeNode(varDefNode);
+            // If there's already a simple type, move it to the union
+            if (varDefNode->typeAnnotation) {
+                unionType->addType(varDefNode->typeAnnotation);
+                varDefNode->children.clear(); // Remove from children, will be re-added
+            }
+            varDefNode->typeAnnotation = unionType;
+            varDefNode->children.push_back(unionType);
+        }
+
+        // Add current type to union
+        auto* unionType = dynamic_cast<UnionTypeNode*>(varDefNode->typeAnnotation);
+        auto* typeNode = new TypeAnnotationNode(unionType);
+        if (currentType == "int64") {
+            typeNode->dataType = DataType::INT64;
+        } else {
+            throw std::runtime_error("Unknown type annotation: " + currentType);
+        }
+        unionType->addType(typeNode);
+
+        // Continue parsing next type in union
+        ctx.state = STATE::TYPE_ANNOTATION;
+        // Skip whitespace after | and set stringStart for next type
+        std::size_t nextStart = ctx.index + 1;
+        while (nextStart < ctx.code.length() && std::isspace(static_cast<unsigned char>(ctx.code[nextStart]))) {
+            nextStart++;
+        }
+        ctx.stringStart = nextStart;
+        return;
+    }
+
+    // End of type annotation (encountered = or other terminator)
     std::string typeAnnotation = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
-    auto* varDefNode = dynamic_cast<VariableDefinitionNode*>(ctx.currentNode);
+    // Trim trailing whitespace
+    typeAnnotation.erase(typeAnnotation.find_last_not_of(" \t\n\r\f\v") + 1);
+
+    // Find the variable definition node
+    ASTNode* current = ctx.currentNode;
+    while (current && current->nodeType != ASTNodeType::VARIABLE_DEFINITION) {
+        current = current->parent;
+    }
+    auto* varDefNode = dynamic_cast<VariableDefinitionNode*>(current);
     if (!varDefNode) {
-        throw std::runtime_error("Current node is not a VariableDefinitionNode");
+        throw std::runtime_error("Invalid context for type annotation");
     }
-    varDefNode->typeAnnotation = new TypeAnnotationNode(varDefNode);
-    varDefNode->children.push_back(varDefNode->typeAnnotation);
-    if (typeAnnotation == "int64") {
-        varDefNode->typeAnnotation->dataType = DataType::INT64;
-    } else {
-        throw std::runtime_error("Unknown type annotation: " + typeAnnotation);
+
+    if (!varDefNode->typeAnnotation) {
+        // Simple type annotation
+        auto* typeNode = new TypeAnnotationNode(varDefNode);
+        if (typeAnnotation == "int64") {
+            typeNode->dataType = DataType::INT64;
+        } else {
+            throw std::runtime_error("Unknown type annotation: " + typeAnnotation);
+        }
+        varDefNode->typeAnnotation = typeNode;
+        varDefNode->children.push_back(typeNode);
+    } else if (auto* unionType = dynamic_cast<UnionTypeNode*>(varDefNode->typeAnnotation)) {
+        // Adding the last type to union
+        auto* typeNode = new TypeAnnotationNode(unionType);
+        if (typeAnnotation == "int64") {
+            typeNode->dataType = DataType::INT64;
+        } else {
+            throw std::runtime_error("Unknown type annotation: " + typeAnnotation);
+        }
+        unionType->addType(typeNode);
     }
+
     ctx.state = STATE::EXPECT_EQUALS;
     handleStateExpectEquals(ctx, c);
 }

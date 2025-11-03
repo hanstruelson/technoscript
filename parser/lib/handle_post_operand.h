@@ -34,19 +34,67 @@ inline bool handlePostOperand(ParserContext& ctx, char c) {
         // Regular parenthesis closing
         ParenthesisExpressionNode::closeParenthesis(ctx);
     } else if (c == '+') {
-        applyExpressionOperator(ctx, BinaryExpressionOperator::OP_ADD);
-        ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;
+        // Check if this is postfix increment (++ after operand)
+        if (ctx.index + 1 < ctx.code.length() && ctx.code[ctx.index + 1] == '+') {
+        // Postfix increment
+        auto* postfixNode = new PlusPlusPostfixExpressionNode(ctx.currentNode);
+        // Replace current operand with postfix node
+        if (ctx.currentNode->parent && ctx.currentNode->parent->children.back() == ctx.currentNode) {
+            ctx.currentNode->parent->children.back() = postfixNode;
+        }
+        postfixNode->children.push_back(ctx.currentNode);
+        ctx.currentNode->parent = postfixNode;
+        ctx.currentNode = postfixNode;
+        ctx.state = STATE::EXPRESSION_AFTER_OPERAND;
+        ctx.index += 1; // Skip the second '+'
+        return false;
+        } else {
+            // Binary addition
+            applyExpressionOperator(ctx, BinaryExpressionOperator::OP_ADD);
+            ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;
+        }
     } else if (c == '-') {
-        applyExpressionOperator(ctx, BinaryExpressionOperator::OP_SUBTRACT);
-        ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;
+        // Check if this is postfix decrement (-- after operand)
+        if (ctx.index + 1 < ctx.code.length() && ctx.code[ctx.index + 1] == '-') {
+            // Postfix decrement
+            auto* postfixNode = new MinusMinusPostfixExpressionNode(ctx.currentNode);
+            // Replace current operand with postfix node
+            if (ctx.currentNode->parent && ctx.currentNode->parent->children.back() == ctx.currentNode) {
+                ctx.currentNode->parent->children.back() = postfixNode;
+            }
+            postfixNode->children.push_back(ctx.currentNode);
+            ctx.currentNode->parent = postfixNode;
+            ctx.currentNode = postfixNode;
+            ctx.state = STATE::EXPRESSION_AFTER_OPERAND;
+            ctx.index++; // Skip the second '-'
+            return false;
+        } else {
+            // Binary subtraction
+            applyExpressionOperator(ctx, BinaryExpressionOperator::OP_SUBTRACT);
+            ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;
+        }
     } else if (c == '*') {
         applyExpressionOperator(ctx, BinaryExpressionOperator::OP_MULTIPLY);
         ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;
     } else if (c == '/') {
         applyExpressionOperator(ctx, BinaryExpressionOperator::OP_DIVIDE);
         ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;
-    }
-    else if (c == ',') {
+    } else if (c == '%') {
+        applyExpressionOperator(ctx, BinaryExpressionOperator::OP_MODULO);
+        ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;
+    } else if (c == '<') {
+        ctx.state = STATE::EXPRESSION_LESS;
+    } else if (c == '>') {
+        ctx.state = STATE::EXPRESSION_GREATER;
+    } else if (c == '=') {
+        ctx.state = STATE::EXPRESSION_EQUALS;
+    } else if (c == '!') {
+        ctx.state = STATE::EXPRESSION_NOT;
+    } else if (c == '&') {
+        ctx.state = STATE::EXPRESSION_AND;
+    } else if (c == '|') {
+        ctx.state = STATE::EXPRESSION_OR;
+    } else if (c == ',') {
         // Check if we're in an array or object literal context
         auto* node = ctx.currentNode;
         while (node) {
@@ -78,6 +126,12 @@ inline bool handlePostOperand(ParserContext& ctx, char c) {
         }
         return true; // Not handled
     } else if (c == '}') {
+        // Check if we're in template literal interpolation
+        if (ctx.state == STATE::EXPRESSION_TEMPLATE_LITERAL_INTERPOLATION) {
+            // End of interpolation, back to template literal
+            ctx.state = STATE::EXPRESSION_TEMPLATE_LITERAL;
+            return false;
+        }
         // Check if we're in an object literal context
         auto* node = ctx.currentNode;
         while (node) {

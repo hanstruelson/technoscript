@@ -78,6 +78,8 @@ inline void handleStateNoneCO(ParserContext& ctx, char c) {
 inline void handleStateNoneC(ParserContext& ctx, char c) {
     if (c == 'o') {
         ctx.state = STATE::NONE_CO;
+    } else if (c == 'l') {
+        ctx.state = STATE::NONE_CL;
     } else {
         throw std::runtime_error("Unexpected character" + std::string(1, c));
     }

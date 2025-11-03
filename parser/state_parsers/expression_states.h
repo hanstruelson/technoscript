@@ -43,7 +43,7 @@ inline void handleStateExpressionAfterOperandNewLine(ParserContext& ctx, char c)
         return;
     }
     ctx.state = STATE::NONE;
-    handleStateNone(ctx, c);
+    ctx.index--;
 }
 
 inline void handleStateExpressionExpectOperand(ParserContext& ctx, char c) {
@@ -63,13 +63,51 @@ inline void handleStateExpressionExpectOperand(ParserContext& ctx, char c) {
     } else if (c == '"') {
         ctx.stringStart = ctx.index;
         ctx.state = STATE::EXPRESSION_DOUBLE_QUOTE;
+    } else if (c == '`') {
+        // Template literal start
+        ctx.stringStart = ctx.index;
+        ctx.state = STATE::EXPRESSION_TEMPLATE_LITERAL_START;
+    } else if (c == '/') {
+        // Regular expression start
+        ctx.stringStart = ctx.index;
+        ctx.state = STATE::EXPRESSION_REGEXP_START;
     } else if (std::isdigit(static_cast<unsigned char>(c)) != 0) {
         ctx.stringStart = ctx.index;
         ctx.state = STATE::EXPRESSION_NUMBER;
     } else if (c == '-') {
-        ctx.state = STATE::EXPRESSION_MINUS;
+        if (ctx.index + 1 < ctx.code.length() && ctx.code[ctx.index + 1] == '-') {
+            ctx.state = STATE::EXPRESSION_MINUS_MINUS;
+        } else {
+            ctx.state = STATE::EXPRESSION_UNARY_MINUS;
+        }
     } else if (c == '+') {
-        ctx.state = STATE::EXPRESSION_PLUS;
+        if (ctx.index + 1 < ctx.code.length() && ctx.code[ctx.index + 1] == '+') {
+            ctx.state = STATE::EXPRESSION_PLUS_PLUS;
+        } else {
+            ctx.state = STATE::EXPRESSION_UNARY_PLUS;
+        }
+    } else if (c == '!') {
+        ctx.state = STATE::EXPRESSION_LOGICAL_NOT;
+    } else if (c == '~') {
+        ctx.state = STATE::EXPRESSION_BITWISE_NOT;
+    } else if (c == '*') {
+        if (ctx.index + 1 < ctx.code.length() && ctx.code[ctx.index + 1] == '*') {
+            ctx.state = STATE::EXPRESSION_EXPONENT;
+        } else {
+            throw std::runtime_error("Unexpected '*' in expression");
+        }
+    } else if (c == '&') {
+        ctx.state = STATE::EXPRESSION_BIT_AND;
+    } else if (c == '|') {
+        ctx.state = STATE::EXPRESSION_BIT_OR;
+    } else if (c == '^') {
+        ctx.state = STATE::EXPRESSION_BIT_XOR;
+    } else if (c == '<') {
+        ctx.state = STATE::EXPRESSION_LEFT_SHIFT;
+    } else if (c == '>') {
+        ctx.state = STATE::EXPRESSION_RIGHT_SHIFT;
+    } else if (c == '=') {
+        ctx.state = STATE::EXPRESSION_EQUALS;
     } else if (c == '[') {
         // Array literal
         auto* arrayNode = new ArrayLiteralNode(ctx.currentNode);
@@ -196,5 +234,86 @@ inline void handleStateExpressionMinus(ParserContext& ctx, char c) {
         applyExpressionOperator(ctx, BinaryExpressionOperator::OP_SUBTRACT);
     } else {
         throw std::runtime_error("Expected '-' for '--' operator");
+    }
+}
+
+// Template literal handlers
+inline void handleStateExpressionTemplateLiteralStart(ParserContext& ctx, char c) {
+    auto* templateNode = new TemplateLiteralNode(ctx.currentNode);
+    addExpressionOperand(ctx, templateNode);
+    ctx.currentNode = templateNode;
+    ctx.state = STATE::EXPRESSION_TEMPLATE_LITERAL;
+    // Re-process this character
+    ctx.index--;
+}
+
+inline void handleStateExpressionTemplateLiteral(ParserContext& ctx, char c) {
+    if (c == '\\') {
+        ctx.state = STATE::EXPRESSION_TEMPLATE_LITERAL_ESCAPE;
+    } else if (c == '$' && ctx.index + 1 < ctx.code.length() && ctx.code[ctx.index + 1] == '{') {
+        // End of current quasi, start interpolation
+        std::string quasi = ctx.code.substr(ctx.stringStart + 1, ctx.index - ctx.stringStart - 1);
+        static_cast<TemplateLiteralNode*>(ctx.currentNode)->addQuasi(quasi);
+        ctx.state = STATE::EXPRESSION_TEMPLATE_LITERAL_INTERPOLATION;
+        ctx.index++; // Skip the '{'
+    } else if (c == '`') {
+        // End of template literal
+        std::string quasi = ctx.code.substr(ctx.stringStart + 1, ctx.index - ctx.stringStart - 1);
+        static_cast<TemplateLiteralNode*>(ctx.currentNode)->addQuasi(quasi);
+        ctx.currentNode = ctx.currentNode->parent;
+        ctx.state = STATE::EXPRESSION_AFTER_OPERAND;
+    }
+}
+
+inline void handleStateExpressionTemplateLiteralEscape(ParserContext& ctx, char c) {
+    ctx.state = STATE::EXPRESSION_TEMPLATE_LITERAL;
+}
+
+inline void handleStateExpressionTemplateLiteralInterpolation(ParserContext& ctx, char c) {
+    if (c == '}') {
+        // End of interpolation, back to template literal
+        ctx.state = STATE::EXPRESSION_TEMPLATE_LITERAL;
+    } else {
+        // Parse expression inside interpolation
+        ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;
+        // Re-process this character
+        ctx.index--;
+    }
+}
+
+// Regular expression handlers
+inline void handleStateExpressionRegExpStart(ParserContext& ctx, char c) {
+    ctx.state = STATE::EXPRESSION_REGEXP;
+    // Re-process this character
+    ctx.index--;
+}
+
+inline void handleStateExpressionRegExp(ParserContext& ctx, char c) {
+    if (c == '\\') {
+        ctx.state = STATE::EXPRESSION_REGEXP_ESCAPE;
+    } else if (c == '/') {
+        // End of pattern, check for flags
+        std::string pattern = ctx.code.substr(ctx.stringStart + 1, ctx.index - ctx.stringStart - 1);
+        ctx.state = STATE::EXPRESSION_REGEXP_FLAGS;
+    }
+}
+
+inline void handleStateExpressionRegExpEscape(ParserContext& ctx, char c) {
+    ctx.state = STATE::EXPRESSION_REGEXP;
+}
+
+inline void handleStateExpressionRegExpFlags(ParserContext& ctx, char c) {
+    if (c >= 'a' && c <= 'z') {
+        // Valid flag character, continue
+        return;
+    } else {
+        // End of flags
+        std::string pattern = ctx.code.substr(ctx.stringStart + 1, ctx.index - ctx.stringStart - 1);
+        std::string flags = ctx.code.substr(ctx.index, ctx.index - ctx.stringStart - pattern.length() - 2);
+        auto* regexpNode = new RegExpLiteralNode(ctx.currentNode, pattern, flags);
+        addExpressionOperand(ctx, regexpNode);
+        ctx.state = STATE::EXPRESSION_AFTER_OPERAND;
+        // Re-process this character
+        ctx.index--;
     }
 }

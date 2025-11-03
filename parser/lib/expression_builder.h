@@ -72,6 +72,16 @@ inline void applyExpressionOperator(ParserContext& ctx, BinaryExpressionOperator
                 auto* newBinary = new BinaryExpressionNode(binaryNode->parent, op);
                 newBinary->children[0] = binaryNode;
                 binaryNode->parent = newBinary;
+
+                // Update the parent's children to point to the new binary expression
+                if (binaryNode->parent) {
+                    auto& siblings = binaryNode->parent->children;
+                    auto it = std::find(siblings.begin(), siblings.end(), binaryNode);
+                    if (it != siblings.end()) {
+                        *it = newBinary;
+                    }
+                }
+
                 ctx.currentNode = newBinary;
             }
         }

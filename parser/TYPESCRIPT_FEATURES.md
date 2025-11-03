@@ -40,7 +40,7 @@ This document tracks the implementation progress of TypeScript language features
 - ❌ **Rest elements in tuples** - Spread syntax in tuples
 
 ### Unions and Intersections
-- ❌ **Union types (T | U)** - Values can be either T or U
+- ✅ **Union types (T | U)** - Values can be either T or U
 - ❌ **Intersection types (T & U)** - Values must satisfy both T and U
 - ❌ **Discriminated unions** - Unions with discriminant properties
 
@@ -193,11 +193,11 @@ This document tracks the implementation progress of TypeScript language features
 
 ### Operators
 - ✅ **Arithmetic operators** - +, -, *, /, %
-- ❌ **Exponentiation operator** - **
-- ❌ **Bitwise operators** - &, |, ^, ~, <<, >>, >>>
-- ❌ **Logical operators** - &&, ||, !
-- ❌ **Comparison operators** - ==, ===, !=, !==, <, >, <=, >=
-- ❌ **Assignment operators** - =, +=, -=, *=, /=, %=, etc.
+- ✅ **Exponentiation operator** - **
+- ✅ **Bitwise operators** - &, |, ^, ~, <<, >>, >>>
+- ✅ **Logical operators** - &&, ||, !
+- ✅ **Comparison operators** - ==, ===, !=, !==, <, >, <=, >=
+- ✅ **Assignment operators** - =, +=, -=, *=, /=, %=, **=, <<=, >>=, >>>=, &=, |=, ^=, &&=, ||=, ??=
 - ❌ **Ternary operator** - condition ? true : false
 - ❌ **Nullish coalescing** - ??
 - ❌ **Optional chaining** - ?.
@@ -210,13 +210,13 @@ This document tracks the implementation progress of TypeScript language features
 
 ### Unary Operators
 - ✅ **Prefix increment** - ++x
-- ❌ **Postfix increment** - x++
-- ❌ **Prefix decrement** - --x
-- ❌ **Postfix decrement** - x--
-- ❌ **Unary plus** - +x
-- ❌ **Unary minus** - -x
-- ❌ **Logical NOT** - !x
-- ❌ **Bitwise NOT** - ~x
+- ✅ **Postfix increment** - x++
+- ✅ **Prefix decrement** - --x
+- ✅ **Postfix decrement** - x--
+- ✅ **Unary plus** - +x
+- ✅ **Unary minus** - -x
+- ✅ **Logical NOT** - !x
+- ✅ **Bitwise NOT** - ~x
 
 ## 10. Type Assertions and Guards
 
@@ -303,19 +303,30 @@ This document tracks the implementation progress of TypeScript language features
 
 ## Implementation Status Summary
 
-### Currently Implemented (9 features)
+### Currently Implemented (25+ features)
 - Basic variable declarations (var, let, const)
 - Basic primitive types (number as int64/float64, string, object)
-- Basic expressions and operators (+, -, *, /, %)
-- Prefix increment operator (++x)
+- Full arithmetic operators (+, -, *, /, %, **)
+- Full comparison operators (==, ===, !=, !==, <, >, <=, >=)
+- Full logical operators (&&, ||, !)
+- Full bitwise operators (&, |, ^, ~, <<, >>, >>>)
+- Full assignment operators (=, +=, -=, *=, /=, %=, **=, <<=, >>=, >>>=, &=, |=, ^=, &&=, ||=, ??=)
+- All unary operators (++x, x++, --x, x--, +x, -x, !x, ~x)
 - Function declarations (named functions with parameters)
 - Array literals ([1, 2, 3] syntax)
 - Object literals ({a: 1, b: 2} syntax)
+- Template literals (basic, without interpolation)
+- Regular expressions (/pattern/flags)
 - if/else statements (conditional execution)
 - while loops (while condition loops)
+- do-while loops (do-while condition loops)
+- for loops (traditional for loops)
+- switch statements (basic structure)
+- try/catch/finally blocks (basic structure)
 
-### Partially Implemented (0 features)
-- None
+### Partially Implemented (2 features)
+- Template literals with interpolation (basic parsing, expression extraction incomplete)
+- Function expressions (structure implemented, parsing incomplete)
 
 ### Not Implemented (150+ features)
 - All advanced TypeScript features including interfaces, classes, generics, modules, async/await, JSX, decorators, and more
