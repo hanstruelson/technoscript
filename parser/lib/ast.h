@@ -17,7 +17,15 @@ enum ASTNodeType {
     LITERAL_EXPRESSION,
     IDENTIFIER_EXPRESSION,
     PLUS_PLUS_PREFIX_EXPRESSION,
-    PARENTHESIS_EXPRESSION
+    PARENTHESIS_EXPRESSION,
+    FUNCTION_DECLARATION,
+    FUNCTION_EXPRESSION,
+    ARROW_FUNCTION_EXPRESSION,
+    PARAMETER_LIST,
+    PARAMETER,
+    ARRAY_LITERAL,
+    OBJECT_LITERAL,
+    PROPERTY
 };
 
 class ASTNode {
@@ -298,4 +306,116 @@ public:
     }
 
     static void closeParenthesis(ParserContext& ctx);
+};
+
+class ParameterNode : public ASTNode {
+public:
+    std::string name;
+    TypeAnnotationNode* typeAnnotation;
+    ASTNode* defaultValue;
+
+    ParameterNode(ASTNode* parent) : ASTNode(parent), typeAnnotation(nullptr), defaultValue(nullptr) {
+        nodeType = ASTNodeType::PARAMETER;
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        os << pad() << "Parameter(" << name;
+        if (typeAnnotation) {
+            static const char* typeMap[] = {"int64","float64","string","raw_memory","object"};
+            os << ":" << typeMap[static_cast<int>(typeAnnotation->dataType)];
+        }
+        os << ")\n";
+        for (auto child : children) if (child) child->print(os, indent + 1);
+    }
+};
+
+class ParameterListNode : public ASTNode {
+public:
+    std::vector<ParameterNode*> parameters;
+
+    ParameterListNode(ASTNode* parent) : ASTNode(parent) {
+        nodeType = ASTNodeType::PARAMETER_LIST;
+    }
+
+    void addParameter(ParameterNode* param) {
+        parameters.push_back(param);
+        children.push_back(param);
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        os << pad() << "ParameterList\n";
+        for (auto param : parameters) if (param) param->print(os, indent + 1);
+    }
+};
+
+class FunctionDeclarationNode : public ASTNode {
+public:
+    std::string name;
+    ParameterListNode* parameters;
+    TypeAnnotationNode* returnType;
+    ASTNode* body;
+
+    FunctionDeclarationNode(ASTNode* parent) : ASTNode(parent), parameters(nullptr), returnType(nullptr), body(nullptr) {
+        nodeType = ASTNodeType::FUNCTION_DECLARATION;
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        os << pad() << "FunctionDeclaration(" << name << ")\n";
+        if (parameters) parameters->print(os, indent + 1);
+        if (returnType) {
+            os << pad() << "  ReturnType: ";
+            static const char* typeMap[] = {"int64","float64","string","raw_memory","object"};
+            os << typeMap[static_cast<int>(returnType->dataType)] << "\n";
+        }
+        if (body) body->print(os, indent + 1);
+    }
+};
+
+class FunctionExpressionNode : public ExpressionNode {
+public:
+    ParameterListNode* parameters;
+    TypeAnnotationNode* returnType;
+    ASTNode* body;
+
+    FunctionExpressionNode(ASTNode* parent) : ExpressionNode(parent), parameters(nullptr), returnType(nullptr), body(nullptr) {
+        nodeType = ASTNodeType::FUNCTION_EXPRESSION;
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        os << pad() << "FunctionExpression\n";
+        if (parameters) parameters->print(os, indent + 1);
+        if (returnType) {
+            os << pad() << "  ReturnType: ";
+            static const char* typeMap[] = {"int64","float64","string","raw_memory","object"};
+            os << typeMap[static_cast<int>(returnType->dataType)] << "\n";
+        }
+        if (body) body->print(os, indent + 1);
+    }
+};
+
+class ArrowFunctionExpressionNode : public ExpressionNode {
+public:
+    ParameterListNode* parameters;
+    TypeAnnotationNode* returnType;
+    ASTNode* body;
+
+    ArrowFunctionExpressionNode(ASTNode* parent) : ExpressionNode(parent), parameters(nullptr), returnType(nullptr), body(nullptr) {
+        nodeType = ASTNodeType::ARROW_FUNCTION_EXPRESSION;
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        os << pad() << "ArrowFunctionExpression\n";
+        if (parameters) parameters->print(os, indent + 1);
+        if (returnType) {
+            os << pad() << "  ReturnType: ";
+            static const char* typeMap[] = {"int64","float64","string","raw_memory","object"};
+            os << typeMap[static_cast<int>(returnType->dataType)] << "\n";
+        }
+        if (body) body->print(os, indent + 1);
+    }
 };

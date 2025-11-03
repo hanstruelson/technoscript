@@ -2,6 +2,6 @@
 #include <iostream>
 
 int main() {
-    parse("var x: int64 = 5;");
+    parse("function test() {}");
     std::cout << "done\n";
 }

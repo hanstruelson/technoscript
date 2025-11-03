@@ -81,7 +81,7 @@ This document tracks the implementation progress of TypeScript language features
 ## 4. Functions
 
 ### Function Declarations
-- ❌ **Function declarations** - Named function syntax
+- ✅ **Function declarations** - Named function syntax
 - ❌ **Function expressions** - Anonymous function syntax
 - ❌ **Arrow functions** - => syntax
 - ❌ **Default parameters** - Optional parameters with defaults
@@ -302,11 +302,12 @@ This document tracks the implementation progress of TypeScript language features
 
 ## Implementation Status Summary
 
-### Currently Implemented (4 features)
+### Currently Implemented (5 features)
 - Basic variable declarations (var, let, const)
 - Basic primitive types (number as int64/float64, string, object)
 - Basic expressions and operators (+, -, *, /, %)
 - Prefix increment operator (++x)
+- Function declarations (named functions with parameters)
 
 ### Partially Implemented (0 features)
 - None

@@ -13,6 +13,8 @@ inline void handleStateNone(ParserContext& ctx, char c) {
         ctx.state = STATE::NONE_C;
     } else if (c == 'l') {
         ctx.state = STATE::NONE_L;
+    } else if (c == 'f') {
+        ctx.state = STATE::NONE_F;
     } else {
         throw std::runtime_error("Unexpected character" + std::string(1, c));
     }

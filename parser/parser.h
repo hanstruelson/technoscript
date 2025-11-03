@@ -78,6 +78,30 @@ inline void parse(const std::string& code) {
                 case STATE::NONE_LET:
                     handleStateNoneLET(ctx, c);
                     break;
+                case STATE::NONE_F:
+                    handleStateNoneF(ctx, c);
+                    break;
+                case STATE::NONE_FU:
+                    handleStateNoneFU(ctx, c);
+                    break;
+                case STATE::NONE_FUN:
+                    handleStateNoneFUN(ctx, c);
+                    break;
+                case STATE::NONE_FUNC:
+                    handleStateNoneFUNC(ctx, c);
+                    break;
+                case STATE::NONE_FUNCT:
+                    handleStateNoneFUNCT(ctx, c);
+                    break;
+                case STATE::NONE_FUNCTI:
+                    handleStateNoneFUNCTI(ctx, c);
+                    break;
+                case STATE::NONE_FUNCTIO:
+                    handleStateNoneFUNCTIO(ctx, c);
+                    break;
+                case STATE::NONE_FUNCTION:
+                    handleStateNoneFUNCTION(ctx, c);
+                    break;
                 case STATE::EXPECT_IDENTIFIER:
                     handleStateExpectIdentifier(ctx, c);
                     break;
@@ -134,6 +158,45 @@ inline void parse(const std::string& code) {
                     break;
                 case STATE::EXPECT_IMMEDIATE_IDENTIFIER:
                     handleStateExpectImmediateIdentifier(ctx, c);
+                    break;
+                case STATE::FUNCTION_DECLARATION_NAME:
+                    handleStateFunctionDeclarationName(ctx, c);
+                    break;
+                case STATE::FUNCTION_PARAMETERS_START:
+                    handleStateFunctionParametersStart(ctx, c);
+                    break;
+                case STATE::FUNCTION_PARAMETER_NAME:
+                    handleStateFunctionParameterName(ctx, c);
+                    break;
+                case STATE::FUNCTION_PARAMETER_TYPE_ANNOTATION:
+                    handleStateFunctionParameterTypeAnnotation(ctx, c);
+                    break;
+                case STATE::FUNCTION_PARAMETER_DEFAULT_VALUE:
+                    handleStateFunctionParameterDefaultValue(ctx, c);
+                    break;
+                case STATE::FUNCTION_PARAMETER_SEPARATOR:
+                    handleStateFunctionParameterSeparator(ctx, c);
+                    break;
+                case STATE::FUNCTION_PARAMETERS_END:
+                    handleStateFunctionParametersEnd(ctx, c);
+                    break;
+                case STATE::FUNCTION_RETURN_TYPE_ANNOTATION:
+                    handleStateFunctionReturnTypeAnnotation(ctx, c);
+                    break;
+                case STATE::FUNCTION_BODY_START:
+                    handleStateFunctionBodyStart(ctx, c);
+                    break;
+                case STATE::FUNCTION_BODY:
+                    handleStateFunctionBody(ctx, c);
+                    break;
+                case STATE::ARROW_FUNCTION_PARAMETERS:
+                    handleStateArrowFunctionParameters(ctx, c);
+                    break;
+                case STATE::ARROW_FUNCTION_ARROW:
+                    handleStateArrowFunctionArrow(ctx, c);
+                    break;
+                case STATE::ARROW_FUNCTION_BODY:
+                    handleStateArrowFunctionBody(ctx, c);
                     break;
             }
         } catch (const std::exception& e) {
