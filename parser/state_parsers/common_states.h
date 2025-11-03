@@ -9,29 +9,62 @@
 
 // Root state handler - entry point for parsing
 inline void handleStateNone(ParserContext& ctx, char c) {
-    // Check if current node is a control statement that just finished parsing a single statement
-    if (ctx.currentNode) {
-        // Check for specific control statement types
-        if (auto* ifNode = dynamic_cast<IfStatement*>(ctx.currentNode)) {
-            // Check if this if statement needs its body set from the last parsed statement
-            if (!ifNode->consequent && ctx.currentNode->children.size() > 1) {
-                auto* lastChild = ctx.currentNode->children.back();
-                ifNode->consequent = lastChild;
+    // Check if we need to exit a completed single-statement block
+    if (ctx.currentNode && ctx.currentNode->nodeType == ASTNodeType::BLOCK_STATEMENT) {
+        auto* block = static_cast<BlockStatement*>(ctx.currentNode);
+        if (block->noBraces && ctx.currentNode->parent) {
+            // Check if this is a control statement with a single statement block
+            if (dynamic_cast<ControlStatement*>(ctx.currentNode->parent)) {
+                // Check if the block has only one child (single statement)
+                if (ctx.currentNode->children.size() == 1) {
+                    // Move up the AST and close both the block and control statement
+                    ctx.currentNode = ctx.currentNode->parent;
+                    // The control statement is now current, so we can handle the next character
+                }
             }
-            ctx.state = STATE::IF_ALTERNATE_START;
-            return;
-        } else if (auto* whileNode = dynamic_cast<WhileStatement*>(ctx.currentNode)) {
-            // Check if this while statement needs its body set
-            if (!whileNode->body && ctx.currentNode->children.size() > 1) {
-                auto* lastChild = ctx.currentNode->children.back();
-                whileNode->body = lastChild;
-            }
-            ctx.state = STATE::NONE;
-            return;
         }
     }
 
-    if (std::isspace(static_cast<unsigned char>(c))) {
+    // Check for else keyword after a control statement
+    if (c == 'e' && ctx.currentNode && dynamic_cast<ControlStatement*>(ctx.currentNode)) {
+        ctx.state = STATE::NONE_E;
+        return;
+    }
+
+    if (c == '}') {
+        // End of block - pop back to parent
+        if (ctx.currentNode && ctx.currentNode->nodeType == ASTNodeType::BLOCK_STATEMENT) {
+            ctx.currentNode = ctx.currentNode->parent;
+            // Check if this is the end of an if statement
+            if (ctx.currentNode && ctx.currentNode->nodeType == ASTNodeType::IF_STATEMENT) {
+                ctx.state = STATE::IF_ALTERNATE_START;
+            } else {
+                ctx.state = STATE::NONE;
+            }
+        }
+        return;
+    } else if (c == ';') {
+        // Statement terminator - check if we need to exit a single-statement block
+        if (ctx.currentNode && ctx.currentNode->nodeType == ASTNodeType::BLOCK_STATEMENT) {
+            // Check if this block was created for a single statement (has a control statement parent)
+            if (ctx.currentNode->parent &&
+                (ctx.currentNode->parent->nodeType == ASTNodeType::IF_STATEMENT ||
+                 ctx.currentNode->parent->nodeType == ASTNodeType::WHILE_STATEMENT ||
+                 ctx.currentNode->parent->nodeType == ASTNodeType::FOR_STATEMENT)) {
+                // Exit the block
+                ctx.currentNode = ctx.currentNode->parent;
+                // Check if this is the end of an if statement
+                if (ctx.currentNode->nodeType == ASTNodeType::IF_STATEMENT) {
+                    ctx.state = STATE::IF_ALTERNATE_START;
+                } else {
+                    ctx.state = STATE::NONE;
+                }
+                return;
+            }
+        }
+        // Regular semicolon - ignore for now
+        return;
+    } else if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace
         return;
     } else if (c == 'v') {
@@ -55,8 +88,75 @@ inline void handleStateNone(ParserContext& ctx, char c) {
     } else {
         // Handle expression starts at top level
         auto* expr = new ExpressionNode(ctx.currentNode);
-        ctx.currentNode->children.push_back(expr);
+        ctx.currentNode->addChild(expr);
+
+
+
         ctx.currentNode = expr;
         ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;
+        ctx.index--; // Re-process this character
+    }
+}
+
+inline void handleStateNoneE(ParserContext& ctx, char c) {
+    if (c == 'l') {
+        ctx.state = STATE::NONE_EL;
+    } else {
+        // Not 'else', treat as identifier starting with 'e'
+        ctx.stringStart = ctx.index - 1; // 'e' is at index-1
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
+    }
+}
+
+inline void handleStateNoneEL(ParserContext& ctx, char c) {
+    if (c == 's') {
+        ctx.state = STATE::NONE_ELS;
+    } else {
+        // Not 'else', treat as identifier starting with 'el'
+        ctx.stringStart = ctx.index - 2; // 'e' is at index-2, 'l' is at index-1
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
+    }
+}
+
+inline void handleStateNoneELS(ParserContext& ctx, char c) {
+    if (c == 'e') {
+        ctx.state = STATE::NONE_ELSE;
+    } else {
+        // Not 'else', treat as identifier starting with 'els'
+        ctx.stringStart = ctx.index - 3; // 'e' is at index-3, 'l' at index-2, 's' at index-1
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
+    }
+}
+
+inline void handleStateNoneELSE(ParserContext& ctx, char c) {
+    if (std::isspace(static_cast<unsigned char>(c))) {
+        // Skip whitespace
+        return;
+    } else if (c == '{') {
+        // Else block - create else clause with block
+        auto* elseClause = new ElseClause(ctx.currentNode);
+        auto* block = new BlockStatement(elseClause);
+        elseClause->children.push_back(block);
+        ctx.currentNode->children.push_back(elseClause);
+        ctx.currentNode = block;
+        ctx.state = STATE::NONE;
+    } else if (c == 'i') {
+        // Else if - create ElseIfClause
+        auto* elseIfClause = new ElseIfClause(ctx.currentNode);
+        ctx.currentNode->children.push_back(elseIfClause);
+        ctx.currentNode = elseIfClause;
+        ctx.state = STATE::IF_CONDITION_START;
+        // Re-process 'i' for 'if' parsing
+        ctx.index--;
+    } else {
+        // Single statement else - create else clause
+        auto* elseClause = new ElseClause(ctx.currentNode);
+        ctx.currentNode->children.push_back(elseClause);
+        ctx.currentNode = elseClause;
+        ctx.state = STATE::NONE;
+        ctx.index--; // Re-process this character
     }
 }

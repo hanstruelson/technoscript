@@ -14,6 +14,13 @@ enum class STATE {
     NONE_LE,
     NONE_LET,
     NONE_F,
+    NONE_FU,
+    NONE_FUN,
+    NONE_FUNC,
+    NONE_FUNCT,
+    NONE_FUNCTI,
+    NONE_FUNCTIO,
+    NONE_FUNCTION,
     EXPECT_IDENTIFIER,
     IDENTIFIER_NAME,
     IDENTIFIER_COMPLETE,
@@ -65,9 +72,10 @@ enum class STATE {
     IF_CONDITION_START,
     IF_CONSEQUENT,
     IF_ALTERNATE_START,
+    IF_ALTERNATE_E,
+    IF_ALTERNATE_L,
+    IF_ALTERNATE_S,
     IF_ALTERNATE,
-    BLOCK_STATEMENT_START,
-    BLOCK_STATEMENT_BODY,
     NONE_W,
     NONE_WH,
     NONE_WHI,
@@ -145,6 +153,10 @@ enum class STATE {
     SWITCH_CASE,
     SWITCH_DEFAULT_START,
     SWITCH_DEFAULT,
+    NONE_E,
+    NONE_EL,
+    NONE_ELS,
+    NONE_ELSE,
     NONE_T,
     NONE_TR,
     NONE_TRY,
@@ -214,7 +226,14 @@ enum class STATE {
     CLASS_METHOD_RETURN_TYPE,
     CLASS_METHOD_BODY_START,
     CLASS_METHOD_BODY,
-    CLASS_MEMBER_SEPARATOR
+    CLASS_MEMBER_SEPARATOR,
+    // Generic type states
+    TYPE_GENERIC_PARAMETERS_START,
+    TYPE_GENERIC_PARAMETER_NAME,
+    TYPE_GENERIC_PARAMETER_SEPARATOR,
+    TYPE_GENERIC_PARAMETERS_END,
+    TYPE_GENERIC_TYPE_START,
+    TYPE_GENERIC_TYPE_ARGUMENTS
 };
 
 inline const char* stateToString(STATE state) {
@@ -259,6 +278,13 @@ inline const char* stateToString(STATE state) {
         case STATE::EXPECT_IMMEDIATE_IDENTIFIER: return "EXPECT_IMMEDIATE_IDENTIFIER";
         case STATE::VARIABLE_CREATE_IDENTIFIER_COMPLETE: return "VARIABLE_CREATE_IDENTIFIER_COMPLETE";
         case STATE::NONE_F: return "F";
+        case STATE::NONE_FU: return "FU";
+        case STATE::NONE_FUN: return "FUN";
+        case STATE::NONE_FUNC: return "FUNC";
+        case STATE::NONE_FUNCT: return "FUNCT";
+        case STATE::NONE_FUNCTI: return "FUNCTI";
+        case STATE::NONE_FUNCTIO: return "FUNCTIO";
+        case STATE::NONE_FUNCTION: return "FUNCTION";
         case STATE::FUNCTION_DECLARATION_NAME: return "FUNCTION_DECLARATION_NAME";
         case STATE::FUNCTION_PARAMETERS_START: return "FUNCTION_PARAMETERS_START";
         case STATE::FUNCTION_PARAMETER_NAME: return "FUNCTION_PARAMETER_NAME";
@@ -284,8 +310,6 @@ inline const char* stateToString(STATE state) {
         case STATE::IF_CONSEQUENT: return "IF_CONSEQUENT";
         case STATE::IF_ALTERNATE_START: return "IF_ALTERNATE_START";
         case STATE::IF_ALTERNATE: return "IF_ALTERNATE";
-        case STATE::BLOCK_STATEMENT_START: return "BLOCK_STATEMENT_START";
-        case STATE::BLOCK_STATEMENT_BODY: return "BLOCK_STATEMENT_BODY";
         case STATE::NONE_W: return "W";
         case STATE::NONE_WH: return "WH";
         case STATE::NONE_WHI: return "WHI";
@@ -363,6 +387,10 @@ inline const char* stateToString(STATE state) {
         case STATE::SWITCH_CASE: return "SWITCH_CASE";
         case STATE::SWITCH_DEFAULT_START: return "SWITCH_DEFAULT_START";
         case STATE::SWITCH_DEFAULT: return "SWITCH_DEFAULT";
+        case STATE::NONE_E: return "E";
+        case STATE::NONE_EL: return "EL";
+        case STATE::NONE_ELS: return "ELS";
+        case STATE::NONE_ELSE: return "ELSE";
         case STATE::NONE_T: return "T";
         case STATE::NONE_TR: return "TR";
         case STATE::NONE_TRY: return "TRY";
@@ -433,6 +461,13 @@ inline const char* stateToString(STATE state) {
         case STATE::CLASS_METHOD_BODY_START: return "CLASS_METHOD_BODY_START";
         case STATE::CLASS_METHOD_BODY: return "CLASS_METHOD_BODY";
         case STATE::CLASS_MEMBER_SEPARATOR: return "CLASS_MEMBER_SEPARATOR";
+        // Generic type states
+        case STATE::TYPE_GENERIC_PARAMETERS_START: return "TYPE_GENERIC_PARAMETERS_START";
+        case STATE::TYPE_GENERIC_PARAMETER_NAME: return "TYPE_GENERIC_PARAMETER_NAME";
+        case STATE::TYPE_GENERIC_PARAMETER_SEPARATOR: return "TYPE_GENERIC_PARAMETER_SEPARATOR";
+        case STATE::TYPE_GENERIC_PARAMETERS_END: return "TYPE_GENERIC_PARAMETERS_END";
+        case STATE::TYPE_GENERIC_TYPE_START: return "TYPE_GENERIC_TYPE_START";
+        case STATE::TYPE_GENERIC_TYPE_ARGUMENTS: return "TYPE_GENERIC_TYPE_ARGUMENTS";
     }
     return "UNKNOWN_STATE";
 }

@@ -58,21 +58,21 @@ inline void handleStateExpressionExpectOperand(ParserContext& ctx, char c) {
     } else if (c == ';') {
         throw std::runtime_error("Missing expression before ';'");
     } else if (c == '\'') {
-        ctx.stringStart = ctx.index;
+        ctx.stringStart = ctx.index - 1;
         ctx.state = STATE::EXPRESSION_SINGLE_QUOTE;
     } else if (c == '"') {
-        ctx.stringStart = ctx.index;
+        ctx.stringStart = ctx.index - 1;
         ctx.state = STATE::EXPRESSION_DOUBLE_QUOTE;
     } else if (c == '`') {
         // Template literal start
-        ctx.stringStart = ctx.index;
+        ctx.stringStart = ctx.index - 1;
         ctx.state = STATE::EXPRESSION_TEMPLATE_LITERAL_START;
     } else if (c == '/') {
         // Regular expression start
-        ctx.stringStart = ctx.index;
+        ctx.stringStart = ctx.index - 1;
         ctx.state = STATE::EXPRESSION_REGEXP_START;
     } else if (std::isdigit(static_cast<unsigned char>(c)) != 0) {
-        ctx.stringStart = ctx.index;
+        ctx.stringStart = ctx.index - 1;
         ctx.state = STATE::EXPRESSION_NUMBER;
     } else if (c == '-') {
         if (ctx.index + 1 < ctx.code.length() && ctx.code[ctx.index + 1] == '-') {
@@ -121,7 +121,7 @@ inline void handleStateExpressionExpectOperand(ParserContext& ctx, char c) {
         ctx.currentNode = objectNode;
         ctx.state = STATE::OBJECT_LITERAL_START;
     } else if (isIdentifierStart(c)) {
-        ctx.stringStart = ctx.index;
+        ctx.stringStart = ctx.index - 1;
         ctx.state = STATE::EXPRESSION_IDENTIFIER;
     } else {
         throw std::runtime_error(std::string("Unexpected character in expression: ") + c);
@@ -136,7 +136,7 @@ inline void handleStateExpressionNumber(ParserContext& ctx, char c) {
         return;
     }
 
-    std::string text = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
+    std::string text = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
     if (text.empty()) {
         throw std::runtime_error("Empty numeric literal");
     }
@@ -151,7 +151,7 @@ inline void handleStateExpressionIdentifier(ParserContext& ctx, char c) {
         return;
     }
 
-    std::string text = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
+    std::string text = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
     if (text.empty()) {
         throw std::runtime_error("Empty identifier");
     }
@@ -203,7 +203,7 @@ inline void handleStateExpressionDoubleQuoteEscape(ParserContext& ctx, char) {
 
 inline void handleStateExpressionPlus(ParserContext& ctx, char c) {
     if (c == '+') {
-        ctx.stringStart = ctx.index;
+        ctx.stringStart = ctx.index - 1;
         ctx.state = STATE::IDENTIFIER_NAME;
         auto* plusPlusPrefixNode = new PlusPlusPrefixExpressionNode(nullptr);
         addExpressionOperand(ctx, plusPlusPrefixNode);
@@ -211,7 +211,7 @@ inline void handleStateExpressionPlus(ParserContext& ctx, char c) {
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         return;
     } else if (isIdentifierStart(c)) {
-        ctx.stringStart = ctx.index;
+        ctx.stringStart = ctx.index - 1;
         ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;
         applyExpressionOperator(ctx, BinaryExpressionOperator::OP_ADD);
     } else {
@@ -221,7 +221,7 @@ inline void handleStateExpressionPlus(ParserContext& ctx, char c) {
 
 inline void handleStateExpressionMinus(ParserContext& ctx, char c) {
     if (c == '-') {
-        ctx.stringStart = ctx.index;
+        ctx.stringStart = ctx.index - 1;
         ctx.state = STATE::IDENTIFIER_NAME;
         auto* minusMinusPrefixNode = new MinusMinusPrefixExpressionNode(nullptr);
         addExpressionOperand(ctx, minusMinusPrefixNode);
@@ -229,7 +229,7 @@ inline void handleStateExpressionMinus(ParserContext& ctx, char c) {
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         return;
     } else if (isIdentifierStart(c)) {
-        ctx.stringStart = ctx.index;
+        ctx.stringStart = ctx.index - 1;
         ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;
         applyExpressionOperator(ctx, BinaryExpressionOperator::OP_SUBTRACT);
     } else {

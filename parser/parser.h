@@ -37,11 +37,10 @@ inline void parse(const std::string& code) {
     auto* root = new ASTNode(nullptr);
     ParserContext ctx(code, root);
 
-    for (std::size_t i = 0; i < code.length(); ++i) {
+    ctx.index = 0;
+    while (ctx.index < code.length()) {
         try {
-            char c = code[i];
-            std::cout << c;
-            ctx.index = i;
+            char c = code[ctx.index++];
             switch (ctx.state) {
                 case STATE::NONE:
                     handleStateNone(ctx, c);
@@ -82,6 +81,27 @@ inline void parse(const std::string& code) {
                 case STATE::NONE_F:
                     handleStateNoneF(ctx, c);
                     break;
+                case STATE::NONE_FU:
+                    handleStateNoneFU(ctx, c);
+                    break;
+                case STATE::NONE_FUN:
+                    handleStateNoneFUN(ctx, c);
+                    break;
+                case STATE::NONE_FUNC:
+                    handleStateNoneFUNC(ctx, c);
+                    break;
+                case STATE::NONE_FUNCT:
+                    handleStateNoneFUNCT(ctx, c);
+                    break;
+                case STATE::NONE_FUNCTI:
+                    handleStateNoneFUNCTI(ctx, c);
+                    break;
+                case STATE::NONE_FUNCTIO:
+                    handleStateNoneFUNCTIO(ctx, c);
+                    break;
+                case STATE::NONE_FUNCTION:
+                    handleStateNoneFUNCTION(ctx, c);
+                    break;
 
                 case STATE::EXPECT_IDENTIFIER:
                     handleStateExpectIdentifier(ctx, c);
@@ -100,6 +120,24 @@ inline void parse(const std::string& code) {
                     break;
                 case STATE::TYPE_ANNOTATION:
                     handleStateTypeAnnotation(ctx, c);
+                    break;
+                case STATE::TYPE_GENERIC_PARAMETERS_START:
+                    handleStateTypeGenericParametersStart(ctx, c);
+                    break;
+                case STATE::TYPE_GENERIC_PARAMETER_NAME:
+                    handleStateTypeGenericParameterName(ctx, c);
+                    break;
+                case STATE::TYPE_GENERIC_PARAMETER_SEPARATOR:
+                    handleStateTypeGenericParameterSeparator(ctx, c);
+                    break;
+                case STATE::TYPE_GENERIC_PARAMETERS_END:
+                    handleStateTypeGenericParametersEnd(ctx, c);
+                    break;
+                case STATE::TYPE_GENERIC_TYPE_START:
+                    handleStateTypeGenericTypeStart(ctx, c);
+                    break;
+                case STATE::TYPE_GENERIC_TYPE_ARGUMENTS:
+                    handleStateTypeGenericTypeArguments(ctx, c);
                     break;
                 case STATE::EXPECT_EQUALS:
                     handleStateExpectEquals(ctx, c);
@@ -212,14 +250,17 @@ inline void parse(const std::string& code) {
                 case STATE::IF_ALTERNATE_START:
                     handleStateIfAlternateStart(ctx, c);
                     break;
+                case STATE::IF_ALTERNATE_E:
+                    handleStateIfAlternateE(ctx, c);
+                    break;
+                case STATE::IF_ALTERNATE_L:
+                    handleStateIfAlternateL(ctx, c);
+                    break;
+                case STATE::IF_ALTERNATE_S:
+                    handleStateIfAlternateS(ctx, c);
+                    break;
                 case STATE::IF_ALTERNATE:
                     handleStateIfAlternate(ctx, c);
-                    break;
-                case STATE::BLOCK_STATEMENT_START:
-                    handleStateBlockStatementStart(ctx, c);
-                    break;
-                case STATE::BLOCK_STATEMENT_BODY:
-                    handleStateBlockStatementBody(ctx, c);
                     break;
                 case STATE::NONE_W:
                     handleStateNoneW(ctx, c);
@@ -474,6 +515,18 @@ inline void parse(const std::string& code) {
                 case STATE::SWITCH_DEFAULT:
                     handleStateSwitchDefault(ctx, c);
                     break;
+                case STATE::NONE_E:
+                    handleStateNoneE(ctx, c);
+                    break;
+                case STATE::NONE_EL:
+                    handleStateNoneEL(ctx, c);
+                    break;
+                case STATE::NONE_ELS:
+                    handleStateNoneELS(ctx, c);
+                    break;
+                case STATE::NONE_ELSE:
+                    handleStateNoneELSE(ctx, c);
+                    break;
                 case STATE::NONE_T:
                     handleStateNoneT(ctx, c);
                     break;
@@ -655,16 +708,12 @@ inline void parse(const std::string& code) {
                     handleStateInterfaceMethodReturnType(ctx, c);
                     break;
             }
-            // Handle index adjustments for multi-character operators
-            if (ctx.index > i) {
-                i = ctx.index; // Skip to the adjusted index
-            }
         } catch (const std::exception& e) {
-            reportParseError(code, i, e.what(), ctx.state);
+            reportParseError(code, ctx.index - 1, e.what(), ctx.state);
             delete root;
             return;
         } catch (...) {
-            reportParseError(code, i, "Unknown parser error", ctx.state);
+            reportParseError(code, ctx.index - 1, "Unknown parser error", ctx.state);
             delete root;
             return;
         }

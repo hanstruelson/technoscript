@@ -19,16 +19,24 @@ inline void handleStateNoneI(ParserContext& ctx, char c) {
 
 inline void handleStateIfConditionStart(ParserContext& ctx, char c) {
     if (c == '(') {
-        // Create if statement node and start parsing condition
-        auto* ifNode = new IfStatement(ctx.currentNode);
-        ctx.currentNode->children.push_back(ifNode);
-        ctx.currentNode = ifNode;
+        // Check if we're parsing else if
+        if (auto* elseIfNode = dynamic_cast<ElseIfClause*>(ctx.currentNode)) {
+            // Else if - create condition expression as child
+            auto* expr = new ExpressionNode(ctx.currentNode);
+            ctx.currentNode->addChild(expr);
+            ctx.currentNode = expr;
+        } else {
+            // Regular if - create if statement node
+            auto* ifNode = new IfStatement(ctx.currentNode);
+            ctx.currentNode->addChild(ifNode);
+            ctx.currentNode = ifNode;
 
-        // Start parsing condition expression
-        auto* expr = new ExpressionNode(ctx.currentNode);
-        ifNode->condition = expr;
-        ifNode->children.push_back(expr);
-        ctx.currentNode = expr;
+            // Start parsing condition expression
+            auto* expr = new ExpressionNode(ctx.currentNode);
+            ifNode->condition = expr;
+            ifNode->addChild(expr);
+            ctx.currentNode = expr;
+        }
         ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace
@@ -40,29 +48,27 @@ inline void handleStateIfConditionStart(ParserContext& ctx, char c) {
 
 inline void handleStateIfConsequent(ParserContext& ctx, char c) {
     if (c == '{') {
-        // Block statement
-        auto* block = new BlockStatement(ctx.currentNode);
-        if (auto* ifNode = dynamic_cast<IfStatement*>(ctx.currentNode)) {
-            ifNode->consequent = block;
-            ifNode->children.push_back(block);
-        }
+        // Block statement for consequent
+        auto* block = new BlockStatement(ctx.currentNode, false); // noBraces = false
+        ctx.currentNode->addChild(block);
         ctx.currentNode = block;
-        ctx.state = STATE::BLOCK_STATEMENT_BODY;  // Go directly to body since '{' is consumed
+        ctx.state = STATE::NONE;
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace
         return;
     } else {
-        // Single statement - parse it
+        // Single statement - create noBraces block
+        auto* block = new BlockStatement(ctx.currentNode, true); // noBraces = true
+        ctx.currentNode->addChild(block);
+        ctx.currentNode = block;
         ctx.state = STATE::NONE;
-        // Re-process this character
-        ctx.index--;
+        ctx.index--; // Re-process this character
     }
 }
 
 inline void handleStateIfAlternateStart(ParserContext& ctx, char c) {
     if (c == 'e') {
-        // Check for "else"
-        ctx.state = STATE::IF_ALTERNATE;
+        ctx.state = STATE::IF_ALTERNATE_E;
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace
         return;
@@ -70,61 +76,71 @@ inline void handleStateIfAlternateStart(ParserContext& ctx, char c) {
         // No else clause, end if statement
         ctx.currentNode = ctx.currentNode->parent;
         ctx.state = STATE::NONE;
+        ctx.index--; // Re-process this character
+    }
+}
+
+inline void handleStateIfAlternateE(ParserContext& ctx, char c) {
+    if (c == 'l') {
+        ctx.state = STATE::IF_ALTERNATE_L;
+    } else {
+        // Invalid, end if statement
+        ctx.currentNode = ctx.currentNode->parent;
+        ctx.state = STATE::NONE;
+        ctx.index--; // Re-process this character
+    }
+}
+
+inline void handleStateIfAlternateL(ParserContext& ctx, char c) {
+    if (c == 's') {
+        ctx.state = STATE::IF_ALTERNATE_S;
+    } else {
+        // Invalid, end if statement
+        ctx.currentNode = ctx.currentNode->parent;
+        ctx.state = STATE::NONE;
+        ctx.index--; // Re-process this character
+    }
+}
+
+inline void handleStateIfAlternateS(ParserContext& ctx, char c) {
+    if (c == 'e') {
+        ctx.state = STATE::IF_ALTERNATE;
+    } else {
+        // Invalid, end if statement
+        ctx.currentNode = ctx.currentNode->parent;
+        ctx.state = STATE::NONE;
+        ctx.index--; // Re-process this character
     }
 }
 
 inline void handleStateIfAlternate(ParserContext& ctx, char c) {
-    if (c == '{') {
-        // Block statement for else
-        auto* block = new BlockStatement(ctx.currentNode);
-        if (auto* ifNode = dynamic_cast<IfStatement*>(ctx.currentNode)) {
-            ifNode->alternate = block;
-            ifNode->children.push_back(block);
-        }
-        ctx.currentNode = block;
-        ctx.state = STATE::BLOCK_STATEMENT_BODY;  // Go directly to body since '{' is consumed
-    } else if (std::isspace(static_cast<unsigned char>(c))) {
-        // Skip whitespace
-        return;
-    } else {
-        // Single statement - parse it
-        ctx.state = STATE::NONE;
-        // Re-process this character
+    if (c == 'i') {
+        // Else if - create ElseIfClause
+        auto* elseIfClause = new ElseIfClause(ctx.currentNode);
+        ctx.currentNode->addChild(elseIfClause);
+        ctx.currentNode = elseIfClause;
+        ctx.state = STATE::IF_CONDITION_START;
+        // Re-process 'i' for 'if' parsing
         ctx.index--;
-    }
-}
-
-// Block statement parsing states
-inline void handleStateBlockStatementStart(ParserContext& ctx, char c) {
-    if (c == '{') {
-        // Block start, wait for content or closing brace
-        ctx.state = STATE::BLOCK_STATEMENT_BODY;
+    } else if (c == '{') {
+        // Block statement for else
+        auto* elseClause = new ElseClause(ctx.currentNode);
+        auto* block = new BlockStatement(elseClause);
+        elseClause->addChild(block);
+        ctx.currentNode->addChild(elseClause);
+        ctx.currentNode = block;
+        // Stay in NONE state to parse block contents
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace
         return;
     } else {
-        throw std::runtime_error("Expected '{' for block statement: " + std::string(1, c));
+        // Single statement - create else clause with single statement
+        ctx.state = STATE::NONE;
+        ctx.index--; // Re-process this character
     }
 }
 
-inline void handleStateBlockStatementBody(ParserContext& ctx, char c) {
-    if (c == '}') {
-        // End of block
-        ctx.currentNode = ctx.currentNode->parent;
-        // Check if this is the end of an if statement
-        if (ctx.currentNode && ctx.currentNode->nodeType == ASTNodeType::IF_STATEMENT) {
-            ctx.state = STATE::IF_ALTERNATE_START;
-        } else {
-            ctx.state = STATE::NONE;
-        }
-    } else if (std::isspace(static_cast<unsigned char>(c))) {
-        // Skip whitespace
-        return;
-    } else {
-        // For now, skip block content - complex statement parsing needed
-        return;
-    }
-}
+
 
 // While loop parsing states
 inline void handleStateNoneW(ParserContext& ctx, char c) {
@@ -163,13 +179,13 @@ inline void handleStateNoneWHILE(ParserContext& ctx, char c) {
     if (c == '(') {
         // Create while statement node and start parsing condition
         auto* whileNode = new WhileStatement(ctx.currentNode);
-        ctx.currentNode->children.push_back(whileNode);
+        ctx.currentNode->addChild(whileNode);
         ctx.currentNode = whileNode;
 
         // Start parsing condition expression
         auto* expr = new ExpressionNode(ctx.currentNode);
         whileNode->condition = expr;
-        whileNode->children.push_back(expr);
+        whileNode->addChild(expr);
         ctx.currentNode = expr;
         ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;
     } else if (std::isspace(static_cast<unsigned char>(c))) {
@@ -186,7 +202,7 @@ inline void handleStateWhileConditionStart(ParserContext& ctx, char c) {
         auto* expr = new ExpressionNode(ctx.currentNode);
         if (auto* whileNode = dynamic_cast<WhileStatement*>(ctx.currentNode)) {
             whileNode->condition = expr;
-            whileNode->children.push_back(expr);
+            whileNode->addChild(expr);
         }
         ctx.currentNode = expr;
         ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;
@@ -201,20 +217,20 @@ inline void handleStateWhileConditionStart(ParserContext& ctx, char c) {
 inline void handleStateWhileBody(ParserContext& ctx, char c) {
     if (c == '{') {
         // Block statement
-        auto* block = new BlockStatement(ctx.currentNode);
-        if (auto* whileNode = dynamic_cast<WhileStatement*>(ctx.currentNode)) {
-            whileNode->body = block;
-            whileNode->children.push_back(block);
-        }
+        auto* block = new BlockStatement(ctx.currentNode, false); // noBraces = false
+        ctx.currentNode->addChild(block);
         ctx.currentNode = block;
-        ctx.state = STATE::BLOCK_STATEMENT_BODY;  // Go directly to body since '{' is consumed
+        ctx.state = STATE::NONE;
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace
         return;
     } else {
-        // Single statement - parse it
+        // Single statement - create noBraces block
+        auto* block = new BlockStatement(ctx.currentNode, true); // noBraces = true
+        ctx.currentNode->addChild(block);
+        ctx.currentNode = block;
         ctx.state = STATE::NONE;
-        // Re-process this character
+        // Re-process this character to parse the statement
         ctx.index--;
     }
 }
@@ -232,7 +248,7 @@ inline void handleStateNoneDO(ParserContext& ctx, char c) {
     if (c == '(') {
         // Create do-while statement node
         auto* doWhileNode = new DoWhileStatement(ctx.currentNode);
-        ctx.currentNode->children.push_back(doWhileNode);
+        ctx.currentNode->addChild(doWhileNode);
         ctx.currentNode = doWhileNode;
 
         // Start parsing body first (do-while executes body before condition)
@@ -253,7 +269,7 @@ inline void handleStateDoBodyStart(ParserContext& ctx, char c) {
         auto* block = new BlockStatement(ctx.currentNode);
         if (auto* doWhileNode = dynamic_cast<DoWhileStatement*>(ctx.currentNode)) {
             doWhileNode->body = block;
-            doWhileNode->children.push_back(block);
+            doWhileNode->addChild(block);
         }
         ctx.currentNode = block;
         ctx.state = STATE::DO_BODY;
@@ -285,7 +301,7 @@ inline void handleStateDoWhileConditionStart(ParserContext& ctx, char c) {
         auto* expr = new ExpressionNode(ctx.currentNode);
         if (auto* doWhileNode = dynamic_cast<DoWhileStatement*>(ctx.currentNode)) {
             doWhileNode->condition = expr;
-            doWhileNode->children.push_back(expr);
+            doWhileNode->addChild(expr);
         }
         ctx.currentNode = expr;
         ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;
@@ -336,7 +352,7 @@ inline void handleStateNoneDOWHILE(ParserContext& ctx, char c) {
         auto* expr = new ExpressionNode(ctx.currentNode);
         if (auto* doWhileNode = dynamic_cast<DoWhileStatement*>(ctx.currentNode)) {
             doWhileNode->condition = expr;
-            doWhileNode->children.push_back(expr);
+            doWhileNode->addChild(expr);
         }
         ctx.currentNode = expr;
         ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;
@@ -361,7 +377,7 @@ inline void handleStateNoneFOR(ParserContext& ctx, char c) {
     if (c == '(') {
         // Create for statement node
         auto* forNode = new ForStatement(ctx.currentNode);
-        ctx.currentNode->children.push_back(forNode);
+        ctx.currentNode->addChild(forNode);
         ctx.currentNode = forNode;
         ctx.state = STATE::FOR_INIT_START;
     } else if (std::isspace(static_cast<unsigned char>(c))) {
@@ -462,20 +478,20 @@ inline void handleStateForUpdate(ParserContext& ctx, char c) {
 inline void handleStateForBodyStart(ParserContext& ctx, char c) {
     if (c == '{') {
         // Block statement
-        auto* block = new BlockStatement(ctx.currentNode);
-        if (auto* forNode = dynamic_cast<ForStatement*>(ctx.currentNode)) {
-            forNode->body = block;
-            forNode->children.push_back(block);
-        }
+        auto* block = new BlockStatement(ctx.currentNode, false); // noBraces = false
+        ctx.currentNode->addChild(block);
         ctx.currentNode = block;
         ctx.state = STATE::FOR_BODY;
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace
         return;
     } else {
-        // Single statement - parse it
-        ctx.state = STATE::NONE;
-        // Re-process this character
+        // Single statement - create noBraces block
+        auto* block = new BlockStatement(ctx.currentNode, true); // noBraces = true
+        ctx.currentNode->addChild(block);
+        ctx.currentNode = block;
+        ctx.state = STATE::FOR_BODY;
+        // Re-process this character to parse the statement
         ctx.index--;
     }
 }
@@ -539,7 +555,7 @@ inline void handleStateNoneSWITCH(ParserContext& ctx, char c) {
     if (c == '(') {
         // Create switch statement node
         auto* switchNode = new SwitchStatement(ctx.currentNode);
-        ctx.currentNode->children.push_back(switchNode);
+        ctx.currentNode->addChild(switchNode);
         ctx.currentNode = switchNode;
         ctx.state = STATE::SWITCH_CONDITION_START;
     } else if (std::isspace(static_cast<unsigned char>(c))) {
@@ -556,7 +572,7 @@ inline void handleStateSwitchConditionStart(ParserContext& ctx, char c) {
         auto* expr = new ExpressionNode(ctx.currentNode);
         if (auto* switchNode = dynamic_cast<SwitchStatement*>(ctx.currentNode)) {
             switchNode->discriminant = expr;
-            switchNode->children.push_back(expr);
+            switchNode->addChild(expr);
         }
         ctx.currentNode = expr;
         ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;
@@ -693,13 +709,13 @@ inline void handleStateNoneTRY(ParserContext& ctx, char c) {
     if (c == '{') {
         // Create try statement node
         auto* tryNode = new TryStatement(ctx.currentNode);
-        ctx.currentNode->children.push_back(tryNode);
+        ctx.currentNode->addChild(tryNode);
         ctx.currentNode = tryNode;
 
         // Start parsing try block
         auto* block = new BlockStatement(ctx.currentNode);
         tryNode->block = block;
-        tryNode->children.push_back(block);
+        tryNode->addChild(block);
         ctx.currentNode = block;
         ctx.state = STATE::TRY_BODY;
     } else if (std::isspace(static_cast<unsigned char>(c))) {
@@ -716,7 +732,7 @@ inline void handleStateTryBodyStart(ParserContext& ctx, char c) {
         auto* block = new BlockStatement(ctx.currentNode);
         if (auto* tryNode = dynamic_cast<TryStatement*>(ctx.currentNode)) {
             tryNode->block = block;
-            tryNode->children.push_back(block);
+            tryNode->addChild(block);
         }
         ctx.currentNode = block;
         ctx.state = STATE::TRY_BODY;
@@ -805,7 +821,7 @@ inline void handleStateTryCatchBodyStart(ParserContext& ctx, char c) {
         if (auto* tryNode = dynamic_cast<TryStatement*>(ctx.currentNode)) {
             if (tryNode->handler) {
                 tryNode->handler->body = block;
-                tryNode->handler->children.push_back(block);
+                tryNode->handler->addChild(block);
             }
         }
         ctx.currentNode = block;
@@ -879,7 +895,7 @@ inline void handleStateTryFinallyBodyStart(ParserContext& ctx, char c) {
         if (auto* tryNode = dynamic_cast<TryStatement*>(ctx.currentNode)) {
             if (tryNode->finalizer) {
                 tryNode->finalizer->body = block;
-                tryNode->finalizer->children.push_back(block);
+                tryNode->finalizer->addChild(block);
             }
         }
         ctx.currentNode = block;

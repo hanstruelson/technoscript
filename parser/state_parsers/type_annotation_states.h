@@ -7,6 +7,7 @@
 
 #include "../lib/parser_context.h"
 #include "../lib/ast.h"
+#include "generic_states.h"
 
 // Define in order of dependency - handleStateExpectEquals first
 inline void handleStateExpectEquals(ParserContext& ctx, char c) {
@@ -19,6 +20,10 @@ inline void handleStateExpectEquals(ParserContext& ctx, char c) {
         ctx.currentNode->children.push_back(newNode);
         ctx.currentNode = newNode;
         ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;
+    } else if (c == '>') {
+        // This might be a leftover '>' from generic type parsing
+        // Just ignore it for now
+        return;
     } else {
         throw std::runtime_error("Unexpected character" + std::string(1, c));
     }
@@ -43,6 +48,21 @@ inline void handleStateTypeAnnotation(ParserContext& ctx, char c) {
 
     if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace
+        return;
+    }
+
+    if (c == '<') {
+        // Generic type usage: Array<T>, Promise<T, U>
+        ctx.state = STATE::TYPE_GENERIC_TYPE_START;
+        handleStateTypeGenericTypeStart(ctx, c);
+        return;
+    }
+
+    if (c == '>') {
+        // This might be the end of a generic type that we just parsed
+        // Continue to EXPECT_EQUALS state
+        ctx.state = STATE::EXPECT_EQUALS;
+        handleStateExpectEquals(ctx, c);
         return;
     }
 

@@ -146,9 +146,25 @@ inline bool handlePostOperand(ParserContext& ctx, char c) {
         return true; // Not handled
     } else if (c == ';') {
         closeExpression(ctx, c);
+
+        // Check if we're parsing a single statement directly under a control statement
         if (ctx.currentNode && ctx.currentNode->parent) {
-            ctx.currentNode = ctx.currentNode->parent;
+            auto* parent = ctx.currentNode->parent;
+            if (parent->nodeType == ASTNodeType::IF_STATEMENT) {
+                // We're parsing a single statement as consequent, move to alternate check
+                ctx.state = STATE::IF_ALTERNATE_START;
+                return false;
+            } else if (parent->nodeType == ASTNodeType::WHILE_STATEMENT) {
+                // End of while body single statement
+                ctx.state = STATE::NONE;
+                return false;
+            } else if (parent->nodeType == ASTNodeType::FOR_STATEMENT) {
+                // End of for body single statement
+                ctx.state = STATE::NONE;
+                return false;
+            }
         }
+
         ctx.state = STATE::NONE;
     } else {
         return true;

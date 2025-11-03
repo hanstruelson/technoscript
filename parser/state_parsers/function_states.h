@@ -21,21 +21,82 @@ inline void handleStateArrowFunctionParameters(ParserContext& ctx, char c);
 inline void handleStateArrowFunctionArrow(ParserContext& ctx, char c);
 inline void handleStateArrowFunctionBody(ParserContext& ctx, char c);
 
-// Function keyword detection - compact implementation
+// Function/for keyword detection
 inline void handleStateNoneF(ParserContext& ctx, char c) {
-    static const char* func = "unction ";
-    static int pos = 0;
-    if (c == func[pos]) {
-        if (++pos == 8) { // "unction " length
-            auto* funcNode = new FunctionDeclarationNode(ctx.currentNode);
-            ctx.currentNode->children.push_back(funcNode);
-            ctx.currentNode = funcNode;
-            ctx.state = STATE::FUNCTION_DECLARATION_NAME;
-            pos = 0;
-        }
+    if (c == 'u') {
+        // "function" - continue with function parsing
+        ctx.state = STATE::NONE_FU;
+    } else if (c == 'o') {
+        // "for" - continue with for parsing
+        ctx.state = STATE::NONE_FO;
     } else {
-        pos = 0;
-        throw std::runtime_error("Unexpected character in 'function': " + std::string(1, c));
+        throw std::runtime_error("Unexpected character after 'f': " + std::string(1, c));
+    }
+}
+
+// Function keyword continuation
+inline void handleStateNoneFU(ParserContext& ctx, char c) {
+    if (c == 'n') {
+        ctx.state = STATE::NONE_FUN;
+    } else {
+        throw std::runtime_error("Expected 'n' after 'fu': " + std::string(1, c));
+    }
+}
+
+// Function keyword continuation
+inline void handleStateNoneFUN(ParserContext& ctx, char c) {
+    if (c == 'c') {
+        ctx.state = STATE::NONE_FUNC;
+    } else {
+        throw std::runtime_error("Expected 'c' after 'fun': " + std::string(1, c));
+    }
+}
+
+// Function keyword continuation
+inline void handleStateNoneFUNC(ParserContext& ctx, char c) {
+    if (c == 't') {
+        ctx.state = STATE::NONE_FUNCT;
+    } else {
+        throw std::runtime_error("Expected 't' after 'func': " + std::string(1, c));
+    }
+}
+
+// Function keyword continuation
+inline void handleStateNoneFUNCT(ParserContext& ctx, char c) {
+    if (c == 'i') {
+        ctx.state = STATE::NONE_FUNCTI;
+    } else {
+        throw std::runtime_error("Expected 'i' after 'funct': " + std::string(1, c));
+    }
+}
+
+// Function keyword continuation
+inline void handleStateNoneFUNCTI(ParserContext& ctx, char c) {
+    if (c == 'o') {
+        ctx.state = STATE::NONE_FUNCTIO;
+    } else {
+        throw std::runtime_error("Expected 'o' after 'functi': " + std::string(1, c));
+    }
+}
+
+// Function keyword continuation
+inline void handleStateNoneFUNCTIO(ParserContext& ctx, char c) {
+    if (c == 'n') {
+        ctx.state = STATE::NONE_FUNCTION;
+    } else {
+        throw std::runtime_error("Expected 'n' after 'functio': " + std::string(1, c));
+    }
+}
+
+// Function keyword completion
+inline void handleStateNoneFUNCTION(ParserContext& ctx, char c) {
+    if (c == ' ') {
+        auto* funcNode = new FunctionDeclarationNode(ctx.currentNode);
+        ctx.currentNode->children.push_back(funcNode);
+        ctx.currentNode = funcNode;
+        ctx.state = STATE::FUNCTION_DECLARATION_NAME;
+    } else {
+        throw std::runtime_error("Expected ' ' after 'function': " + std::string(1, c));
     }
 }
 

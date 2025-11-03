@@ -53,18 +53,18 @@ This document tracks the implementation progress of TypeScript language features
 ## 3. Object Types
 
 ### Interfaces
-- ❌ **Interface declarations** - Object type definitions
+- ✅ **Interface declarations** - Object type definitions
 - ❌ **Optional properties** - Properties that may or may not be present
 - ❌ **Readonly properties** - Immutable properties
 - ❌ **Index signatures** - Dynamic property access
-- ❌ **Method signatures** - Function property definitions
+- ✅ **Method signatures** - Function property definitions
 - ❌ **Call signatures** - Callable object types
 - ❌ **Construct signatures** - Constructor function types
 - ❌ **Interface inheritance** - Extending other interfaces
 - ❌ **Interface merging** - Declaration merging
 
 ### Classes
-- ❌ **Class declarations** - Object-oriented class definitions
+- ✅ **Class declarations** - Object-oriented class definitions
 - ❌ **Class inheritance** - extends keyword
 - ❌ **Access modifiers** - public, private, protected
 - ❌ **Readonly modifier** - Immutable class properties
@@ -72,7 +72,7 @@ This document tracks the implementation progress of TypeScript language features
 - ❌ **Class expressions** - Anonymous class definitions
 - ❌ **Static members** - Class-level properties and methods
 - ❌ **Getters and setters** - Property accessors
-- ❌ **Parameter properties** - Constructor parameter properties
+- ✅ **Parameter properties** - Constructor parameter properties
 
 ### Type Aliases
 - ❌ **type keyword** - Creating type aliases
@@ -99,8 +99,8 @@ This document tracks the implementation progress of TypeScript language features
 ## 5. Generics
 
 ### Generic Types
-- ❌ **Generic functions*
-* - Functions with type parameters
+- ✅ **Generic type usage** - Generic types like Array<T>, Promise<T>
+- ❌ **Generic functions** - Functions with type parameters
 - ❌ **Generic interfaces** - Interfaces with type parameters
 - ❌ **Generic classes** - Classes with type parameters
 - ❌ **Generic type aliases** - Type aliases with generics
@@ -303,7 +303,7 @@ This document tracks the implementation progress of TypeScript language features
 
 ## Implementation Status Summary
 
-### Currently Implemented (25+ features)
+### Currently Implemented (30+ features)
 - Basic variable declarations (var, let, const)
 - Basic primitive types (number as int64/float64, string, object)
 - Full arithmetic operators (+, -, *, /, %, **)
@@ -317,6 +317,12 @@ This document tracks the implementation progress of TypeScript language features
 - Object literals ({a: 1, b: 2} syntax)
 - Template literals (basic, without interpolation)
 - Regular expressions (/pattern/flags)
+- Union types (T | U syntax)
+- Generic type usage (Array<T>, Promise<T>)
+- Interface declarations (object type definitions)
+- Class declarations (object-oriented class definitions)
+- Method signatures in interfaces
+- Constructor methods in classes
 - if/else statements (conditional execution)
 - while loops (while condition loops)
 - do-while loops (do-while condition loops)
@@ -332,14 +338,13 @@ This document tracks the implementation progress of TypeScript language features
 - All advanced TypeScript features including interfaces, classes, generics, modules, async/await, JSX, decorators, and more
 
 ### Next Priority Features
-1. **Functions** - Function declarations, expressions, and types
-2. **Arrays and Objects** - Array/object literals, destructuring
-3. **Control Flow** - if/else, loops, try/catch
-4. **Classes and Interfaces** - Object-oriented programming support
-5. **Generics** - Type parameterization
-6. **Modules** - import/export statements
-7. **Advanced Types** - Union, intersection, utility types
-8. **Async/Await** - Asynchronous programming
-9. **JSX** - React/JSX support
+1. **Modules** - import/export statements
+2. **Advanced Types** - Intersection types, utility types
+3. **Class Inheritance** - extends keyword and implements
+4. **Function Enhancements** - Arrow functions, default parameters
+5. **Destructuring** - Array and object destructuring
+6. **Async/Await** - Asynchronous programming
+7. **Template Literals** - Full interpolation support
+8. **Advanced Operators** - Optional chaining, nullish coalescing
 
 This parser currently supports only the most basic TypeScript syntax. Significant development is needed to achieve full TypeScript compatibility.

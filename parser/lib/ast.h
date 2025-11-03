@@ -13,6 +13,8 @@ enum ASTNodeType {
     VARIABLE_DEFINITION,
     TYPE_ANNOTATION,
     UNION_TYPE,
+    GENERIC_TYPE_PARAMETERS,
+    GENERIC_TYPE,
     EXPRESSION,
     BINARY_EXPRESSION,
     LITERAL_EXPRESSION,
@@ -37,6 +39,8 @@ enum ASTNodeType {
     TEMPLATE_LITERAL,
     REGEXP_LITERAL,
     IF_STATEMENT,
+    ELSE_CLAUSE,
+    ELSE_IF_CLAUSE,
     WHILE_STATEMENT,
     DO_WHILE_STATEMENT,
     FOR_STATEMENT,
@@ -63,6 +67,11 @@ public:
     void (*childrenComplete)(ASTNode*);
 
     ASTNode(ASTNode* parent) : nodeType(ASTNodeType::AST_NODE), value(""), parent(parent) {}
+
+    void addChild(ASTNode* child) {
+        child->parent = this;
+        children.push_back(child);
+    }
     virtual ~ASTNode() {
         for (auto child : children) {
             delete child;
@@ -530,14 +539,13 @@ public:
 
 class BlockStatement : public ASTNode {
 public:
-    std::vector<ASTNode*> statements;
+    bool noBraces;
 
-    BlockStatement(ASTNode* parent) : ASTNode(parent) {
+    BlockStatement(ASTNode* parent, bool noBraces = false) : ASTNode(parent), noBraces(noBraces) {
         nodeType = ASTNodeType::BLOCK_STATEMENT;
     }
 
     void addStatement(ASTNode* statement) {
-        statements.push_back(statement);
         if (statement) {
             statement->parent = this;
             children.push_back(statement);
@@ -546,46 +554,79 @@ public:
 
     void print(std::ostream& os, int indent) const override {
         auto pad = [indent]() { return string(indent * 2, ' '); };
-        os << pad() << "BlockStatement\n";
-        for (auto statement : statements) if (statement) statement->print(os, indent + 1);
+        os << pad() << "BlockStatement";
+        if (noBraces) os << "(noBraces)";
+        os << "\n";
+        for (auto child : children) if (child) child->print(os, indent + 1);
     }
 };
 
-class IfStatement : public ASTNode {
+class ControlStatement : public ASTNode {
+public:
+    ControlStatement(ASTNode* parent, ASTNodeType type) : ASTNode(parent) {
+        nodeType = type;
+    }
+};
+
+class ElseClause : public ASTNode {
+public:
+    ElseClause(ASTNode* parent) : ASTNode(parent) {
+        nodeType = ASTNodeType::ELSE_CLAUSE;
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        os << pad() << "ElseClause\n";
+        for (auto child : children) if (child) child->print(os, indent + 1);
+    }
+};
+
+class ElseIfClause : public ASTNode {
+public:
+    ElseIfClause(ASTNode* parent) : ASTNode(parent) {
+        nodeType = ASTNodeType::ELSE_IF_CLAUSE;
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        os << pad() << "ElseIfClause\n";
+        for (auto child : children) if (child) child->print(os, indent + 1);
+    }
+};
+
+class IfStatement : public ControlStatement {
 public:
     ExpressionNode* condition;
-    ASTNode* consequent;
-    ASTNode* alternate;
 
-    IfStatement(ASTNode* parent) : ASTNode(parent), condition(nullptr), consequent(nullptr), alternate(nullptr) {
-        nodeType = ASTNodeType::IF_STATEMENT;
+    IfStatement(ASTNode* parent) : ControlStatement(parent, ASTNodeType::IF_STATEMENT), condition(nullptr) {
     }
 
     void print(std::ostream& os, int indent) const override {
         auto pad = [indent]() { return string(indent * 2, ' '); };
         os << pad() << "IfStatement\n";
-        if (condition) {
-            os << pad() << "  Condition:\n";
-            condition->print(os, indent + 2);
-        }
-        if (consequent) {
-            os << pad() << "  Consequent:\n";
-            consequent->print(os, indent + 2);
-        }
-        if (alternate) {
-            os << pad() << "  Alternate:\n";
-            alternate->print(os, indent + 2);
+        for (auto child : children) {
+            if (child == condition) {
+                os << pad() << "  Condition:\n";
+                child->print(os, indent + 2);
+            } else if (child->nodeType == ASTNodeType::BLOCK_STATEMENT) {
+                os << pad() << "  Consequent:\n";
+                child->print(os, indent + 2);
+            } else if (child->nodeType == ASTNodeType::ELSE_CLAUSE) {
+                os << pad() << "  ElseClause:\n";
+                child->print(os, indent + 2);
+            } else {
+                child->print(os, indent + 1);
+            }
         }
     }
 };
 
-class WhileStatement : public ASTNode {
+class WhileStatement : public ControlStatement {
 public:
     ExpressionNode* condition;
     ASTNode* body;
 
-    WhileStatement(ASTNode* parent) : ASTNode(parent), condition(nullptr), body(nullptr) {
-        nodeType = ASTNodeType::WHILE_STATEMENT;
+    WhileStatement(ASTNode* parent) : ControlStatement(parent, ASTNodeType::WHILE_STATEMENT), condition(nullptr), body(nullptr) {
     }
 
     void print(std::ostream& os, int indent) const override {
@@ -750,6 +791,73 @@ public:
     }
 };
 
+class GenericTypeParametersNode : public ASTNode {
+public:
+    std::vector<std::string> parameters;
+
+    GenericTypeParametersNode(ASTNode* parent) : ASTNode(parent) {
+        nodeType = ASTNodeType::GENERIC_TYPE_PARAMETERS;
+    }
+
+    void addParameter(const std::string& param) {
+        parameters.push_back(param);
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        os << pad() << "GenericTypeParameters";
+        if (!parameters.empty()) {
+            os << "<";
+            for (size_t i = 0; i < parameters.size(); ++i) {
+                if (i > 0) os << ", ";
+                os << parameters[i];
+            }
+            os << ">";
+        }
+        os << "\n";
+    }
+};
+
+class GenericTypeNode : public ASTNode {
+public:
+    std::string baseType;
+    std::vector<ASTNode*> typeArguments;
+
+    GenericTypeNode(ASTNode* parent) : ASTNode(parent) {
+        nodeType = ASTNodeType::GENERIC_TYPE;
+    }
+
+    void addTypeArgument(ASTNode* typeArg) {
+        typeArguments.push_back(typeArg);
+        if (typeArg) {
+            typeArg->parent = this;
+            children.push_back(typeArg);
+        }
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        os << pad() << "GenericType(" << baseType;
+        if (!typeArguments.empty()) {
+            os << "<";
+            for (size_t i = 0; i < typeArguments.size(); ++i) {
+                if (i > 0) os << ", ";
+                // For now, just show the type name - could be improved to show full type
+                if (typeArguments[i] && typeArguments[i]->nodeType == ASTNodeType::TYPE_ANNOTATION) {
+                    auto* typeNode = static_cast<TypeAnnotationNode*>(typeArguments[i]);
+                    static const char* typeMap[] = {"int64","float64","string","raw_memory","object"};
+                    os << typeMap[static_cast<int>(typeNode->dataType)];
+                } else {
+                    os << "type";
+                }
+            }
+            os << ">";
+        }
+        os << ")\n";
+        for (auto child : children) if (child) child->print(os, indent + 1);
+    }
+};
+
 class PlusPlusPostfixExpressionNode : public ExpressionNode {
 public:
     PlusPlusPostfixExpressionNode(ASTNode* parent) : ExpressionNode(parent) {
@@ -909,15 +1017,14 @@ public:
     }
 };
 
-class ForStatement : public ASTNode {
+class ForStatement : public ControlStatement {
 public:
     ASTNode* init;
     ExpressionNode* test;
     ExpressionNode* update;
     ASTNode* body;
 
-    ForStatement(ASTNode* parent) : ASTNode(parent), init(nullptr), test(nullptr), update(nullptr), body(nullptr) {
-        nodeType = ASTNodeType::FOR_STATEMENT;
+    ForStatement(ASTNode* parent) : ControlStatement(parent, ASTNodeType::FOR_STATEMENT), init(nullptr), test(nullptr), update(nullptr), body(nullptr) {
     }
 
     void print(std::ostream& os, int indent) const override {
