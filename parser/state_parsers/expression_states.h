@@ -70,6 +70,18 @@ inline void handleStateExpressionExpectOperand(ParserContext& ctx, char c) {
         ctx.state = STATE::EXPRESSION_MINUS;
     } else if (c == '+') {
         ctx.state = STATE::EXPRESSION_PLUS;
+    } else if (c == '[') {
+        // Array literal
+        auto* arrayNode = new ArrayLiteralNode(ctx.currentNode);
+        addExpressionOperand(ctx, arrayNode);
+        ctx.currentNode = arrayNode;
+        ctx.state = STATE::ARRAY_LITERAL_START;
+    } else if (c == '{') {
+        // Object literal
+        auto* objectNode = new ObjectLiteralNode(ctx.currentNode);
+        addExpressionOperand(ctx, objectNode);
+        ctx.currentNode = objectNode;
+        ctx.state = STATE::OBJECT_LITERAL_START;
     } else if (isIdentifierStart(c)) {
         ctx.stringStart = ctx.index;
         ctx.state = STATE::EXPRESSION_IDENTIFIER;
@@ -169,6 +181,20 @@ inline void handleStateExpressionPlus(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateExpressionMinus(ParserContext&, char) {
-    throw std::runtime_error("Minus state handler not implemented");
+inline void handleStateExpressionMinus(ParserContext& ctx, char c) {
+    if (c == '-') {
+        ctx.stringStart = ctx.index;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        auto* minusMinusPrefixNode = new MinusMinusPrefixExpressionNode(nullptr);
+        addExpressionOperand(ctx, minusMinusPrefixNode);
+        ctx.state = STATE::IDENTIFIER_NAME;
+    } else if (std::isspace(static_cast<unsigned char>(c))) {
+        return;
+    } else if (isIdentifierStart(c)) {
+        ctx.stringStart = ctx.index;
+        ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;
+        applyExpressionOperator(ctx, BinaryExpressionOperator::OP_SUBTRACT);
+    } else {
+        throw std::runtime_error("Expected '-' for '--' operator");
+    }
 }

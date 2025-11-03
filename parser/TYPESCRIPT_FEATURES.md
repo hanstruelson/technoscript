@@ -99,7 +99,8 @@ This document tracks the implementation progress of TypeScript language features
 ## 5. Generics
 
 ### Generic Types
-- ❌ **Generic functions** - Functions with type parameters
+- ❌ **Generic functions*
+* - Functions with type parameters
 - ❌ **Generic interfaces** - Interfaces with type parameters
 - ❌ **Generic classes** - Classes with type parameters
 - ❌ **Generic type aliases** - Type aliases with generics
@@ -166,12 +167,12 @@ This document tracks the implementation progress of TypeScript language features
 - ❌ **Spread syntax** - ... for arrays and objects
 
 ### Statements
-- ❌ **if/else statements** - Conditional execution
+- ✅ **if/else statements** - Conditional execution
 - ❌ **switch statements** - Multi-case conditionals
 - ❌ **for loops** - Traditional for loops
 - ❌ **for...of loops** - Iterating over iterables
 - ❌ **for...in loops** - Iterating over object properties
-- ❌ **while loops** - While condition loops
+- ✅ **while loops** - While condition loops
 - ❌ **do...while loops** - Do-while condition loops
 - ❌ **try/catch/finally** - Exception handling
 - ❌ **throw statements** - Throwing exceptions
@@ -183,8 +184,8 @@ This document tracks the implementation progress of TypeScript language features
 ### Primary Expressions
 - ✅ **Literals** - String, number, boolean literals
 - ✅ **Identifiers** - Variable and property names
-- ❌ **Array literals** - [1, 2, 3] syntax
-- ❌ **Object literals** - {a: 1, b: 2} syntax
+- ✅ **Array literals** - [1, 2, 3] syntax
+- ✅ **Object literals** - {a: 1, b: 2} syntax
 - ❌ **Function expressions** - function() {} syntax
 - ❌ **Class expressions** - class {} syntax
 - ❌ **Regular expressions** - /pattern/ syntax
@@ -258,7 +259,7 @@ This document tracks the implementation progress of TypeScript language features
 - ❌ **yield expressions** - yield value
 - ❌ **Generator type** - Generator<T, U, V>
 
-## 13. JSX Support
+## 13. JSX Support - WILL NOT DO
 
 ### JSX Elements
 - ❌ **JSX elements** - <div>Hello</div>
@@ -302,12 +303,16 @@ This document tracks the implementation progress of TypeScript language features
 
 ## Implementation Status Summary
 
-### Currently Implemented (5 features)
+### Currently Implemented (9 features)
 - Basic variable declarations (var, let, const)
 - Basic primitive types (number as int64/float64, string, object)
 - Basic expressions and operators (+, -, *, /, %)
 - Prefix increment operator (++x)
 - Function declarations (named functions with parameters)
+- Array literals ([1, 2, 3] syntax)
+- Object literals ({a: 1, b: 2} syntax)
+- if/else statements (conditional execution)
+- while loops (while condition loops)
 
 ### Partially Implemented (0 features)
 - None

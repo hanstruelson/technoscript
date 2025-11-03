@@ -13,20 +13,89 @@ void handleStateExpressionMinus(ParserContext& ctx, char c);
 
 inline bool handlePostOperand(ParserContext& ctx, char c) {
     if (std::isspace(static_cast<unsigned char>(c))) {
-        
+
     } else if (c == ')') {
+        // Check if we're closing an if or while condition
+        auto* node = ctx.currentNode;
+        while (node) {
+            if (node->nodeType == ASTNodeType::IF_STATEMENT) {
+                // Closing if condition, move to consequent
+                ctx.currentNode = node;
+                ctx.state = STATE::IF_CONSEQUENT;
+                return false;
+            } else if (node->nodeType == ASTNodeType::WHILE_STATEMENT) {
+                // Closing while condition, move to body
+                ctx.currentNode = node;
+                ctx.state = STATE::WHILE_BODY;
+                return false;
+            }
+            node = node->parent;
+        }
+        // Regular parenthesis closing
         ParenthesisExpressionNode::closeParenthesis(ctx);
     } else if (c == '+') {
-        handleStateExpressionPlus(ctx, c);
+        auto* binaryNode = new BinaryExpressionNode(ctx.currentNode->parent, BinaryExpressionOperator::OP_ADD);
+        binaryNode->setLeft(static_cast<ExpressionNode*>(ctx.currentNode));
+        ctx.currentNode->parent->children.back() = binaryNode;
+        ctx.currentNode = binaryNode;
+        ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;
     } else if (c == '-') {
-        handleStateExpressionMinus(ctx, c);
+        auto* binaryNode = new BinaryExpressionNode(ctx.currentNode->parent, BinaryExpressionOperator::OP_SUBTRACT);
+        binaryNode->setLeft(static_cast<ExpressionNode*>(ctx.currentNode));
+        ctx.currentNode->parent->children.back() = binaryNode;
+        ctx.currentNode = binaryNode;
+        ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;
     }
     // else if (c == '*') {
     //     handleStateExpressionAsterisk(ctx, BinaryExpressionOperator::OP_MULTIPLY);
     // } else if (c == '/') {
     //     handleStateExpressionSlash(ctx, BinaryExpressionOperator::OP_DIVIDE);
-    // } 
-    else if (c == ';') {
+    // }
+    else if (c == ',') {
+        // Check if we're in an array or object literal context
+        auto* node = ctx.currentNode;
+        while (node) {
+            if (node->nodeType == ASTNodeType::ARRAY_LITERAL) {
+                // Array element separator
+                ctx.currentNode = node;
+                ctx.state = STATE::ARRAY_LITERAL_SEPARATOR;
+                return false;
+            } else if (node->nodeType == ASTNodeType::OBJECT_LITERAL) {
+                // Object property separator
+                ctx.currentNode = node;
+                ctx.state = STATE::OBJECT_LITERAL_SEPARATOR;
+                return false;
+            }
+            node = node->parent;
+        }
+        return true; // Not handled
+    } else if (c == ']') {
+        // Check if we're in an array literal context
+        auto* node = ctx.currentNode;
+        while (node) {
+            if (node->nodeType == ASTNodeType::ARRAY_LITERAL) {
+                // End of array
+                ctx.currentNode = node;
+                ctx.state = STATE::EXPRESSION_AFTER_OPERAND;
+                return false;
+            }
+            node = node->parent;
+        }
+        return true; // Not handled
+    } else if (c == '}') {
+        // Check if we're in an object literal context
+        auto* node = ctx.currentNode;
+        while (node) {
+            if (node->nodeType == ASTNodeType::OBJECT_LITERAL) {
+                // End of object
+                ctx.currentNode = node;
+                ctx.state = STATE::EXPRESSION_AFTER_OPERAND;
+                return false;
+            }
+            node = node->parent;
+        }
+        return true; // Not handled
+    } else if (c == ';') {
         closeExpression(ctx, c);
         if (ctx.currentNode && ctx.currentNode->parent) {
             ctx.currentNode = ctx.currentNode->parent;

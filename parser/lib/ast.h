@@ -17,6 +17,7 @@ enum ASTNodeType {
     LITERAL_EXPRESSION,
     IDENTIFIER_EXPRESSION,
     PLUS_PLUS_PREFIX_EXPRESSION,
+    MINUS_MINUS_PREFIX_EXPRESSION,
     PARENTHESIS_EXPRESSION,
     FUNCTION_DECLARATION,
     FUNCTION_EXPRESSION,
@@ -25,7 +26,10 @@ enum ASTNodeType {
     PARAMETER,
     ARRAY_LITERAL,
     OBJECT_LITERAL,
-    PROPERTY
+    PROPERTY,
+    IF_STATEMENT,
+    WHILE_STATEMENT,
+    BLOCK_STATEMENT
 };
 
 class ASTNode {
@@ -175,6 +179,20 @@ public:
     void print(std::ostream& os, int indent) const override {
         auto pad=[indent](){return string(indent*2,' ');};
         os<<pad()<<"PlusPlusPrefix("<<identifier<<")\n";
+    }
+};
+
+class MinusMinusPrefixExpressionNode : public ExpressionNode {
+public:
+    std::string identifier;
+
+    MinusMinusPrefixExpressionNode(ASTNode* parent) : ExpressionNode(parent) {
+        nodeType = ASTNodeType::MINUS_MINUS_PREFIX_EXPRESSION;
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad=[indent](){return string(indent*2,' ');};
+        os<<pad()<<"MinusMinusPrefix("<<identifier<<")\n";
     }
 };
 
@@ -417,5 +435,141 @@ public:
             os << typeMap[static_cast<int>(returnType->dataType)] << "\n";
         }
         if (body) body->print(os, indent + 1);
+    }
+};
+
+class ArrayLiteralNode : public ExpressionNode {
+public:
+    std::vector<ExpressionNode*> elements;
+
+    ArrayLiteralNode(ASTNode* parent) : ExpressionNode(parent) {
+        nodeType = ASTNodeType::ARRAY_LITERAL;
+    }
+
+    void addElement(ExpressionNode* element) {
+        elements.push_back(element);
+        if (element) {
+            element->parent = this;
+            children.push_back(element);
+        }
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        os << pad() << "ArrayLiteral\n";
+        for (auto element : elements) if (element) element->print(os, indent + 1);
+    }
+};
+
+class PropertyNode : public ASTNode {
+public:
+    std::string key;
+    ExpressionNode* value;
+
+    PropertyNode(ASTNode* parent) : ASTNode(parent), value(nullptr) {
+        nodeType = ASTNodeType::PROPERTY;
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        os << pad() << "Property(" << key << ")\n";
+        if (value) value->print(os, indent + 1);
+    }
+};
+
+class ObjectLiteralNode : public ExpressionNode {
+public:
+    std::vector<PropertyNode*> properties;
+
+    ObjectLiteralNode(ASTNode* parent) : ExpressionNode(parent) {
+        nodeType = ASTNodeType::OBJECT_LITERAL;
+    }
+
+    void addProperty(PropertyNode* property) {
+        properties.push_back(property);
+        if (property) {
+            property->parent = this;
+            children.push_back(property);
+        }
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        os << pad() << "ObjectLiteral\n";
+        for (auto property : properties) if (property) property->print(os, indent + 1);
+    }
+};
+
+class BlockStatement : public ASTNode {
+public:
+    std::vector<ASTNode*> statements;
+
+    BlockStatement(ASTNode* parent) : ASTNode(parent) {
+        nodeType = ASTNodeType::BLOCK_STATEMENT;
+    }
+
+    void addStatement(ASTNode* statement) {
+        statements.push_back(statement);
+        if (statement) {
+            statement->parent = this;
+            children.push_back(statement);
+        }
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        os << pad() << "BlockStatement\n";
+        for (auto statement : statements) if (statement) statement->print(os, indent + 1);
+    }
+};
+
+class IfStatement : public ASTNode {
+public:
+    ExpressionNode* condition;
+    ASTNode* consequent;
+    ASTNode* alternate;
+
+    IfStatement(ASTNode* parent) : ASTNode(parent), condition(nullptr), consequent(nullptr), alternate(nullptr) {
+        nodeType = ASTNodeType::IF_STATEMENT;
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        os << pad() << "IfStatement\n";
+        if (condition) {
+            os << pad() << "  Condition:\n";
+            condition->print(os, indent + 2);
+        }
+        if (consequent) {
+            os << pad() << "  Consequent:\n";
+            consequent->print(os, indent + 2);
+        }
+        if (alternate) {
+            os << pad() << "  Alternate:\n";
+            alternate->print(os, indent + 2);
+        }
+    }
+};
+
+class WhileStatement : public ASTNode {
+public:
+    ExpressionNode* condition;
+    ASTNode* body;
+
+    WhileStatement(ASTNode* parent) : ASTNode(parent), condition(nullptr), body(nullptr) {
+        nodeType = ASTNodeType::WHILE_STATEMENT;
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        os << pad() << "WhileStatement\n";
+        if (condition) {
+            os << pad() << "  Condition:\n";
+            condition->print(os, indent + 2);
+        }
+        if (body) {
+            os << pad() << "  Body:\n";
+            body->print(os, indent + 2);
+        }
     }
 };

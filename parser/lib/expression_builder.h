@@ -19,8 +19,10 @@ inline void addExpressionOperand(ParserContext& ctx, ExpressionNode* operand) {
         auto* binaryNode = static_cast<BinaryExpressionNode*>(currentNode);
         if (binaryNode->children[0] == nullptr) {
             binaryNode->children[0] = operand;
+            operand->parent = currentNode;
         } else if (binaryNode->children[1] == nullptr) {
             binaryNode->children[1] = operand;
+            operand->parent = currentNode;
         } else {
             throw std::runtime_error("need to check order of operations");
         }

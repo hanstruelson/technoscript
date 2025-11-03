@@ -5,6 +5,8 @@ CXXFLAGS = -std=c++17 -Wall -Wextra -Wno-unused-parameter -O0 -g -I.
 SOURCES = parser.cpp
 TARGET = parser
 
+all: clean $(TARGET)
+
 $(TARGET): $(SOURCES)
 	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SOURCES) $(LDFLAGS)
 

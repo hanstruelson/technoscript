@@ -40,6 +40,7 @@ inline void parse(const std::string& code) {
     for (std::size_t i = 0; i < code.length(); ++i) {
         try {
             char c = code[i];
+            std::cout << c;
             ctx.index = i;
             switch (ctx.state) {
                 case STATE::NONE:
@@ -81,27 +82,7 @@ inline void parse(const std::string& code) {
                 case STATE::NONE_F:
                     handleStateNoneF(ctx, c);
                     break;
-                case STATE::NONE_FU:
-                    handleStateNoneFU(ctx, c);
-                    break;
-                case STATE::NONE_FUN:
-                    handleStateNoneFUN(ctx, c);
-                    break;
-                case STATE::NONE_FUNC:
-                    handleStateNoneFUNC(ctx, c);
-                    break;
-                case STATE::NONE_FUNCT:
-                    handleStateNoneFUNCT(ctx, c);
-                    break;
-                case STATE::NONE_FUNCTI:
-                    handleStateNoneFUNCTI(ctx, c);
-                    break;
-                case STATE::NONE_FUNCTIO:
-                    handleStateNoneFUNCTIO(ctx, c);
-                    break;
-                case STATE::NONE_FUNCTION:
-                    handleStateNoneFUNCTION(ctx, c);
-                    break;
+
                 case STATE::EXPECT_IDENTIFIER:
                     handleStateExpectIdentifier(ctx, c);
                     break;
@@ -197,6 +178,72 @@ inline void parse(const std::string& code) {
                     break;
                 case STATE::ARROW_FUNCTION_BODY:
                     handleStateArrowFunctionBody(ctx, c);
+                    break;
+                case STATE::ARRAY_LITERAL_START:
+                    handleStateArrayLiteralStart(ctx, c);
+                    break;
+                case STATE::ARRAY_LITERAL_ELEMENT:
+                    handleStateArrayLiteralElement(ctx, c);
+                    break;
+                case STATE::ARRAY_LITERAL_SEPARATOR:
+                    handleStateArrayLiteralSeparator(ctx, c);
+                    break;
+                case STATE::OBJECT_LITERAL_START:
+                    handleStateObjectLiteralStart(ctx, c);
+                    break;
+                case STATE::OBJECT_LITERAL_PROPERTY_KEY:
+                    handleStateObjectLiteralPropertyKey(ctx, c);
+                    break;
+                case STATE::OBJECT_LITERAL_PROPERTY_COLON:
+                    handleStateObjectLiteralPropertyColon(ctx, c);
+                    break;
+                case STATE::OBJECT_LITERAL_PROPERTY_VALUE:
+                    handleStateObjectLiteralPropertyValue(ctx, c);
+                    break;
+                case STATE::OBJECT_LITERAL_SEPARATOR:
+                    handleStateObjectLiteralSeparator(ctx, c);
+                    break;
+                case STATE::NONE_I:
+                    handleStateNoneI(ctx, c);
+                    break;
+                case STATE::IF_CONDITION_START:
+                    handleStateIfConditionStart(ctx, c);
+                    break;
+                case STATE::IF_CONSEQUENT:
+                    handleStateIfConsequent(ctx, c);
+                    break;
+                case STATE::IF_ALTERNATE_START:
+                    handleStateIfAlternateStart(ctx, c);
+                    break;
+                case STATE::IF_ALTERNATE:
+                    handleStateIfAlternate(ctx, c);
+                    break;
+                case STATE::BLOCK_STATEMENT_START:
+                    handleStateBlockStatementStart(ctx, c);
+                    break;
+                case STATE::BLOCK_STATEMENT_BODY:
+                    handleStateBlockStatementBody(ctx, c);
+                    break;
+                case STATE::NONE_W:
+                    handleStateNoneW(ctx, c);
+                    break;
+                case STATE::NONE_WH:
+                    handleStateNoneWH(ctx, c);
+                    break;
+                case STATE::NONE_WHI:
+                    handleStateNoneWHI(ctx, c);
+                    break;
+                case STATE::NONE_WHIL:
+                    handleStateNoneWHIL(ctx, c);
+                    break;
+                case STATE::NONE_WHILE:
+                    handleStateNoneWHILE(ctx, c);
+                    break;
+                case STATE::WHILE_CONDITION_START:
+                    handleStateWhileConditionStart(ctx, c);
+                    break;
+                case STATE::WHILE_BODY:
+                    handleStateWhileBody(ctx, c);
                     break;
             }
         } catch (const std::exception& e) {
