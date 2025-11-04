@@ -31,6 +31,116 @@ inline void ParenthesisExpressionNode::closeParenthesis(ParserContext& ctx) {
 }
 
 inline void handleStateExpressionAfterOperand(ParserContext& ctx, char c) {
+    // Check if we're parsing an enum member initializer and see ',' or '}'
+    auto* enumMemberNode = ctx.currentNode;
+    while (enumMemberNode && enumMemberNode->nodeType != ASTNodeType::ENUM_MEMBER) {
+        enumMemberNode = enumMemberNode->parent;
+    }
+    if ((c == ',' || c == '}') && enumMemberNode) {
+        auto* enumMember = static_cast<EnumMemberNode*>(enumMemberNode);
+        // The current expression should be the initializer
+        if (enumMember->children.size() == 1 && enumMember->children[0]->nodeType == ASTNodeType::EXPRESSION) {
+            auto* expr = static_cast<ExpressionNode*>(enumMember->children[0]);
+            if (expr->children.size() == 1) {
+                enumMember->initializer = static_cast<ExpressionNode*>(expr->children[0]);
+                // Remove from expression wrapper
+                expr->children.clear();
+            }
+        }
+        // Move back to enum declaration
+        ctx.currentNode = enumMemberNode->parent;
+        if (c == ',') {
+            ctx.state = STATE::ENUM_MEMBER_SEPARATOR;
+        } else {
+            // End of enum
+            ctx.state = STATE::NONE;
+        }
+        // Re-process this character in the new state
+        ctx.index--;
+        return;
+    }
+
+    // Check if we're parsing a parameter pattern and see ':'
+    if (c == ':' && ctx.currentNode && ctx.currentNode->parent &&
+        ctx.currentNode->parent->nodeType == ASTNodeType::PARAMETER) {
+        auto* param = static_cast<ParameterNode*>(ctx.currentNode->parent);
+        if (!param->pattern) {
+            // We're parsing the parameter pattern
+            param->pattern = ctx.currentNode;
+        }
+        // Move back to parameter
+        ctx.currentNode = param;
+        ctx.state = STATE::FUNCTION_PARAMETER_TYPE_ANNOTATION;
+        return;
+    }
+
+    // Check if we're parsing a parameter pattern or default value and see ',' or ')'
+    if ((c == ',' || c == ')') && ctx.currentNode && ctx.currentNode->parent &&
+        ctx.currentNode->parent->nodeType == ASTNodeType::PARAMETER) {
+        auto* param = static_cast<ParameterNode*>(ctx.currentNode->parent);
+        if (!param->pattern) {
+            // We're parsing the parameter pattern
+            param->pattern = ctx.currentNode;
+        } else {
+            // We're parsing a default value
+            param->defaultValue = ctx.currentNode;
+        }
+        // Move back to parameter list
+        ctx.currentNode = param->parent;
+        if (c == ',') {
+            ctx.state = STATE::FUNCTION_PARAMETER_SEPARATOR;
+        } else {
+            ctx.state = STATE::FUNCTION_PARAMETERS_END;
+        }
+        return;
+    }
+
+    // Check if we're inside template literal interpolation and see '}'
+    if (c == '}') {
+        auto* node = ctx.currentNode;
+        while (node) {
+            if (node->nodeType == ASTNodeType::TEMPLATE_LITERAL) {
+                // We're inside template literal, treat '}' as end of interpolation
+                auto* templateNode = node;
+                // Add the current expression to the template literal
+                if (ctx.currentNode && dynamic_cast<ExpressionNode*>(ctx.currentNode)) {
+                    static_cast<TemplateLiteralNode*>(templateNode)->addExpression(static_cast<ExpressionNode*>(ctx.currentNode));
+                }
+                // Move current node back to template literal
+                ctx.currentNode = templateNode;
+                // Update stringStart for the next quasi
+                ctx.stringStart = ctx.index;
+                ctx.state = STATE::EXPRESSION_TEMPLATE_LITERAL;
+                return;
+            }
+            node = node->parent;
+        }
+    }
+
+    // Check if the current node is an identifier "await" - if so, convert to await expression
+    if (ctx.currentNode && ctx.currentNode->nodeType == ASTNodeType::IDENTIFIER_EXPRESSION) {
+        auto* identNode = static_cast<IdentifierExpressionNode*>(ctx.currentNode);
+        if (identNode->name == "await") {
+            // Convert identifier to await expression
+            auto* awaitNode = new AwaitExpressionNode(ctx.currentNode->parent);
+            // Replace in parent's children
+            if (ctx.currentNode->parent) {
+                auto& siblings = ctx.currentNode->parent->children;
+                auto it = std::find(siblings.begin(), siblings.end(), ctx.currentNode);
+                if (it != siblings.end()) {
+                    *it = awaitNode;
+                }
+            }
+            // Don't delete the identifier node, just replace it
+            ctx.currentNode = awaitNode;
+            // Set state to expect the awaited expression
+            ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;
+            // Re-process this character
+            ctx.index--;
+            return;
+        }
+    }
+
     if (c == '\n') {
         ctx.state = STATE::EXPRESSION_AFTER_OPERAND_NEW_LINE;
     } else if (handlePostOperand(ctx, c)) {
@@ -250,7 +360,7 @@ inline void handleStateExpressionTemplateLiteralStart(ParserContext& ctx, char c
 inline void handleStateExpressionTemplateLiteral(ParserContext& ctx, char c) {
     if (c == '\\') {
         ctx.state = STATE::EXPRESSION_TEMPLATE_LITERAL_ESCAPE;
-    } else if (c == '$' && ctx.index + 1 < ctx.code.length() && ctx.code[ctx.index + 1] == '{') {
+    } else if (c == '$' && ctx.index < ctx.code.length() && ctx.code[ctx.index] == '{') {
         // End of current quasi, start interpolation
         std::string quasi = ctx.code.substr(ctx.stringStart + 1, ctx.index - ctx.stringStart - 1);
         static_cast<TemplateLiteralNode*>(ctx.currentNode)->addQuasi(quasi);

@@ -39,19 +39,10 @@ inline void handleStateExportSource(ParserContext& ctx, char c);
 inline void handleStateExportSourceEnd(ParserContext& ctx, char c);
 inline void handleStateExportDefault(ParserContext& ctx, char c);
 inline void handleStateExportAll(ParserContext& ctx, char c);
+inline void handleStateExportDeclaration(ParserContext& ctx, char c);
 
-// Import keyword detection - starting from 'i'
-inline void handleStateNoneI(ParserContext& ctx, char c) {
-    if (c == 'm') {
-        // "import" - continue with import parsing
-        ctx.state = STATE::NONE_IM;
-    } else if (c == 'n') {
-        // "interface" - continue with interface parsing
-        ctx.state = STATE::NONE_IN;
-    } else {
-        throw std::runtime_error("Unexpected character after 'i': " + std::string(1, c));
-    }
-}
+// Note: handleStateNoneI is defined in control_flow_states.h
+// Note: handleStateNoneE is defined in common_states.h
 
 // Import keyword continuation
 inline void handleStateNoneIM(ParserContext& ctx, char c) {
@@ -105,6 +96,7 @@ inline void handleStateNoneIMPORT(ParserContext& ctx, char c) {
 inline void handleStateImportSpecifiersStart(ParserContext& ctx, char c) {
     if (c == '{') {
         // Named imports: import { x, y } from 'module'
+        ctx.stringStart = ctx.index + 1; // Next character starts the first specifier name
         ctx.state = STATE::IMPORT_SPECIFIER_NAME;
     } else if (c == '*') {
         // Namespace import: import * as name from 'module'
@@ -116,6 +108,7 @@ inline void handleStateImportSpecifiersStart(ParserContext& ctx, char c) {
         ctx.state = STATE::IMPORT_SPECIFIER_AS;
     } else if (isalpha(c) || c == '_') {
         // Default import: import name from 'module' or import name, { x } from 'module'
+        ctx.stringStart = ctx.index; // Start of identifier
         auto* defaultSpecifier = new ImportDefaultSpecifier(ctx.currentNode);
         defaultSpecifier->local = std::string(1, c);
         if (auto* importDecl = dynamic_cast<ImportDeclaration*>(ctx.currentNode)) {
@@ -183,32 +176,47 @@ inline void handleStateImportSpecifierName(ParserContext& ctx, char c) {
 // Import specifier "as" keyword
 inline void handleStateImportSpecifierAs(ParserContext& ctx, char c) {
     if (c == 'a') {
-        // Start of "as"
+        // Start of "as" - expect 's' next
         return;
     } else if (c == 's') {
         // End of "as"
         ctx.state = STATE::IMPORT_SPECIFIER_LOCAL_NAME;
+        ctx.stringStart = ctx.index + 1; // Next identifier starts after 's'
+    } else if (c == 'f' && ctx.code.substr(ctx.index, 3) == "rom") {
+        // "from" keyword (f already consumed, check for "rom")
+        ctx.state = STATE::IMPORT_FROM;
+        ctx.index += 3; // Skip "rom"
+    } else if (std::isspace(static_cast<unsigned char>(c))) {
+        // Skip whitespace
+        return;
     } else {
-        throw std::runtime_error("Expected 'as' keyword: " + std::string(1, c));
+        throw std::runtime_error("Expected 'as' or 'from' after '*': " + std::string(1, c));
     }
 }
 
 // Import specifier local name
 inline void handleStateImportSpecifierLocalName(ParserContext& ctx, char c) {
-    if (isalnum(c) || c == '_') {
+    if (std::isspace(static_cast<unsigned char>(c))) {
+        // Skip whitespace
+        return;
+    } else if (isalnum(c) || c == '_') {
         // Continue building local name
         return;
     } else if (c == ',') {
-        // End of local name
+        // End of local name - for default imports, this means additional specifiers follow
         std::string localName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
         if (auto* specifier = dynamic_cast<ImportSpecifier*>(ctx.currentNode)) {
             specifier->local = localName;
+            ctx.state = STATE::IMPORT_SPECIFIER_SEPARATOR;
         } else if (auto* nsSpecifier = dynamic_cast<ImportNamespaceSpecifier*>(ctx.currentNode)) {
             nsSpecifier->local = localName;
+            ctx.state = STATE::IMPORT_SPECIFIERS_END;
         } else if (auto* defaultSpecifier = dynamic_cast<ImportDefaultSpecifier*>(ctx.currentNode)) {
             defaultSpecifier->local = localName;
+            // For default imports, comma means additional specifiers
+            ctx.currentNode = ctx.currentNode->parent; // Go back to ImportDeclaration
+            ctx.state = STATE::IMPORT_SPECIFIERS_START;
         }
-        ctx.state = STATE::IMPORT_SPECIFIER_SEPARATOR;
     } else if (c == '}') {
         // End of local name
         std::string localName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
@@ -220,10 +228,30 @@ inline void handleStateImportSpecifierLocalName(ParserContext& ctx, char c) {
             defaultSpecifier->local = localName;
         }
         ctx.state = STATE::IMPORT_SPECIFIERS_END;
-    } else if (c == 'f' && ctx.code.substr(ctx.index - 1, 4) == "from") {
-        // "from" keyword
+    } else if (c == 'f' && ctx.code.substr(ctx.index, 3) == "rom") {
+        // "from" keyword (f already consumed)
+        std::string localName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
+        if (auto* specifier = dynamic_cast<ImportSpecifier*>(ctx.currentNode)) {
+            specifier->local = localName;
+        } else if (auto* nsSpecifier = dynamic_cast<ImportNamespaceSpecifier*>(ctx.currentNode)) {
+            nsSpecifier->local = localName;
+        } else if (auto* defaultSpecifier = dynamic_cast<ImportDefaultSpecifier*>(ctx.currentNode)) {
+            defaultSpecifier->local = localName;
+        }
         ctx.state = STATE::IMPORT_FROM;
-        ctx.index += 3; // Skip "from"
+        ctx.index += 3; // Skip "rom"
+    } else if (c == '"' || c == '\'') {
+        // Start of source string (no "from" keyword for side-effect imports)
+        std::string localName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
+        if (auto* specifier = dynamic_cast<ImportSpecifier*>(ctx.currentNode)) {
+            specifier->local = localName;
+        } else if (auto* nsSpecifier = dynamic_cast<ImportNamespaceSpecifier*>(ctx.currentNode)) {
+            nsSpecifier->local = localName;
+        } else if (auto* defaultSpecifier = dynamic_cast<ImportDefaultSpecifier*>(ctx.currentNode)) {
+            defaultSpecifier->local = localName;
+        }
+        ctx.state = STATE::IMPORT_SOURCE_START;
+        ctx.index--; // Re-process this character
     } else {
         throw std::runtime_error("Unexpected character in import specifier local name: " + std::string(1, c));
     }
@@ -250,7 +278,7 @@ inline void handleStateImportSpecifiersEnd(ParserContext& ctx, char c) {
     if (c == 'f' && ctx.code.substr(ctx.index - 1, 4) == "from") {
         // "from" keyword
         ctx.state = STATE::IMPORT_FROM;
-        ctx.index += 3; // Skip "from"
+        ctx.index--; // Re-process this character
     } else if (c == ',') {
         // Additional specifiers after default import
         ctx.state = STATE::IMPORT_SPECIFIERS_START;
@@ -267,6 +295,12 @@ inline void handleStateImportFrom(ParserContext& ctx, char c) {
     if (c == 'f') {
         // Start of "from"
         return;
+    } else if (c == 'r') {
+        // Second character of "from"
+        return;
+    } else if (c == 'o') {
+        // Third character of "from"
+        return;
     } else if (c == 'm') {
         // End of "from"
         ctx.state = STATE::IMPORT_SOURCE_START;
@@ -279,6 +313,7 @@ inline void handleStateImportFrom(ParserContext& ctx, char c) {
 inline void handleStateImportSourceStart(ParserContext& ctx, char c) {
     if (c == '"' || c == '\'') {
         ctx.quoteChar = c;
+        ctx.stringStart = ctx.index + 1; // Start of string content
         ctx.state = STATE::IMPORT_SOURCE;
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace
@@ -320,18 +355,7 @@ inline void handleStateImportSourceEnd(ParserContext& ctx, char c) {
     }
 }
 
-// Export keyword detection - starting from 'e'
-inline void handleStateNoneE(ParserContext& ctx, char c) {
-    if (c == 'x') {
-        // "export" - continue with export parsing
-        ctx.state = STATE::NONE_EX;
-    } else if (c == 'l') {
-        // "else" - continue with else parsing
-        ctx.state = STATE::NONE_EL;
-    } else {
-        throw std::runtime_error("Unexpected character after 'e': " + std::string(1, c));
-    }
-}
+// Note: handleStateNoneE is defined in common_states.h
 
 // Export keyword continuation
 inline void handleStateNoneEX(ParserContext& ctx, char c) {
@@ -385,6 +409,7 @@ inline void handleStateExportSpecifiersStart(ParserContext& ctx, char c) {
         auto* exportDecl = new ExportNamedDeclaration(ctx.currentNode);
         ctx.currentNode->children.push_back(exportDecl);
         ctx.currentNode = exportDecl;
+        ctx.stringStart = ctx.index + 1; // Next character starts the first specifier name
         ctx.state = STATE::EXPORT_SPECIFIER_NAME;
     } else if (c == '*') {
         // Re-export all: export * from 'module'
@@ -396,31 +421,65 @@ inline void handleStateExportSpecifiersStart(ParserContext& ctx, char c) {
         // Export default
         ctx.state = STATE::EXPORT_DEFAULT;
         ctx.index += 6; // Skip "default"
-    } else if (c == 'c' && ctx.code.substr(ctx.index, 5) == "const") {
-        // Export const declaration
-        ctx.state = STATE::NONE_C;
-        // Re-process this character
-        ctx.index--;
-    } else if (c == 'l' && ctx.code.substr(ctx.index, 3) == "let") {
+    } else if (c == 'c') {
+        // Could be "const" or "class"
+        if (ctx.code.substr(ctx.index - 1, 5) == "const") {
+            // Export const declaration
+            ctx.index += 4; // Skip "onst"
+            auto* exportDecl = new ExportNamedDeclaration(ctx.currentNode);
+            ctx.currentNode->children.push_back(exportDecl);
+            ctx.currentNode = exportDecl;
+            // Create const variable inside export
+            auto* varDecl = new VariableDefinitionNode(exportDecl, VariableDefinitionType::CONST);
+            exportDecl->children.push_back(varDecl);
+            ctx.currentNode = varDecl;
+            ctx.state = STATE::EXPECT_IDENTIFIER;
+        } else if (ctx.code.substr(ctx.index - 1, 5) == "class") {
+            // Export class declaration
+            ctx.index += 4; // Skip "lass"
+            auto* exportDecl = new ExportNamedDeclaration(ctx.currentNode);
+            ctx.currentNode->children.push_back(exportDecl);
+            ctx.currentNode = exportDecl;
+            // Create class inside export
+            auto* classDecl = new ClassDeclarationNode(exportDecl);
+            exportDecl->children.push_back(classDecl);
+            ctx.currentNode = classDecl;
+            ctx.state = STATE::CLASS_DECLARATION_NAME;
+        } else {
+            throw std::runtime_error("Unexpected token after 'export c': " + ctx.code.substr(ctx.index - 1, 5));
+        }
+    } else if (c == 'l' && ctx.code.substr(ctx.index, 2) == "et") {
         // Export let declaration
-        ctx.state = STATE::NONE_L;
+        ctx.state = STATE::EXPORT_DECLARATION;
         // Re-process this character
         ctx.index--;
-    } else if (c == 'v' && ctx.code.substr(ctx.index, 3) == "var") {
+    } else if (c == 'v' && ctx.code.substr(ctx.index, 2) == "ar") {
         // Export var declaration
-        ctx.state = STATE::NONE_V;
+        ctx.state = STATE::EXPORT_DECLARATION;
         // Re-process this character
         ctx.index--;
-    } else if (c == 'f' && ctx.code.substr(ctx.index, 8) == "function") {
-        // Export function declaration
-        ctx.state = STATE::NONE_F;
-        // Re-process this character
-        ctx.index--;
-    } else if (c == 'c' && ctx.code.substr(ctx.index, 5) == "class") {
-        // Export class declaration
-        ctx.state = STATE::NONE_CL;
-        // Re-process this character
-        ctx.index--;
+    } else if (c == 'f' && ctx.code.substr(ctx.index, 7) == "unction") {
+        // export function declaration
+        ctx.index += 7; // Skip "unction"
+        auto* exportDecl = new ExportNamedDeclaration(ctx.currentNode);
+        ctx.currentNode->children.push_back(exportDecl);
+        ctx.currentNode = exportDecl;
+        // Create function inside export
+        auto* funcDecl = new FunctionDeclarationNode(exportDecl);
+        exportDecl->children.push_back(funcDecl);
+        ctx.currentNode = funcDecl;
+        ctx.state = STATE::FUNCTION_DECLARATION_NAME;
+    } else if (c == 'f') {
+        // export function declaration (already consumed 'f')
+        ctx.index += 6; // Skip "unction" (we've already consumed 'f')
+        auto* exportDecl = new ExportNamedDeclaration(ctx.currentNode);
+        ctx.currentNode->children.push_back(exportDecl);
+        ctx.currentNode = exportDecl;
+        // Create function inside export
+        auto* funcDecl = new FunctionDeclarationNode(exportDecl);
+        exportDecl->children.push_back(funcDecl);
+        ctx.currentNode = funcDecl;
+        ctx.state = STATE::FUNCTION_DECLARATION_NAME;
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace
         return;
@@ -526,5 +585,141 @@ inline void handleStateExportSpecifierSeparator(ParserContext& ctx, char c) {
     }
 }
 
+inline void handleStateExportDefault(ParserContext& ctx, char c) {
+    if (c == ' ') {
+        // Export default declaration
+        auto* exportDecl = new ExportDefaultDeclaration(ctx.currentNode);
+        ctx.currentNode->children.push_back(exportDecl);
+        ctx.currentNode = exportDecl;
+        // For now, just skip to the next state - would need expression parsing
+        ctx.state = STATE::NONE;
+    } else if (std::isspace(static_cast<unsigned char>(c))) {
+        // Skip whitespace
+        return;
+    } else {
+        throw std::runtime_error("Expected space after 'export default': " + std::string(1, c));
+    }
+}
+
+inline void handleStateExportAll(ParserContext& ctx, char c) {
+    if (c == ' ') {
+        // Continue parsing "export * from 'module'" or "export * as name from 'module'"
+        return;
+    } else if (c == 'f' && ctx.code.substr(ctx.index - 1, 4) == "from") {
+        // "from" keyword
+        ctx.state = STATE::EXPORT_FROM;
+        ctx.index += 3; // Skip "from"
+    } else if (c == 'a' && ctx.code.substr(ctx.index - 1, 2) == "as") {
+        // "as" keyword for aliasing
+        ctx.state = STATE::EXPORT_ALL;
+        ctx.index += 1; // Skip "as"
+    } else if (std::isspace(static_cast<unsigned char>(c))) {
+        // Skip whitespace
+        return;
+    } else {
+        throw std::runtime_error("Expected 'from' or 'as' after 'export *': " + std::string(1, c));
+    }
+}
+
+// Export "from" keyword
+inline void handleStateExportFrom(ParserContext& ctx, char c) {
+    if (c == 'f') {
+        // Start of "from"
+        return;
+    } else if (c == 'm') {
+        // End of "from"
+        ctx.state = STATE::EXPORT_SOURCE_START;
+    } else {
+        throw std::runtime_error("Expected 'from' keyword: " + std::string(1, c));
+    }
+}
+
+// Export source start
+inline void handleStateExportSourceStart(ParserContext& ctx, char c) {
+    if (c == '"' || c == '\'') {
+        ctx.quoteChar = c;
+        ctx.state = STATE::EXPORT_SOURCE;
+    } else if (std::isspace(static_cast<unsigned char>(c))) {
+        // Skip whitespace
+        return;
+    } else {
+        throw std::runtime_error("Expected string literal for export source: " + std::string(1, c));
+    }
+}
+
+// Export source
+inline void handleStateExportSource(ParserContext& ctx, char c) {
+    if (c == ctx.quoteChar) {
+        // End of source string
+        std::string source = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
+        if (auto* exportDecl = dynamic_cast<ExportNamedDeclaration*>(ctx.currentNode)) {
+            exportDecl->source = source;
+        } else if (auto* exportAllDecl = dynamic_cast<ExportAllDeclaration*>(ctx.currentNode)) {
+            exportAllDecl->source = source;
+        }
+        ctx.state = STATE::EXPORT_SOURCE_END;
+    } else if (c == '\\') {
+        // Escape sequence - for now just skip
+        ctx.state = STATE::EXPORT_SOURCE;
+    } else {
+        // Continue building source
+        return;
+    }
+}
+
+// Export source end
+inline void handleStateExportSourceEnd(ParserContext& ctx, char c) {
+    if (c == ';') {
+        // End of export statement
+        ctx.currentNode = ctx.currentNode->parent;
+        ctx.state = STATE::NONE;
+    } else if (std::isspace(static_cast<unsigned char>(c))) {
+        // Skip whitespace
+        return;
+    } else {
+        throw std::runtime_error("Expected ';' after export source: " + std::string(1, c));
+    }
+}
+
 // Export specifiers end
 inline void handleStateExportSpecifiersEnd(ParserContext& ctx, char c) {
+    if (c == ';') {
+        // End of export statement
+        ctx.currentNode = ctx.currentNode->parent;
+        ctx.state = STATE::NONE;
+    } else if (std::isspace(static_cast<unsigned char>(c))) {
+        // Skip whitespace
+        return;
+    } else {
+        throw std::runtime_error("Expected ';' after export specifiers: " + std::string(1, c));
+    }
+}
+
+// Export declaration (for let/var)
+inline void handleStateExportDeclaration(ParserContext& ctx, char c) {
+    if (c == 'l' && ctx.code.substr(ctx.index, 2) == "et") {
+        // Export let declaration
+        ctx.index += 2; // Skip "et"
+        auto* exportDecl = new ExportNamedDeclaration(ctx.currentNode);
+        ctx.currentNode->children.push_back(exportDecl);
+        ctx.currentNode = exportDecl;
+        // Create let variable inside export
+        auto* varDecl = new VariableDefinitionNode(exportDecl, VariableDefinitionType::LET);
+        exportDecl->children.push_back(varDecl);
+        ctx.currentNode = varDecl;
+        ctx.state = STATE::EXPECT_IDENTIFIER;
+    } else if (c == 'v' && ctx.code.substr(ctx.index, 2) == "ar") {
+        // Export var declaration
+        ctx.index += 2; // Skip "ar"
+        auto* exportDecl = new ExportNamedDeclaration(ctx.currentNode);
+        ctx.currentNode->children.push_back(exportDecl);
+        ctx.currentNode = exportDecl;
+        // Create var variable inside export
+        auto* varDecl = new VariableDefinitionNode(exportDecl, VariableDefinitionType::VAR);
+        exportDecl->children.push_back(varDecl);
+        ctx.currentNode = varDecl;
+        ctx.state = STATE::EXPECT_IDENTIFIER;
+    } else {
+        throw std::runtime_error("Expected 'let' or 'var' after 'export': " + std::string(1, c));
+    }
+}

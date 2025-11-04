@@ -31,9 +31,9 @@ inline void handleStateExpectEquals(ParserContext& ctx, char c) {
 
 inline void handleStateExpectTypeAnnotation(ParserContext& ctx, char c) {
     if (std::isspace(static_cast<unsigned char>(c))) {
-        
+
     } else if (std::isalnum(static_cast<unsigned char>(c)) != 0 || c == '_') {
-        ctx.stringStart = ctx.index;
+        ctx.stringStart = ctx.index - 1;
         ctx.state = STATE::TYPE_ANNOTATION;
     } else {
         std::cout << "doing await type annotation";
@@ -68,7 +68,7 @@ inline void handleStateTypeAnnotation(ParserContext& ctx, char c) {
 
     if (c == '|') {
         // Union type - create union type node if not already created
-        std::string currentType = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
+        std::string currentType = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
         // Trim trailing whitespace
         currentType.erase(currentType.find_last_not_of(" \t\n\r\f\v") + 1);
 
@@ -107,7 +107,56 @@ inline void handleStateTypeAnnotation(ParserContext& ctx, char c) {
         // Continue parsing next type in union
         ctx.state = STATE::TYPE_ANNOTATION;
         // Skip whitespace after | and set stringStart for next type
-        std::size_t nextStart = ctx.index + 1;
+        std::size_t nextStart = ctx.index;
+        while (nextStart < ctx.code.length() && std::isspace(static_cast<unsigned char>(ctx.code[nextStart]))) {
+            nextStart++;
+        }
+        ctx.stringStart = nextStart;
+        return;
+    }
+
+    if (c == '&') {
+        // Intersection type - create intersection type node if not already created
+        std::string currentType = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
+        // Trim trailing whitespace
+        currentType.erase(currentType.find_last_not_of(" \t\n\r\f\v") + 1);
+
+        // Find the variable definition node
+        ASTNode* current = ctx.currentNode;
+        while (current && current->nodeType != ASTNodeType::VARIABLE_DEFINITION) {
+            current = current->parent;
+        }
+        auto* varDefNode = dynamic_cast<VariableDefinitionNode*>(current);
+        if (!varDefNode) {
+            throw std::runtime_error("Current context is not a VariableDefinitionNode for intersection type");
+        }
+
+        // Create intersection type node if this is the first &
+        if (!varDefNode->typeAnnotation || varDefNode->typeAnnotation->nodeType != ASTNodeType::INTERSECTION_TYPE) {
+            auto* intersectionType = new IntersectionTypeNode(varDefNode);
+            // If there's already a simple type, move it to the intersection
+            if (varDefNode->typeAnnotation) {
+                intersectionType->addType(varDefNode->typeAnnotation);
+                varDefNode->children.clear(); // Remove from children, will be re-added
+            }
+            varDefNode->typeAnnotation = intersectionType;
+            varDefNode->children.push_back(intersectionType);
+        }
+
+        // Add current type to intersection
+        auto* intersectionType = dynamic_cast<IntersectionTypeNode*>(varDefNode->typeAnnotation);
+        auto* typeNode = new TypeAnnotationNode(intersectionType);
+        if (currentType == "int64") {
+            typeNode->dataType = DataType::INT64;
+        } else {
+            throw std::runtime_error("Unknown type annotation: " + currentType);
+        }
+        intersectionType->addType(typeNode);
+
+        // Continue parsing next type in intersection
+        ctx.state = STATE::TYPE_ANNOTATION;
+        // Skip whitespace after & and set stringStart for next type
+        std::size_t nextStart = ctx.index;
         while (nextStart < ctx.code.length() && std::isspace(static_cast<unsigned char>(ctx.code[nextStart]))) {
             nextStart++;
         }
@@ -116,41 +165,112 @@ inline void handleStateTypeAnnotation(ParserContext& ctx, char c) {
     }
 
     // End of type annotation (encountered = or other terminator)
-    std::string typeAnnotation = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
+    std::string typeAnnotation = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
     // Trim trailing whitespace
     typeAnnotation.erase(typeAnnotation.find_last_not_of(" \t\n\r\f\v") + 1);
 
-    // Find the variable definition node
+    // Find the appropriate node (variable definition or function)
     ASTNode* current = ctx.currentNode;
-    while (current && current->nodeType != ASTNodeType::VARIABLE_DEFINITION) {
+    while (current && current->nodeType != ASTNodeType::VARIABLE_DEFINITION &&
+           current->nodeType != ASTNodeType::FUNCTION_DECLARATION &&
+           current->nodeType != ASTNodeType::FUNCTION_EXPRESSION &&
+           current->nodeType != ASTNodeType::ARROW_FUNCTION_EXPRESSION) {
         current = current->parent;
     }
-    auto* varDefNode = dynamic_cast<VariableDefinitionNode*>(current);
-    if (!varDefNode) {
+
+    if (auto* varDefNode = dynamic_cast<VariableDefinitionNode*>(current)) {
+        // Handle variable type annotation
+        if (!varDefNode->typeAnnotation) {
+            // Simple type annotation
+            auto* typeNode = new TypeAnnotationNode(varDefNode);
+            if (typeAnnotation == "int64") {
+                typeNode->dataType = DataType::INT64;
+            } else {
+                throw std::runtime_error("Unknown type annotation: " + typeAnnotation);
+            }
+            varDefNode->typeAnnotation = typeNode;
+            varDefNode->children.push_back(typeNode);
+        } else if (auto* unionType = dynamic_cast<UnionTypeNode*>(varDefNode->typeAnnotation)) {
+            // Adding the last type to union
+            auto* typeNode = new TypeAnnotationNode(unionType);
+            if (typeAnnotation == "int64") {
+                typeNode->dataType = DataType::INT64;
+            } else {
+                throw std::runtime_error("Unknown type annotation: " + typeAnnotation);
+            }
+            unionType->addType(typeNode);
+        } else if (auto* intersectionType = dynamic_cast<IntersectionTypeNode*>(varDefNode->typeAnnotation)) {
+            // Adding the last type to intersection
+            auto* typeNode = new TypeAnnotationNode(intersectionType);
+            if (typeAnnotation == "int64") {
+                typeNode->dataType = DataType::INT64;
+            } else {
+                throw std::runtime_error("Unknown type annotation: " + typeAnnotation);
+            }
+            intersectionType->addType(typeNode);
+        }
+
+        ctx.state = STATE::EXPECT_EQUALS;
+    } else if (auto* funcDeclNode = dynamic_cast<FunctionDeclarationNode*>(current)) {
+        // Handle function return type annotation
+        if (!funcDeclNode->returnType) {
+            auto* typeNode = new TypeAnnotationNode(funcDeclNode);
+            if (typeAnnotation == "int64") {
+                typeNode->dataType = DataType::INT64;
+            } else if (typeAnnotation == "string") {
+                typeNode->dataType = DataType::STRING;
+            } else if (typeAnnotation == "float64") {
+                typeNode->dataType = DataType::FLOAT64;
+            } else {
+                // Default to object for unknown types
+                typeNode->dataType = DataType::OBJECT;
+            }
+            funcDeclNode->returnType = typeNode;
+            funcDeclNode->children.push_back(typeNode);
+        }
+
+        ctx.state = STATE::FUNCTION_BODY_START;
+    } else if (auto* funcExprNode = dynamic_cast<FunctionExpressionNode*>(current)) {
+        // Handle function expression return type annotation
+        if (!funcExprNode->returnType) {
+            auto* typeNode = new TypeAnnotationNode(funcExprNode);
+            if (typeAnnotation == "int64") {
+                typeNode->dataType = DataType::INT64;
+            } else if (typeAnnotation == "string") {
+                typeNode->dataType = DataType::STRING;
+            } else if (typeAnnotation == "float64") {
+                typeNode->dataType = DataType::FLOAT64;
+            } else {
+                // Default to object for unknown types
+                typeNode->dataType = DataType::OBJECT;
+            }
+            funcExprNode->returnType = typeNode;
+            funcExprNode->children.push_back(typeNode);
+        }
+
+        ctx.state = STATE::FUNCTION_BODY_START;
+    } else if (auto* arrowFuncNode = dynamic_cast<ArrowFunctionExpressionNode*>(current)) {
+        // Handle arrow function return type annotation
+        if (!arrowFuncNode->returnType) {
+            auto* typeNode = new TypeAnnotationNode(arrowFuncNode);
+            if (typeAnnotation == "int64") {
+                typeNode->dataType = DataType::INT64;
+            } else if (typeAnnotation == "string") {
+                typeNode->dataType = DataType::STRING;
+            } else if (typeAnnotation == "float64") {
+                typeNode->dataType = DataType::FLOAT64;
+            } else {
+                // Default to object for unknown types
+                typeNode->dataType = DataType::OBJECT;
+            }
+            arrowFuncNode->returnType = typeNode;
+            arrowFuncNode->children.push_back(typeNode);
+        }
+
+        ctx.state = STATE::ARROW_FUNCTION_BODY;
+    } else {
         throw std::runtime_error("Invalid context for type annotation");
     }
 
-    if (!varDefNode->typeAnnotation) {
-        // Simple type annotation
-        auto* typeNode = new TypeAnnotationNode(varDefNode);
-        if (typeAnnotation == "int64") {
-            typeNode->dataType = DataType::INT64;
-        } else {
-            throw std::runtime_error("Unknown type annotation: " + typeAnnotation);
-        }
-        varDefNode->typeAnnotation = typeNode;
-        varDefNode->children.push_back(typeNode);
-    } else if (auto* unionType = dynamic_cast<UnionTypeNode*>(varDefNode->typeAnnotation)) {
-        // Adding the last type to union
-        auto* typeNode = new TypeAnnotationNode(unionType);
-        if (typeAnnotation == "int64") {
-            typeNode->dataType = DataType::INT64;
-        } else {
-            throw std::runtime_error("Unknown type annotation: " + typeAnnotation);
-        }
-        unionType->addType(typeNode);
-    }
-
-    ctx.state = STATE::EXPECT_EQUALS;
     ctx.index--;
 }

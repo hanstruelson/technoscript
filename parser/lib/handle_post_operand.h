@@ -128,7 +128,22 @@ inline bool handlePostOperand(ParserContext& ctx, char c) {
     } else if (c == '}') {
         // Check if we're in template literal interpolation
         if (ctx.state == STATE::EXPRESSION_TEMPLATE_LITERAL_INTERPOLATION) {
-            // End of interpolation, back to template literal
+            // End of interpolation, add the expression to template literal
+            auto* templateNode = ctx.currentNode;
+            while (templateNode && templateNode->nodeType != ASTNodeType::TEMPLATE_LITERAL) {
+                templateNode = templateNode->parent;
+            }
+            if (templateNode) {
+                // Add the current expression to the template literal
+                // The current node should be an ExpressionNode
+                if (ctx.currentNode && dynamic_cast<ExpressionNode*>(ctx.currentNode)) {
+                    static_cast<TemplateLiteralNode*>(templateNode)->addExpression(static_cast<ExpressionNode*>(ctx.currentNode));
+                }
+                // Move current node back to template literal
+                ctx.currentNode = templateNode;
+                // Update stringStart for the next quasi
+                ctx.stringStart = ctx.index;
+            }
             ctx.state = STATE::EXPRESSION_TEMPLATE_LITERAL;
             return false;
         }

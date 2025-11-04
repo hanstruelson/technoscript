@@ -112,6 +112,9 @@ inline void parse(const std::string& code) {
                 case STATE::VARIABLE_CREATE_IDENTIFIER_COMPLETE:
                     handleStateVariableCreateIdentifierComplete(ctx, c);
                     break;
+                case STATE::FUNCTION_PARAMETER_COMPLETE:
+                    handleStateFunctionParameterComplete(ctx, c);
+                    break;
                 case STATE::IDENTIFIER_COMPLETE:
                     handleStateIdentifierComplete(ctx, c);
                     break;
@@ -138,6 +141,18 @@ inline void parse(const std::string& code) {
                     break;
                 case STATE::TYPE_GENERIC_TYPE_ARGUMENTS:
                     handleStateTypeGenericTypeArguments(ctx, c);
+                    break;
+                case STATE::FUNCTION_GENERIC_PARAMETERS_START:
+                    handleStateFunctionGenericParametersStart(ctx, c);
+                    break;
+                case STATE::FUNCTION_GENERIC_PARAMETER_NAME:
+                    handleStateFunctionGenericParameterName(ctx, c);
+                    break;
+                case STATE::FUNCTION_GENERIC_PARAMETER_SEPARATOR:
+                    handleStateFunctionGenericParameterSeparator(ctx, c);
+                    break;
+                case STATE::FUNCTION_GENERIC_PARAMETERS_END:
+                    handleStateFunctionGenericParametersEnd(ctx, c);
                     break;
                 case STATE::EXPECT_EQUALS:
                     handleStateExpectEquals(ctx, c);
@@ -611,6 +626,18 @@ inline void parse(const std::string& code) {
                 case STATE::CLASS_EXTENDS_START:
                     handleStateClassExtendsStart(ctx, c);
                     break;
+                case STATE::CLASS_EXTENDS_NAME:
+                    handleStateClassExtendsName(ctx, c);
+                    break;
+                case STATE::CLASS_IMPLEMENTS_START:
+                    handleStateClassImplementsStart(ctx, c);
+                    break;
+                case STATE::CLASS_IMPLEMENTS_NAME:
+                    handleStateClassImplementsName(ctx, c);
+                    break;
+                case STATE::CLASS_IMPLEMENTS_SEPARATOR:
+                    handleStateClassImplementsSeparator(ctx, c);
+                    break;
                 case STATE::CLASS_BODY_START:
                     handleStateClassBodyStart(ctx, c);
                     break;
@@ -644,6 +671,52 @@ inline void parse(const std::string& code) {
                 case STATE::CLASS_METHOD_BODY:
                     handleStateClassMethodBody(ctx, c);
                     break;
+                // New class feature states
+                case STATE::CLASS_ACCESS_MODIFIER_PUBLIC:
+                    handleStateClassAccessModifierPublic(ctx, c);
+                    break;
+                case STATE::CLASS_ACCESS_MODIFIER_PRIVATE:
+                    handleStateClassAccessModifierPrivate(ctx, c);
+                    break;
+                case STATE::CLASS_ACCESS_MODIFIER_PROTECTED:
+                    handleStateClassAccessModifierProtected(ctx, c);
+                    break;
+                case STATE::CLASS_READONLY_MODIFIER:
+                    handleStateClassReadonlyModifier(ctx, c);
+                    break;
+                case STATE::CLASS_ABSTRACT_MODIFIER:
+                    handleStateClassAbstractModifier(ctx, c);
+                    break;
+                case STATE::CLASS_GETTER_START:
+                    handleStateClassGetterStart(ctx, c);
+                    break;
+                case STATE::CLASS_SETTER_START:
+                    handleStateClassSetterStart(ctx, c);
+                    break;
+                case STATE::CLASS_GETTER_NAME:
+                    handleStateClassGetterName(ctx, c);
+                    break;
+                case STATE::CLASS_SETTER_NAME:
+                    handleStateClassSetterName(ctx, c);
+                    break;
+                case STATE::CLASS_GETTER_PARAMETERS_START:
+                    handleStateClassGetterParametersStart(ctx, c);
+                    break;
+                case STATE::CLASS_SETTER_PARAMETERS_START:
+                    handleStateClassSetterParametersStart(ctx, c);
+                    break;
+                case STATE::CLASS_GETTER_BODY_START:
+                    handleStateClassGetterBodyStart(ctx, c);
+                    break;
+                case STATE::CLASS_SETTER_BODY_START:
+                    handleStateClassSetterBodyStart(ctx, c);
+                    break;
+                case STATE::CLASS_GETTER_BODY:
+                    handleStateClassGetterBody(ctx, c);
+                    break;
+                case STATE::CLASS_SETTER_BODY:
+                    handleStateClassSetterBody(ctx, c);
+                    break;
                 case STATE::NONE_I:
                     handleStateNoneI(ctx, c);
                     break;
@@ -674,6 +747,15 @@ inline void parse(const std::string& code) {
                 case STATE::INTERFACE_DECLARATION_NAME:
                     handleStateInterfaceDeclarationName(ctx, c);
                     break;
+                case STATE::INTERFACE_EXTENDS_START:
+                    handleStateInterfaceExtendsStart(ctx, c);
+                    break;
+                case STATE::INTERFACE_EXTENDS_NAME:
+                    handleStateInterfaceExtendsName(ctx, c);
+                    break;
+                case STATE::INTERFACE_EXTENDS_SEPARATOR:
+                    handleStateInterfaceExtendsSeparator(ctx, c);
+                    break;
                 case STATE::INTERFACE_BODY_START:
                     handleStateInterfaceBodyStart(ctx, c);
                     break;
@@ -694,6 +776,242 @@ inline void parse(const std::string& code) {
                     break;
                 case STATE::INTERFACE_METHOD_RETURN_TYPE:
                     handleStateInterfaceMethodReturnType(ctx, c);
+                    break;
+                case STATE::INTERFACE_PROPERTY_OPTIONAL:
+                    handleStateInterfacePropertyOptional(ctx, c);
+                    break;
+                case STATE::INTERFACE_PROPERTY_READONLY:
+                    handleStateInterfacePropertyReadonly(ctx, c);
+                    break;
+
+                case STATE::INTERFACE_INDEX_SIGNATURE_START:
+                    handleStateInterfaceIndexSignatureStart(ctx, c);
+                    break;
+                case STATE::INTERFACE_INDEX_SIGNATURE_KEY:
+                    handleStateInterfaceIndexSignatureKey(ctx, c);
+                    break;
+                case STATE::INTERFACE_INDEX_SIGNATURE_KEY_TYPE:
+                    handleStateInterfaceIndexSignatureKeyType(ctx, c);
+                    break;
+                case STATE::INTERFACE_INDEX_SIGNATURE_VALUE_TYPE:
+                    handleStateInterfaceIndexSignatureValueType(ctx, c);
+                    break;
+                case STATE::INTERFACE_INDEX_SIGNATURE_READONLY:
+                    handleStateInterfaceIndexSignatureReadonly(ctx, c);
+                    break;
+                case STATE::INTERFACE_CALL_SIGNATURE_START:
+                    handleStateInterfaceCallSignatureStart(ctx, c);
+                    break;
+                case STATE::INTERFACE_CALL_SIGNATURE_PARAMETERS_START:
+                    handleStateInterfaceCallSignatureParametersStart(ctx, c);
+                    break;
+                case STATE::INTERFACE_CALL_SIGNATURE_PARAMETERS_END:
+                    handleStateInterfaceCallSignatureParametersEnd(ctx, c);
+                    break;
+                case STATE::INTERFACE_CALL_SIGNATURE_RETURN_TYPE:
+                    handleStateInterfaceCallSignatureReturnType(ctx, c);
+                    break;
+                case STATE::INTERFACE_CONSTRUCT_SIGNATURE_START:
+                    handleStateInterfaceConstructSignatureStart(ctx, c);
+                    break;
+                case STATE::INTERFACE_CONSTRUCT_SIGNATURE_PARAMETERS_START:
+                    handleStateInterfaceConstructSignatureParametersStart(ctx, c);
+                    break;
+                case STATE::INTERFACE_CONSTRUCT_SIGNATURE_PARAMETERS_END:
+                    handleStateInterfaceConstructSignatureParametersEnd(ctx, c);
+                    break;
+                case STATE::INTERFACE_CONSTRUCT_SIGNATURE_RETURN_TYPE:
+                    handleStateInterfaceConstructSignatureReturnType(ctx, c);
+                    break;
+                // Module import/export states
+                case STATE::NONE_IM:
+                    handleStateNoneIM(ctx, c);
+                    break;
+                case STATE::NONE_IMP:
+                    handleStateNoneIMP(ctx, c);
+                    break;
+                case STATE::NONE_IMPO:
+                    handleStateNoneIMPO(ctx, c);
+                    break;
+                case STATE::NONE_IMPOR:
+                    handleStateNoneIMPOR(ctx, c);
+                    break;
+                case STATE::NONE_IMPORT:
+                    handleStateNoneIMPORT(ctx, c);
+                    break;
+                case STATE::IMPORT_SPECIFIERS_START:
+                    handleStateImportSpecifiersStart(ctx, c);
+                    break;
+                case STATE::IMPORT_SPECIFIER_NAME:
+                    handleStateImportSpecifierName(ctx, c);
+                    break;
+                case STATE::IMPORT_SPECIFIER_AS:
+                    handleStateImportSpecifierAs(ctx, c);
+                    break;
+                case STATE::IMPORT_SPECIFIER_LOCAL_NAME:
+                    handleStateImportSpecifierLocalName(ctx, c);
+                    break;
+                case STATE::IMPORT_SPECIFIER_SEPARATOR:
+                    handleStateImportSpecifierSeparator(ctx, c);
+                    break;
+                case STATE::IMPORT_SPECIFIERS_END:
+                    handleStateImportSpecifiersEnd(ctx, c);
+                    break;
+                case STATE::IMPORT_FROM:
+                    handleStateImportFrom(ctx, c);
+                    break;
+                case STATE::IMPORT_SOURCE_START:
+                    handleStateImportSourceStart(ctx, c);
+                    break;
+                case STATE::IMPORT_SOURCE:
+                    handleStateImportSource(ctx, c);
+                    break;
+                case STATE::IMPORT_SOURCE_END:
+                    handleStateImportSourceEnd(ctx, c);
+                    break;
+                case STATE::NONE_EX:
+                    handleStateNoneEX(ctx, c);
+                    break;
+                case STATE::NONE_EXP:
+                    handleStateNoneEXP(ctx, c);
+                    break;
+                case STATE::NONE_EXPO:
+                    handleStateNoneEXPO(ctx, c);
+                    break;
+                case STATE::NONE_EXPOR:
+                    handleStateNoneEXPOR(ctx, c);
+                    break;
+                case STATE::NONE_EXPORT:
+                    handleStateNoneEXPORT(ctx, c);
+                    break;
+                case STATE::EXPORT_SPECIFIERS_START:
+                    handleStateExportSpecifiersStart(ctx, c);
+                    break;
+                case STATE::EXPORT_SPECIFIER_NAME:
+                    handleStateExportSpecifierName(ctx, c);
+                    break;
+                case STATE::EXPORT_SPECIFIER_AS:
+                    handleStateExportSpecifierAs(ctx, c);
+                    break;
+                case STATE::EXPORT_SPECIFIER_EXPORTED_NAME:
+                    handleStateExportSpecifierExportedName(ctx, c);
+                    break;
+                case STATE::EXPORT_SPECIFIER_SEPARATOR:
+                    handleStateExportSpecifierSeparator(ctx, c);
+                    break;
+                case STATE::EXPORT_SPECIFIERS_END:
+                    handleStateExportSpecifiersEnd(ctx, c);
+                    break;
+                case STATE::EXPORT_FROM:
+                    handleStateExportFrom(ctx, c);
+                    break;
+                case STATE::EXPORT_SOURCE_START:
+                    handleStateExportSourceStart(ctx, c);
+                    break;
+                case STATE::EXPORT_SOURCE:
+                    handleStateExportSource(ctx, c);
+                    break;
+                case STATE::EXPORT_SOURCE_END:
+                    handleStateExportSourceEnd(ctx, c);
+                    break;
+                case STATE::EXPORT_DEFAULT:
+                    handleStateExportDefault(ctx, c);
+                    break;
+                case STATE::EXPORT_ALL:
+                    handleStateExportAll(ctx, c);
+                    break;
+                case STATE::EXPORT_DECLARATION:
+                    handleStateExportDeclaration(ctx, c);
+                    break;
+                // Destructuring states
+                case STATE::ARRAY_DESTRUCTURING_START:
+                    handleStateArrayDestructuringStart(ctx, c);
+                    break;
+                case STATE::ARRAY_DESTRUCTURING_ELEMENT:
+                    handleStateArrayDestructuringElement(ctx, c);
+                    break;
+                case STATE::ARRAY_DESTRUCTURING_SEPARATOR:
+                    handleStateArrayDestructuringSeparator(ctx, c);
+                    break;
+                case STATE::ARRAY_DESTRUCTURING_REST:
+                    handleStateArrayDestructuringRest(ctx, c);
+                    break;
+                case STATE::OBJECT_DESTRUCTURING_START:
+                    handleStateObjectDestructuringStart(ctx, c);
+                    break;
+                case STATE::OBJECT_DESTRUCTURING_PROPERTY_KEY:
+                    handleStateObjectDestructuringPropertyKey(ctx, c);
+                    break;
+                case STATE::OBJECT_DESTRUCTURING_PROPERTY_COLON:
+                    handleStateObjectDestructuringPropertyColon(ctx, c);
+                    break;
+                case STATE::OBJECT_DESTRUCTURING_PROPERTY_VALUE:
+                    handleStateObjectDestructuringPropertyValue(ctx, c);
+                    break;
+                case STATE::OBJECT_DESTRUCTURING_SEPARATOR:
+                    handleStateObjectDestructuringSeparator(ctx, c);
+                    break;
+                case STATE::OBJECT_DESTRUCTURING_REST:
+                    handleStateObjectDestructuringRest(ctx, c);
+                    break;
+                // Async/await states
+                case STATE::NONE_A:
+                    handleStateNoneA(ctx, c);
+                    break;
+                case STATE::NONE_AS:
+                    handleStateNoneAS(ctx, c);
+                    break;
+                case STATE::NONE_ASY:
+                    handleStateNoneASY(ctx, c);
+                    break;
+                case STATE::NONE_ASYN:
+                    handleStateNoneASYN(ctx, c);
+                    break;
+                case STATE::NONE_ASYNC:
+                    handleStateNoneASYNC(ctx, c);
+                    break;
+                case STATE::NONE_AW:
+                    handleStateNoneAW(ctx, c);
+                    break;
+                case STATE::NONE_AWA:
+                    handleStateNoneAWA(ctx, c);
+                    break;
+                case STATE::NONE_AWAI:
+                    handleStateNoneAWAI(ctx, c);
+                    break;
+                case STATE::NONE_AWAIT:
+                    handleStateNoneAWAIT(ctx, c);
+                    break;
+                case STATE::EXPRESSION_AWAIT:
+                    handleStateExpressionAwait(ctx, c);
+                    break;
+                // Enum states
+                case STATE::NONE_ENUM_E:
+                    handleStateNoneEnumE(ctx, c);
+                    break;
+                case STATE::NONE_ENUM_EN:
+                    handleStateNoneEnumEN(ctx, c);
+                    break;
+                case STATE::NONE_ENUM_ENU:
+                    handleStateNoneEnumENU(ctx, c);
+                    break;
+                case STATE::ENUM_DECLARATION_NAME:
+                    handleStateEnumDeclarationName(ctx, c);
+                    break;
+                case STATE::ENUM_BODY_START:
+                    handleStateEnumBodyStart(ctx, c);
+                    break;
+                case STATE::ENUM_BODY:
+                    handleStateEnumBody(ctx, c);
+                    break;
+                case STATE::ENUM_MEMBER_NAME:
+                    handleStateEnumMemberName(ctx, c);
+                    break;
+                case STATE::ENUM_MEMBER_INITIALIZER:
+                    handleStateEnumMemberInitializer(ctx, c);
+                    break;
+                case STATE::ENUM_MEMBER_SEPARATOR:
+                    handleStateEnumMemberSeparator(ctx, c);
                     break;
             }
         } catch (const std::exception& e) {

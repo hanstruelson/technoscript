@@ -1,0 +1,1 @@
+implement all features in TYPESCRIPT_FEATURES.md, making sure to use the same compact code style of the code base.

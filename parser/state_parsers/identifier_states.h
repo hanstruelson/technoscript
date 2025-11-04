@@ -34,6 +34,29 @@ inline void handleStateVariableCreateIdentifierComplete(ParserContext& ctx, char
     }
 }
 
+inline void handleStateFunctionParameterComplete(ParserContext& ctx, char c) {
+    if (std::isspace(static_cast<unsigned char>(c))) {
+        // Skip whitespace
+        return;
+    } else if (c == ':') {
+        // Type annotation
+        ctx.state = STATE::FUNCTION_PARAMETER_TYPE_ANNOTATION;
+    } else if (c == '=') {
+        // Default value
+        ctx.state = STATE::FUNCTION_PARAMETER_DEFAULT_VALUE;
+    } else if (c == ',' || c == ')') {
+        // Parameter complete, move back to parameter list
+        ctx.currentNode = ctx.currentNode->parent;
+        if (c == ',') {
+            ctx.state = STATE::FUNCTION_PARAMETER_SEPARATOR;
+        } else {
+            ctx.state = STATE::FUNCTION_PARAMETERS_END;
+        }
+    } else {
+        throw std::runtime_error("Unexpected character in function parameter: " + std::string(1, c));
+    }
+}
+
 inline void handleStateIdentifierComplete(ParserContext& ctx, char c) {
     if (std::isspace(static_cast<unsigned char>(c))) {
         return;
@@ -60,6 +83,22 @@ inline void handleStateExpectIdentifier(ParserContext& ctx, char c) {
     if (isIdentifierStart(c)) {
         ctx.stringStart = ctx.index;
         ctx.state = STATE::IDENTIFIER_NAME;
+    } else if (c == '[') {
+        // Array destructuring
+        auto* arrayNode = new ArrayDestructuringNode(ctx.currentNode);
+        if (auto* varNode = dynamic_cast<VariableDefinitionNode*>(ctx.currentNode)) {
+            varNode->pattern = arrayNode;
+        }
+        ctx.currentNode = arrayNode;
+        ctx.state = STATE::ARRAY_DESTRUCTURING_START;
+    } else if (c == '{') {
+        // Object destructuring
+        auto* objectNode = new ObjectDestructuringNode(ctx.currentNode);
+        if (auto* varNode = dynamic_cast<VariableDefinitionNode*>(ctx.currentNode)) {
+            varNode->pattern = objectNode;
+        }
+        ctx.currentNode = objectNode;
+        ctx.state = STATE::OBJECT_DESTRUCTURING_START;
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         return;
     } else {

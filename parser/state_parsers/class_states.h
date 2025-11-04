@@ -55,58 +55,178 @@ inline void handleStateNoneCLASS(ParserContext& ctx, char c) {
 }
 
 inline void handleStateClassDeclarationName(ParserContext& ctx, char c) {
-    if (isIdentifierStart(c)) {
+    if (std::isspace(static_cast<unsigned char>(c))) {
+        // Check if we've started parsing the class name
+        if (ctx.stringStart > 0) {
+            // Class name complete, extract it
+            std::string className = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
+            if (auto* classNode = dynamic_cast<ClassDeclarationNode*>(ctx.currentNode)) {
+                classNode->name = className;
+            }
+            ctx.state = STATE::CLASS_EXTENDS_START;
+        } else {
+            // Skip whitespace before class name starts
+            return;
+        }
+    } else if (ctx.stringStart == 0 && isIdentifierStart(c)) {
         // Start of class name
-        ctx.stringStart = ctx.index;
+        ctx.stringStart = ctx.index - 1;
         // Stay in this state to continue parsing
     } else if (isIdentifierPart(c)) {
         // Continue parsing class name - accumulate characters
         return;
     } else if (c == '{') {
         // Class name complete (or anonymous class), extract it
-        if (ctx.stringStart < ctx.index) {
-            std::string className = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
+        if (ctx.stringStart > 0 && ctx.stringStart < ctx.index) {
+            std::string className = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
             if (auto* classNode = dynamic_cast<ClassDeclarationNode*>(ctx.currentNode)) {
-                classNode->name = className;
+                if (classNode->name.empty()) {
+                    classNode->name = className;
+                }
             }
         }
         ctx.state = STATE::CLASS_BODY;
-    } else if (std::isspace(static_cast<unsigned char>(c))) {
-        // Class name complete, extract it
-        if (ctx.stringStart < ctx.index) {
-            std::string className = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
-            if (auto* classNode = dynamic_cast<ClassDeclarationNode*>(ctx.currentNode)) {
-                classNode->name = className;
-            }
-        }
-        // Stay in this state waiting for '{'
-    } else if (c == 'e') {
-        // Class name complete, extract it
-        if (ctx.stringStart < ctx.index) {
-            std::string className = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
-            if (auto* classNode = dynamic_cast<ClassDeclarationNode*>(ctx.currentNode)) {
-                classNode->name = className;
-            }
-        }
-        // Check for 'extends'
-        ctx.state = STATE::CLASS_EXTENDS_START;
-        // Re-process this character
-        ctx.index--;
     } else {
         reportParseError(ctx.code, ctx.index, "Expected class name or '{', 'extends', or 'implements'", ctx.state);
     }
 }
 
 inline void handleStateClassExtendsStart(ParserContext& ctx, char c) {
-    if (c == 'x') {
-        // Continue checking 'extends'
-        // This would need more states for full 'extends' parsing
-        // For now, simplified - just skip to name
-        ctx.state = STATE::CLASS_DECLARATION_NAME;
+    if (c == '{') {
+        // No extends/implements, go to body
+        ctx.state = STATE::CLASS_BODY;
+    } else if (c == 'e') {
+        // Check for 'extends'
+        if (ctx.index + 6 <= ctx.code.length() && ctx.code.substr(ctx.index, 6) == "xtends") {
+            ctx.index += 6; // Skip 'xtends'
+            // Skip whitespace after 'extends'
+            while (ctx.index < ctx.code.length() && std::isspace(static_cast<unsigned char>(ctx.code[ctx.index]))) {
+                ctx.index++;
+            }
+            // Now parse the class name
+            ctx.stringStart = ctx.index;
+            ctx.state = STATE::CLASS_EXTENDS_NAME;
+        } else {
+            reportParseError(ctx.code, ctx.index, "Expected 'extends' keyword", ctx.state);
+        }
+    } else if (c == 'i') {
+        // Check for 'implements'
+        if (ctx.index + 9 <= ctx.code.length() && ctx.code.substr(ctx.index, 9) == "mplements") {
+            ctx.index += 9; // Skip 'mplements'
+            // Skip whitespace after 'implements'
+            while (ctx.index < ctx.code.length() && std::isspace(static_cast<unsigned char>(ctx.code[ctx.index]))) {
+                ctx.index++;
+            }
+            // Now parse the interface name
+            ctx.stringStart = ctx.index;
+            ctx.state = STATE::CLASS_IMPLEMENTS_NAME;
+        } else {
+            reportParseError(ctx.code, ctx.index, "Expected 'implements' keyword", ctx.state);
+        }
+    } else if (std::isspace(static_cast<unsigned char>(c))) {
+        // Skip whitespace
+        return;
     } else {
-        // Not 'extends', go back to name parsing
-        ctx.state = STATE::CLASS_DECLARATION_NAME;
-        ctx.index--;
+        // Unexpected character
+        reportParseError(ctx.code, ctx.index, "Expected 'extends', 'implements', or '{' after class name", ctx.state);
+    }
+}
+
+inline void handleStateClassExtendsName(ParserContext& ctx, char c) {
+    if (isalnum(c) || c == '_') {
+        // Continue building class name
+        return;
+    } else if (std::isspace(static_cast<unsigned char>(c))) {
+        // End of class name
+        std::string extendsClass = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
+        if (auto* classNode = dynamic_cast<ClassDeclarationNode*>(ctx.currentNode)) {
+            classNode->extendsClass = extendsClass;
+        }
+        // Check for 'implements' or go to body
+        ctx.state = STATE::CLASS_IMPLEMENTS_START;
+    } else if (c == '{') {
+        // End of class name, go to body
+        std::string extendsClass = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
+        if (auto* classNode = dynamic_cast<ClassDeclarationNode*>(ctx.currentNode)) {
+            classNode->extendsClass = extendsClass;
+        }
+        ctx.state = STATE::CLASS_BODY;
+        ctx.index--; // Re-process this character
+    } else {
+        reportParseError(ctx.code, ctx.index, "Expected class name after 'extends'", ctx.state);
+    }
+}
+
+inline void handleStateClassImplementsStart(ParserContext& ctx, char c) {
+    if (c == '{') {
+        // No implements, go to body
+        ctx.state = STATE::CLASS_BODY;
+        ctx.index--; // Re-process this character
+    } else if (c == 'i') {
+        // Check for 'implements'
+        if (ctx.index + 9 <= ctx.code.length() && ctx.code.substr(ctx.index, 9) == "mplements") {
+            ctx.index += 9; // Skip 'mplements'
+            // Skip whitespace after 'implements'
+            while (ctx.index < ctx.code.length() && std::isspace(static_cast<unsigned char>(ctx.code[ctx.index]))) {
+                ctx.index++;
+            }
+            // Now parse the interface name
+            ctx.stringStart = ctx.index;
+            ctx.state = STATE::CLASS_IMPLEMENTS_NAME;
+        } else {
+            reportParseError(ctx.code, ctx.index, "Expected 'implements' keyword", ctx.state);
+        }
+    } else if (std::isspace(static_cast<unsigned char>(c))) {
+        // Skip whitespace
+        return;
+    } else {
+        // Unexpected
+        reportParseError(ctx.code, ctx.index, "Expected 'implements' or '{'", ctx.state);
+    }
+}
+
+inline void handleStateClassImplementsName(ParserContext& ctx, char c) {
+    if (isalnum(c) || c == '_') {
+        // Continue building interface name
+        return;
+    } else if (c == ',') {
+        // End of interface name, add to implements list
+        std::string interfaceName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
+        if (auto* classNode = dynamic_cast<ClassDeclarationNode*>(ctx.currentNode)) {
+            classNode->implementsInterfaces.push_back(interfaceName);
+        }
+        ctx.state = STATE::CLASS_IMPLEMENTS_SEPARATOR;
+    } else if (c == '{') {
+        // End of interface name, add to implements list, go to body
+        std::string interfaceName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
+        if (auto* classNode = dynamic_cast<ClassDeclarationNode*>(ctx.currentNode)) {
+            classNode->implementsInterfaces.push_back(interfaceName);
+        }
+        ctx.state = STATE::CLASS_BODY;
+        ctx.index--; // Re-process this character
+    } else if (std::isspace(static_cast<unsigned char>(c))) {
+        // Skip whitespace
+        return;
+    } else {
+        reportParseError(ctx.code, ctx.index, "Expected interface name after 'implements'", ctx.state);
+    }
+}
+
+inline void handleStateClassImplementsSeparator(ParserContext& ctx, char c) {
+    if (isalnum(c) || c == '_') {
+        // Next interface name
+        ctx.stringStart = ctx.index;
+        ctx.state = STATE::CLASS_IMPLEMENTS_NAME;
+        ctx.index--; // Re-process this character
+    } else if (c == '{') {
+        // End of implements, go to body
+        ctx.state = STATE::CLASS_BODY;
+        ctx.index--; // Re-process this character
+    } else if (std::isspace(static_cast<unsigned char>(c))) {
+        // Skip whitespace
+        return;
+    } else {
+        reportParseError(ctx.code, ctx.index, "Expected interface name or '{' after ','", ctx.state);
     }
 }
 
@@ -132,9 +252,24 @@ inline void handleStateClassBody(ParserContext& ctx, char c) {
     } else if (c == 's') {
         // Check for 'static'
         ctx.state = STATE::CLASS_STATIC_START;
+    } else if (c == 'p') {
+        // Check for 'public'
+        ctx.state = STATE::CLASS_ACCESS_MODIFIER_PUBLIC;
+    } else if (c == 'r') {
+        // Check for 'readonly' or 'private'
+        ctx.state = STATE::CLASS_READONLY_MODIFIER;
+    } else if (c == 'a') {
+        // Check for 'abstract'
+        ctx.state = STATE::CLASS_ABSTRACT_MODIFIER;
+    } else if (c == 'g') {
+        // Check for 'get'
+        ctx.state = STATE::CLASS_GETTER_START;
+    } else if (c == 'S') {
+        // Check for 'set'
+        ctx.state = STATE::CLASS_SETTER_START;
     } else if (isIdentifierStart(c)) {
         // Property or method name
-        ctx.stringStart = ctx.index;
+        ctx.stringStart = ctx.index - 1; // ctx.index was already incremented, so subtract 1
         ctx.state = STATE::CLASS_PROPERTY_KEY;
     } else if (std::isspace(static_cast<unsigned char>(c)) || c == ';') {
         // Skip whitespace and empty statements
@@ -147,11 +282,13 @@ inline void handleStateClassStaticStart(ParserContext& ctx, char c) {
     if (c == 't') {
         // Continue checking 'static'
         // For now, just skip ahead
+        ctx.stringStart = ctx.index - 2; // 's' was at index-2, 't' is at index-1
         ctx.state = STATE::CLASS_PROPERTY_KEY;
     } else {
         // Not 'static', treat as regular identifier
+        ctx.stringStart = ctx.index - 2; // 's' was at index-2, current char is at index-1
         ctx.state = STATE::CLASS_PROPERTY_KEY;
-        ctx.index--;
+        ctx.index--; // Re-process current character
     }
 }
 
@@ -224,7 +361,7 @@ inline void handleStateClassMethodParametersEnd(ParserContext& ctx, char c) {
     if (c == ':') {
         ctx.state = STATE::CLASS_METHOD_RETURN_TYPE;
     } else if (c == '{') {
-        ctx.state = STATE::CLASS_METHOD_BODY_START;
+        ctx.state = STATE::CLASS_METHOD_BODY;
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace
     } else {
@@ -258,5 +395,180 @@ inline void handleStateClassMethodBody(ParserContext& ctx, char c) {
     } else {
         // Method body parsing would go here
         ctx.state = STATE::CLASS_METHOD_BODY;
+    }
+}
+
+// New handler functions for class features
+inline void handleStateClassAccessModifierPublic(ParserContext& ctx, char c) {
+    if (c == 'u') {
+        // Continue checking 'public'
+        // For now, just set a flag and continue
+        ctx.state = STATE::CLASS_PROPERTY_KEY;
+    } else {
+        // Not 'public', treat as regular identifier
+        ctx.stringStart = ctx.index - 2; // 'p' was at index-2, current char is at index-1
+        ctx.state = STATE::CLASS_PROPERTY_KEY;
+        ctx.index--; // Re-process current character
+    }
+}
+
+inline void handleStateClassAccessModifierPrivate(ParserContext& ctx, char c) {
+    if (c == 'i') {
+        // Continue checking 'private'
+        // For now, just set a flag and continue
+        ctx.state = STATE::CLASS_PROPERTY_KEY;
+    } else {
+        // Not 'private', treat as regular identifier
+        ctx.stringStart = ctx.index - 2; // 'p' was at index-2, current char is at index-1
+        ctx.state = STATE::CLASS_PROPERTY_KEY;
+        ctx.index--; // Re-process current character
+    }
+}
+
+inline void handleStateClassAccessModifierProtected(ParserContext& ctx, char c) {
+    if (c == 'o') {
+        // Continue checking 'protected'
+        // For now, just set a flag and continue
+        ctx.state = STATE::CLASS_PROPERTY_KEY;
+    } else {
+        // Not 'protected', treat as regular identifier
+        ctx.stringStart = ctx.index - 2; // 'p' was at index-2, current char is at index-1
+        ctx.state = STATE::CLASS_PROPERTY_KEY;
+        ctx.index--; // Re-process current character
+    }
+}
+
+inline void handleStateClassReadonlyModifier(ParserContext& ctx, char c) {
+    if (c == 'e') {
+        // Continue checking 'readonly'
+        // For now, just set a flag and continue
+        ctx.state = STATE::CLASS_PROPERTY_KEY;
+    } else {
+        // Not 'readonly', check for 'private'
+        ctx.state = STATE::CLASS_ACCESS_MODIFIER_PRIVATE;
+        ctx.index--; // Re-process current character
+    }
+}
+
+inline void handleStateClassAbstractModifier(ParserContext& ctx, char c) {
+    if (c == 'b') {
+        // Continue checking 'abstract'
+        // For now, just set a flag and continue
+        ctx.state = STATE::CLASS_PROPERTY_KEY;
+    } else {
+        // Not 'abstract', treat as regular identifier
+        ctx.stringStart = ctx.index - 2; // 'a' was at index-2, current char is at index-1
+        ctx.state = STATE::CLASS_PROPERTY_KEY;
+        ctx.index--; // Re-process current character
+    }
+}
+
+inline void handleStateClassGetterStart(ParserContext& ctx, char c) {
+    if (c == 'e') {
+        // Continue checking 'get'
+        ctx.state = STATE::CLASS_GETTER_NAME;
+    } else {
+        // Not 'get', treat as regular identifier
+        ctx.stringStart = ctx.index - 2; // 'g' was at index-2, current char is at index-1
+        ctx.state = STATE::CLASS_PROPERTY_KEY;
+        ctx.index--; // Re-process current character
+    }
+}
+
+inline void handleStateClassSetterStart(ParserContext& ctx, char c) {
+    if (c == 'e') {
+        // Continue checking 'set'
+        ctx.state = STATE::CLASS_SETTER_NAME;
+    } else {
+        // Not 'set', treat as regular identifier
+        ctx.stringStart = ctx.index - 2; // 'S' was at index-2, current char is at index-1
+        ctx.state = STATE::CLASS_PROPERTY_KEY;
+        ctx.index--; // Re-process current character
+    }
+}
+
+inline void handleStateClassGetterName(ParserContext& ctx, char c) {
+    if (std::isspace(static_cast<unsigned char>(c))) {
+        // Skip whitespace
+        return;
+    } else if (isIdentifierStart(c)) {
+        // Start of getter name
+        ctx.stringStart = ctx.index - 1;
+        ctx.state = STATE::CLASS_GETTER_PARAMETERS_START;
+    } else {
+        reportParseError(ctx.code, ctx.index, "Expected getter name", ctx.state);
+    }
+}
+
+inline void handleStateClassSetterName(ParserContext& ctx, char c) {
+    if (std::isspace(static_cast<unsigned char>(c))) {
+        // Skip whitespace
+        return;
+    } else if (isIdentifierStart(c)) {
+        // Start of setter name
+        ctx.stringStart = ctx.index - 1;
+        ctx.state = STATE::CLASS_SETTER_PARAMETERS_START;
+    } else {
+        reportParseError(ctx.code, ctx.index, "Expected setter name", ctx.state);
+    }
+}
+
+inline void handleStateClassGetterParametersStart(ParserContext& ctx, char c) {
+    if (c == '(') {
+        ctx.state = STATE::CLASS_GETTER_BODY_START;
+    } else if (std::isspace(static_cast<unsigned char>(c))) {
+        // Skip whitespace
+    } else {
+        reportParseError(ctx.code, ctx.index, "Expected '(' after getter name", ctx.state);
+    }
+}
+
+inline void handleStateClassSetterParametersStart(ParserContext& ctx, char c) {
+    if (c == '(') {
+        ctx.state = STATE::CLASS_SETTER_BODY_START;
+    } else if (std::isspace(static_cast<unsigned char>(c))) {
+        // Skip whitespace
+    } else {
+        reportParseError(ctx.code, ctx.index, "Expected '(' after setter name", ctx.state);
+    }
+}
+
+inline void handleStateClassGetterBodyStart(ParserContext& ctx, char c) {
+    if (c == ')') {
+        ctx.state = STATE::CLASS_GETTER_BODY;
+    } else if (std::isspace(static_cast<unsigned char>(c))) {
+        // Skip whitespace
+    } else {
+        reportParseError(ctx.code, ctx.index, "Expected ')' in getter parameters", ctx.state);
+    }
+}
+
+inline void handleStateClassSetterBodyStart(ParserContext& ctx, char c) {
+    if (c == ')') {
+        ctx.state = STATE::CLASS_SETTER_BODY;
+    } else if (std::isspace(static_cast<unsigned char>(c))) {
+        // Skip whitespace
+    } else {
+        reportParseError(ctx.code, ctx.index, "Expected ')' in setter parameters", ctx.state);
+    }
+}
+
+inline void handleStateClassGetterBody(ParserContext& ctx, char c) {
+    if (c == '{') {
+        ctx.state = STATE::CLASS_GETTER_BODY;
+    } else if (std::isspace(static_cast<unsigned char>(c))) {
+        // Skip whitespace
+    } else {
+        reportParseError(ctx.code, ctx.index, "Expected '{' to start getter body", ctx.state);
+    }
+}
+
+inline void handleStateClassSetterBody(ParserContext& ctx, char c) {
+    if (c == '{') {
+        ctx.state = STATE::CLASS_SETTER_BODY;
+    } else if (std::isspace(static_cast<unsigned char>(c))) {
+        // Skip whitespace
+    } else {
+        reportParseError(ctx.code, ctx.index, "Expected '{' to start setter body", ctx.state);
     }
 }

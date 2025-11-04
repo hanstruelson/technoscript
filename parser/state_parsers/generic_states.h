@@ -93,6 +93,88 @@ inline void handleStateTypeGenericParametersEnd(ParserContext& ctx, char c) {
     throw std::runtime_error("Unexpected state: TYPE_GENERIC_PARAMETERS_END");
 }
 
+// Function generic parameter parsing: function<T, U>(...)
+inline void handleStateFunctionGenericParametersStart(ParserContext& ctx, char c) {
+    // The '<' character has already been consumed, so we start directly with parameter parsing
+    // Create generic type parameters node
+    auto* genericParams = new GenericTypeParametersNode(ctx.currentNode);
+    if (auto* funcNode = dynamic_cast<FunctionDeclarationNode*>(ctx.currentNode)) {
+        funcNode->genericParameters = genericParams;
+    }
+    ctx.currentNode->children.push_back(genericParams);
+    ctx.currentNode = genericParams;
+    ctx.state = STATE::FUNCTION_GENERIC_PARAMETER_NAME;
+    // Re-process this character as the start of the parameter name
+    ctx.index--;
+}
+
+inline void handleStateFunctionGenericParameterName(ParserContext& ctx, char c) {
+    if (std::isspace(static_cast<unsigned char>(c))) {
+        return;
+    }
+
+    if (std::isalnum(static_cast<unsigned char>(c)) != 0 || c == '_') {
+        ctx.stringStart = ctx.index;
+        ctx.state = STATE::FUNCTION_GENERIC_PARAMETER_SEPARATOR;
+        return;
+    }
+
+    throw std::runtime_error("Expected identifier for function generic type parameter, got: " + std::string(1, c));
+}
+
+inline void handleStateFunctionGenericParameterSeparator(ParserContext& ctx, char c) {
+    if (std::isalnum(static_cast<unsigned char>(c)) != 0 || c == '_') {
+        return;
+    }
+
+    if (std::isspace(static_cast<unsigned char>(c))) {
+        return;
+    }
+
+    if (c == ',') {
+        // Add the parameter name
+        std::string paramName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
+        // Trim trailing whitespace
+        paramName.erase(paramName.find_last_not_of(" \t\n\r\f\v") + 1);
+
+        auto* genericParams = dynamic_cast<GenericTypeParametersNode*>(ctx.currentNode);
+        if (!genericParams) {
+            throw std::runtime_error("Expected GenericTypeParametersNode");
+        }
+        genericParams->addParameter(paramName);
+
+        // Continue with next parameter
+        ctx.state = STATE::FUNCTION_GENERIC_PARAMETER_NAME;
+        return;
+    }
+
+    if (c == '>') {
+        // Add the last parameter name
+        std::string paramName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
+        // Trim trailing whitespace
+        paramName.erase(paramName.find_last_not_of(" \t\n\r\f\v") + 1);
+
+        auto* genericParams = dynamic_cast<GenericTypeParametersNode*>(ctx.currentNode);
+        if (!genericParams) {
+            throw std::runtime_error("Expected GenericTypeParametersNode");
+        }
+        genericParams->addParameter(paramName);
+
+        // Move back to parent and continue with function parameters
+        ctx.currentNode = ctx.currentNode->parent;
+        ctx.state = STATE::FUNCTION_PARAMETERS_START;
+        return;
+    }
+
+    throw std::runtime_error("Expected ',' or '>' in function generic type parameters, got: " + std::string(1, c));
+}
+
+inline void handleStateFunctionGenericParametersEnd(ParserContext& ctx, char c) {
+    // This state is not currently used but is included for completeness
+    // The logic is handled in FUNCTION_GENERIC_PARAMETER_SEPARATOR
+    throw std::runtime_error("Unexpected state: FUNCTION_GENERIC_PARAMETERS_END");
+}
+
 // Generic type usage parsing: Array<T>, Promise<T, U>
 inline void handleStateTypeGenericTypeStart(ParserContext& ctx, char c) {
     if (std::isspace(static_cast<unsigned char>(c))) {

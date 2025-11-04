@@ -12,8 +12,10 @@ inline void handleStateNoneI(ParserContext& ctx, char c) {
         ctx.state = STATE::IF_CONDITION_START;
     } else if (c == 'n') {
         ctx.state = STATE::NONE_IN;
+    } else if (c == 'm') {
+        ctx.state = STATE::NONE_IM;
     } else {
-        throw std::runtime_error("Expected 'f' or 'n' after 'i': " + std::string(1, c));
+        throw std::runtime_error("Expected 'f', 'n', or 'm' after 'i': " + std::string(1, c));
     }
 }
 

@@ -25,8 +25,8 @@ inline void handleStateNone(ParserContext& ctx, char c) {
         }
     }
 
-    // Check for else keyword after a control statement
-    if (c == 'e' && ctx.currentNode && dynamic_cast<ControlStatement*>(ctx.currentNode)) {
+    // Check for 'e' keywords (else or export)
+    if (c == 'e') {
         ctx.state = STATE::NONE_E;
     } else if (c == '}') {
         // End of block - pop back to parent
@@ -79,6 +79,12 @@ inline void handleStateNone(ParserContext& ctx, char c) {
         ctx.state = STATE::NONE_S;
     } else if (c == 't') {
         ctx.state = STATE::NONE_T;
+    } else if (c == '/' && ctx.index < ctx.code.length() && ctx.code[ctx.index] == '/') {
+        // Single-line comment: skip to end of line
+        while (ctx.index < ctx.code.length() && ctx.code[ctx.index] != '\n') {
+            ctx.index++;
+        }
+        // Stay in NONE state
     } else {
         // Handle expression starts at top level
         auto* expr = new ExpressionNode(ctx.currentNode);
@@ -92,8 +98,12 @@ inline void handleStateNone(ParserContext& ctx, char c) {
 inline void handleStateNoneE(ParserContext& ctx, char c) {
     if (c == 'l') {
         ctx.state = STATE::NONE_EL;
+    } else if (c == 'x') {
+        ctx.state = STATE::NONE_EX;
+    } else if (c == 'n') {
+        ctx.state = STATE::NONE_ENUM_E;
     } else {
-        // Not 'else', treat as identifier starting with 'e'
+        // Not 'else', 'export', or 'enum', treat as identifier starting with 'e'
         ctx.stringStart = ctx.index - 1; // 'e' is at index-1
         ctx.state = STATE::IDENTIFIER_NAME;
         ctx.index--; // Re-process this character

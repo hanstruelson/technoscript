@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cctype>
 #include <stdexcept>
 #include <string>
 
@@ -110,6 +111,14 @@ inline void handleStateFunctionDeclarationName(ParserContext& ctx, char c) {
         // Continue parsing function name - accumulate characters
         // The name will be extracted when we see a non-identifier character
         return;
+    } else if (c == '<') {
+        // Function name complete, extract it and check for generics
+        std::string funcName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
+        if (auto* funcNode = dynamic_cast<FunctionDeclarationNode*>(ctx.currentNode)) {
+            funcNode->name = funcName;
+        }
+        ctx.state = STATE::FUNCTION_GENERIC_PARAMETERS_START;
+        // Let the main loop handle the '<' character in the new state
     } else if (c == '(') {
         // Function name complete, extract it
         std::string funcName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
@@ -124,9 +133,9 @@ inline void handleStateFunctionDeclarationName(ParserContext& ctx, char c) {
         if (auto* funcNode = dynamic_cast<FunctionDeclarationNode*>(ctx.currentNode)) {
             funcNode->name = funcName;
         }
-        // Stay in this state waiting for '('
+        // Stay in this state waiting for '<' or '('
     } else {
-        throw std::runtime_error("Expected '(' after function name: " + std::string(1, c));
+        throw std::runtime_error("Expected '<', '(' or whitespace after function name: " + std::string(1, c));
     }
 }
 
@@ -146,8 +155,8 @@ inline void handleStateFunctionParametersStart(ParserContext& ctx, char c) {
         }
         ctx.currentNode->children.push_back(paramList);
         ctx.state = STATE::FUNCTION_PARAMETERS_END;
-    } else if (isalpha(c) || c == '_') {
-        // Parameter name
+    } else {
+        // Start parsing parameter expression
         auto* paramList = new ParameterListNode(ctx.currentNode);
         if (auto* funcNode = dynamic_cast<FunctionDeclarationNode*>(ctx.currentNode)) {
             funcNode->parameters = paramList;
@@ -159,24 +168,46 @@ inline void handleStateFunctionParametersStart(ParserContext& ctx, char c) {
         ctx.currentNode->children.push_back(paramList);
         ctx.currentNode = paramList;
 
+        // Create first parameter and start parsing its pattern
         auto* param = new ParameterNode(ctx.currentNode);
-        param->name = std::string(1, c);
         paramList->addParameter(param);
         ctx.currentNode = param;
-        ctx.state = STATE::FUNCTION_PARAMETER_NAME;
-    } else if (std::isspace(static_cast<unsigned char>(c))) {
-        // Skip whitespace
-        return;
-    } else {
-        throw std::runtime_error("Expected parameter name or ')': " + std::string(1, c));
+
+        // Check for destructuring patterns first
+        if (c == '[') {
+            // Array destructuring parameter
+            auto* arrayNode = new ArrayDestructuringNode(ctx.currentNode);
+            param->pattern = arrayNode;
+            ctx.currentNode = arrayNode;
+            ctx.state = STATE::ARRAY_DESTRUCTURING_START;
+        } else if (c == '{') {
+            // Object destructuring parameter
+            auto* objectNode = new ObjectDestructuringNode(ctx.currentNode);
+            param->pattern = objectNode;
+            ctx.currentNode = objectNode;
+            ctx.state = STATE::OBJECT_DESTRUCTURING_START;
+        } else {
+            // Regular parameter - start expression parsing
+            ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;
+            // Re-process this character as the start of the expression
+            ctx.index--;
+        }
     }
 }
 
 inline void handleStateFunctionParameterName(ParserContext& ctx, char c) {
     if (isalnum(c) || c == '_') {
         if (auto* param = dynamic_cast<ParameterNode*>(ctx.currentNode)) {
-            param->name += c;
+            if (!param->pattern) {
+                param->pattern = new IdentifierExpressionNode(param, std::string(1, c));
+                param->children.push_back(param->pattern);
+            } else if (auto* ident = dynamic_cast<IdentifierExpressionNode*>(param->pattern)) {
+                ident->name += c;
+            }
         }
+    } else if (std::isspace(static_cast<unsigned char>(c))) {
+        // Skip whitespace
+        return;
     } else if (c == ':') {
         ctx.state = STATE::FUNCTION_PARAMETER_TYPE_ANNOTATION;
     } else if (c == ',' || c == ')') {
@@ -195,19 +226,53 @@ inline void handleStateFunctionParameterName(ParserContext& ctx, char c) {
 }
 
 inline void handleStateFunctionParameterTypeAnnotation(ParserContext& ctx, char c) {
-    // Simplified type annotation handling - just expect basic types for now
-    if (isalpha(c)) {
-        ctx.stringStart = ctx.index;
-        ctx.state = STATE::TYPE_ANNOTATION;
-        // This will need to be handled by the type annotation system
-    } else {
-        throw std::runtime_error("Expected type name: " + std::string(1, c));
-    }
-}
+    static bool startedParsing = false;
 
-inline void handleStateFunctionParameterDefaultValue(ParserContext& ctx, char c) {
-    // For now, skip default values - complex expression parsing needed
+    // Handle whitespace before type name
+    if (std::isspace(static_cast<unsigned char>(c))) {
+        return;
+    }
+
+    // Start parsing type name
+    if ((isalpha(c) || c == '_') && !startedParsing) {
+        ctx.stringStart = ctx.index - 1; // Include current character
+        startedParsing = true;
+        // Continue in this state to accumulate type name
+        return;
+    }
+
+    // Continue accumulating type name
+    if (std::isalnum(c) || c == '_') {
+        return;
+    }
+
+    // End of type name - process it
     if (c == ',' || c == ')') {
+        std::string typeName = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
+        // Trim trailing whitespace
+        typeName.erase(typeName.find_last_not_of(" \t\n\r\f\v") + 1);
+
+        // Reset for next use
+        startedParsing = false;
+
+        // Set type annotation on parameter
+        auto* param = dynamic_cast<ParameterNode*>(ctx.currentNode);
+        if (param) {
+            param->typeAnnotation = new TypeAnnotationNode(param);
+            if (typeName == "string") {
+                param->typeAnnotation->dataType = DataType::STRING;
+            } else if (typeName == "int64") {
+                param->typeAnnotation->dataType = DataType::INT64;
+            } else if (typeName == "float64") {
+                param->typeAnnotation->dataType = DataType::FLOAT64;
+            } else {
+                // Default to object for unknown types
+                param->typeAnnotation->dataType = DataType::OBJECT;
+            }
+            param->children.push_back(param->typeAnnotation);
+        }
+
+        // Move back to parameter list
         ctx.currentNode = ctx.currentNode->parent;
         if (c == ',') {
             ctx.state = STATE::FUNCTION_PARAMETER_SEPARATOR;
@@ -215,26 +280,63 @@ inline void handleStateFunctionParameterDefaultValue(ParserContext& ctx, char c)
             ctx.state = STATE::FUNCTION_PARAMETERS_END;
         }
     } else {
-        // Skip characters in default value for now
+        throw std::runtime_error("Unexpected character in parameter type annotation: " + std::string(1, c));
+    }
+}
+
+inline void handleStateFunctionParameterDefaultValue(ParserContext& ctx, char c) {
+    if (c == ',' || c == ')') {
+        // End of default value
+        ctx.currentNode = ctx.currentNode->parent;
+        if (c == ',') {
+            ctx.state = STATE::FUNCTION_PARAMETER_SEPARATOR;
+        } else {
+            ctx.state = STATE::FUNCTION_PARAMETERS_END;
+        }
+    } else {
+        // Parse the default value expression
+        ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;
+        // Re-process this character as the start of the expression
+        ctx.index--;
     }
 }
 
 inline void handleStateFunctionParameterSeparator(ParserContext& ctx, char c) {
-    if (isalpha(c) || c == '_') {
+    if (std::isspace(static_cast<unsigned char>(c))) {
+        // Skip whitespace
+        return;
+    } else if (c == ')') {
+        ctx.state = STATE::FUNCTION_PARAMETERS_END;
+    } else {
         auto* paramList = dynamic_cast<ParameterListNode*>(ctx.currentNode);
         if (!paramList) {
             throw std::runtime_error("Expected parameter list context");
         }
 
+        // Create next parameter and start parsing its pattern
         auto* param = new ParameterNode(ctx.currentNode);
-        param->name = std::string(1, c);
         paramList->addParameter(param);
         ctx.currentNode = param;
-        ctx.state = STATE::FUNCTION_PARAMETER_NAME;
-    } else if (c == ')') {
-        ctx.state = STATE::FUNCTION_PARAMETERS_END;
-    } else {
-        throw std::runtime_error("Expected parameter name or ')': " + std::string(1, c));
+
+        // Check for destructuring patterns first
+        if (c == '[') {
+            // Array destructuring parameter
+            auto* arrayNode = new ArrayDestructuringNode(ctx.currentNode);
+            param->pattern = arrayNode;
+            ctx.currentNode = arrayNode;
+            ctx.state = STATE::ARRAY_DESTRUCTURING_START;
+        } else if (c == '{') {
+            // Object destructuring parameter
+            auto* objectNode = new ObjectDestructuringNode(ctx.currentNode);
+            param->pattern = objectNode;
+            ctx.currentNode = objectNode;
+            ctx.state = STATE::OBJECT_DESTRUCTURING_START;
+        } else {
+            // Regular parameter - start expression parsing
+            ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;
+            // Re-process this character as the start of the expression
+            ctx.index--;
+        }
     }
 }
 
@@ -258,7 +360,10 @@ inline void handleStateFunctionParametersEnd(ParserContext& ctx, char c) {
 }
 
 inline void handleStateFunctionReturnTypeAnnotation(ParserContext& ctx, char c) {
-    if (isalpha(c)) {
+    if (std::isspace(static_cast<unsigned char>(c))) {
+        // Skip whitespace before return type
+        return;
+    } else if (isalpha(c)) {
         ctx.stringStart = ctx.index;
         ctx.state = STATE::TYPE_ANNOTATION;
         // This will set the return type on the function node
@@ -308,7 +413,8 @@ inline void handleStateArrowFunctionParameters(ParserContext& ctx, char c) {
         ctx.currentNode = paramList;
 
         auto* param = new ParameterNode(ctx.currentNode);
-        param->name = std::string(1, c);
+        param->pattern = new IdentifierExpressionNode(param, std::string(1, c));
+        param->children.push_back(param->pattern);
         paramList->addParameter(param);
         ctx.currentNode = param;
         ctx.state = STATE::FUNCTION_PARAMETER_NAME;
@@ -327,11 +433,13 @@ inline void handleStateArrowFunctionArrow(ParserContext& ctx, char c) {
 
 inline void handleStateArrowFunctionBody(ParserContext& ctx, char c) {
     if (c == '{') {
+        // Block body
         ctx.state = STATE::FUNCTION_BODY_START;
     } else {
-        // Expression body - for now just skip
-        ctx.currentNode = ctx.currentNode->parent;
-        ctx.state = STATE::NONE;
+        // Expression body - parse the expression starting with this character
+        ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;
+        // Re-process this character as the start of the expression
+        ctx.index--;
     }
 }
 

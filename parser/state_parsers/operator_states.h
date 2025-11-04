@@ -36,6 +36,55 @@ inline void handleStateExpressionGreater(ParserContext& ctx, char c) {
 inline void handleStateExpressionEquals(ParserContext& ctx, char c) {
     if (c == '=') {
         ctx.state = STATE::EXPRESSION_EQUALS_DOUBLE;
+    } else if (c == '>') {
+        // Arrow function: =>
+        // Check if current node is an identifier or if the last child is a parenthesis expression
+        ASTNode* paramNode = nullptr;
+        if (ctx.currentNode->nodeType == ASTNodeType::IDENTIFIER_EXPRESSION) {
+            paramNode = ctx.currentNode;
+        } else if (!ctx.currentNode->children.empty() &&
+                   ctx.currentNode->children.back()->nodeType == ASTNodeType::PARENTHESIS_EXPRESSION) {
+            paramNode = ctx.currentNode->children.back();
+        }
+
+        if (paramNode) {
+            auto* arrowFunc = new ArrowFunctionExpressionNode(ctx.currentNode);
+
+            if (paramNode->nodeType == ASTNodeType::IDENTIFIER_EXPRESSION) {
+                // Single parameter arrow function
+                auto* identifier = static_cast<IdentifierExpressionNode*>(paramNode);
+
+                // Create parameter list with single parameter
+                auto* paramList = new ParameterListNode(arrowFunc);
+                auto* param = new ParameterNode(paramList);
+                param->pattern = identifier;
+                param->children.push_back(identifier);
+                identifier->parent = param;
+                paramList->addParameter(param);
+                arrowFunc->parameters = paramList;
+
+                // Replace identifier with arrow function
+                if (ctx.currentNode->children.back() == paramNode) {
+                    ctx.currentNode->children.back() = arrowFunc;
+                }
+            } else if (paramNode->nodeType == ASTNodeType::PARENTHESIS_EXPRESSION) {
+                // Parenthesized parameters - empty () case
+                // Create empty parameter list for ()
+                auto* paramList = new ParameterListNode(arrowFunc);
+                arrowFunc->parameters = paramList;
+
+                // Replace parenthesis expression with arrow function
+                if (ctx.currentNode->children.back() == paramNode) {
+                    ctx.currentNode->children.back() = arrowFunc;
+                }
+            }
+
+            ctx.currentNode = arrowFunc;
+            ctx.state = STATE::ARROW_FUNCTION_BODY;
+            // Don't re-process the '>' - the body starts after =>
+        } else {
+            throw std::runtime_error("Unexpected '=>' after non-parameter expression");
+        }
     } else {
         applyExpressionOperator(ctx, BinaryExpressionOperator::OP_ASSIGN);
         ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;

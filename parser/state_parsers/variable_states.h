@@ -41,11 +41,35 @@ inline void handleStateNoneV(ParserContext& ctx, char c) {
 // const keyword parsing
 inline void handleStateNoneCONST(ParserContext& ctx, char c) {
     if (c == ' ') {
-        auto* parent = ctx.currentNode;
-        auto* variable = new VariableDefinitionNode(parent, VariableDefinitionType::CONST);
-        parent->children.push_back(variable);
-        ctx.currentNode = variable;
-        ctx.state = STATE::EXPECT_IDENTIFIER;
+        // Check if this is "const enum"
+        std::size_t tempIndex = ctx.index;
+        // Skip spaces
+        while (tempIndex < ctx.code.length() && std::isspace(static_cast<unsigned char>(ctx.code[tempIndex]))) {
+            tempIndex++;
+        }
+        if (tempIndex + 3 < ctx.code.length() &&
+            ctx.code[tempIndex] == 'e' &&
+            ctx.code[tempIndex + 1] == 'n' &&
+            ctx.code[tempIndex + 2] == 'u' &&
+            ctx.code[tempIndex + 3] == 'm') {
+            // This is "const enum"
+            auto* enumDecl = new EnumDeclarationNode(ctx.currentNode);
+            enumDecl->isConst = true;
+            ctx.currentNode->addChild(enumDecl);
+            ctx.currentNode = enumDecl;
+            ctx.stringStart = 0;  // Reset for name parsing
+            ctx.state = STATE::ENUM_DECLARATION_NAME;
+            // Skip "enum"
+            ctx.index = tempIndex + 4;
+            return;
+        } else {
+            // Normal const variable
+            auto* parent = ctx.currentNode;
+            auto* variable = new VariableDefinitionNode(parent, VariableDefinitionType::CONST);
+            parent->children.push_back(variable);
+            ctx.currentNode = variable;
+            ctx.state = STATE::EXPECT_IDENTIFIER;
+        }
     } else {
         throw std::runtime_error("Unexpected character" + std::string(1, c));
     }
