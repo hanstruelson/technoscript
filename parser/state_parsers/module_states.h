@@ -164,10 +164,9 @@ inline void handleStateImportSpecifierName(ParserContext& ctx, char c) {
             importDecl->addSpecifier(specifier);
         }
         ctx.state = STATE::IMPORT_SPECIFIERS_END;
-    } else if (c == 'a' && ctx.code.substr(ctx.index - 1, 3) == " as") {
+    } else if (c == 'a') {
         // "as" keyword for aliasing
-        ctx.state = STATE::IMPORT_SPECIFIER_AS;
-        ctx.index += 2; // Skip "as"
+        ctx.state = STATE::IMPORT_AS_A;
     } else {
         throw std::runtime_error("Unexpected character in import specifier name: " + std::string(1, c));
     }
@@ -275,10 +274,9 @@ inline void handleStateImportSpecifierSeparator(ParserContext& ctx, char c) {
 
 // Import specifiers end
 inline void handleStateImportSpecifiersEnd(ParserContext& ctx, char c) {
-    if (c == 'f' && ctx.code.substr(ctx.index - 1, 4) == "from") {
+    if (c == 'f') {
         // "from" keyword
-        ctx.state = STATE::IMPORT_FROM;
-        ctx.index--; // Re-process this character
+        ctx.state = STATE::IMPORT_FROM_F;
     } else if (c == ',') {
         // Additional specifiers after default import
         ctx.state = STATE::IMPORT_SPECIFIERS_START;
@@ -417,69 +415,17 @@ inline void handleStateExportSpecifiersStart(ParserContext& ctx, char c) {
         ctx.currentNode->children.push_back(exportDecl);
         ctx.currentNode = exportDecl;
         ctx.state = STATE::EXPORT_ALL;
-    } else if (c == 'd' && ctx.code.substr(ctx.index, 7) == "default") {
+    } else if (c == 'd') {
         // Export default
-        ctx.state = STATE::EXPORT_DEFAULT;
-        ctx.index += 6; // Skip "default"
+        ctx.state = STATE::EXPORT_DEFAULT_D;
     } else if (c == 'c') {
-        // Could be "const" or "class"
-        if (ctx.code.substr(ctx.index - 1, 5) == "const") {
-            // Export const declaration
-            ctx.index += 4; // Skip "onst"
-            auto* exportDecl = new ExportNamedDeclaration(ctx.currentNode);
-            ctx.currentNode->children.push_back(exportDecl);
-            ctx.currentNode = exportDecl;
-            // Create const variable inside export
-            auto* varDecl = new VariableDefinitionNode(exportDecl, VariableDefinitionType::CONST);
-            exportDecl->children.push_back(varDecl);
-            ctx.currentNode = varDecl;
-            ctx.state = STATE::EXPECT_IDENTIFIER;
-        } else if (ctx.code.substr(ctx.index - 1, 5) == "class") {
-            // Export class declaration
-            ctx.index += 4; // Skip "lass"
-            auto* exportDecl = new ExportNamedDeclaration(ctx.currentNode);
-            ctx.currentNode->children.push_back(exportDecl);
-            ctx.currentNode = exportDecl;
-            // Create class inside export
-            auto* classDecl = new ClassDeclarationNode(exportDecl);
-            exportDecl->children.push_back(classDecl);
-            ctx.currentNode = classDecl;
-            ctx.state = STATE::CLASS_DECLARATION_NAME;
-        } else {
-            throw std::runtime_error("Unexpected token after 'export c': " + ctx.code.substr(ctx.index - 1, 5));
-        }
-    } else if (c == 'l' && ctx.code.substr(ctx.index, 2) == "et") {
-        // Export let declaration
-        ctx.state = STATE::EXPORT_DECLARATION;
-        // Re-process this character
-        ctx.index--;
-    } else if (c == 'v' && ctx.code.substr(ctx.index, 2) == "ar") {
-        // Export var declaration
-        ctx.state = STATE::EXPORT_DECLARATION;
-        // Re-process this character
-        ctx.index--;
-    } else if (c == 'f' && ctx.code.substr(ctx.index, 7) == "unction") {
-        // export function declaration
-        ctx.index += 7; // Skip "unction"
-        auto* exportDecl = new ExportNamedDeclaration(ctx.currentNode);
-        ctx.currentNode->children.push_back(exportDecl);
-        ctx.currentNode = exportDecl;
-        // Create function inside export
-        auto* funcDecl = new FunctionDeclarationNode(exportDecl);
-        exportDecl->children.push_back(funcDecl);
-        ctx.currentNode = funcDecl;
-        ctx.state = STATE::FUNCTION_DECLARATION_NAME;
+        ctx.state = STATE::EXPORT_CONST_C;
+    } else if (c == 'l') {
+        ctx.state = STATE::EXPORT_LET_L;
+    } else if (c == 'v') {
+        ctx.state = STATE::EXPORT_VAR_V;
     } else if (c == 'f') {
-        // export function declaration (already consumed 'f')
-        ctx.index += 6; // Skip "unction" (we've already consumed 'f')
-        auto* exportDecl = new ExportNamedDeclaration(ctx.currentNode);
-        ctx.currentNode->children.push_back(exportDecl);
-        ctx.currentNode = exportDecl;
-        // Create function inside export
-        auto* funcDecl = new FunctionDeclarationNode(exportDecl);
-        exportDecl->children.push_back(funcDecl);
-        ctx.currentNode = funcDecl;
-        ctx.state = STATE::FUNCTION_DECLARATION_NAME;
+        ctx.state = STATE::EXPORT_FUNCTION_F;
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace
         return;
@@ -523,10 +469,9 @@ inline void handleStateExportSpecifierName(ParserContext& ctx, char c) {
             exportDecl->addSpecifier(specifier);
         }
         ctx.state = STATE::EXPORT_SPECIFIERS_END;
-    } else if (c == 'a' && ctx.code.substr(ctx.index - 1, 3) == " as") {
+    } else if (c == 'a') {
         // "as" keyword for aliasing
-        ctx.state = STATE::EXPORT_SPECIFIER_AS;
-        ctx.index += 2; // Skip "as"
+        ctx.state = STATE::EXPORT_AS_A;
     } else {
         throw std::runtime_error("Unexpected character in export specifier name: " + std::string(1, c));
     }
@@ -605,14 +550,12 @@ inline void handleStateExportAll(ParserContext& ctx, char c) {
     if (c == ' ') {
         // Continue parsing "export * from 'module'" or "export * as name from 'module'"
         return;
-    } else if (c == 'f' && ctx.code.substr(ctx.index - 1, 4) == "from") {
+    } else if (c == 'f') {
         // "from" keyword
-        ctx.state = STATE::EXPORT_FROM;
-        ctx.index += 3; // Skip "from"
-    } else if (c == 'a' && ctx.code.substr(ctx.index - 1, 2) == "as") {
+        ctx.state = STATE::EXPORT_FROM_F;
+    } else if (c == 'a') {
         // "as" keyword for aliasing
-        ctx.state = STATE::EXPORT_ALL;
-        ctx.index += 1; // Skip "as"
+        ctx.state = STATE::EXPORT_AS_A;
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace
         return;
@@ -697,9 +640,8 @@ inline void handleStateExportSpecifiersEnd(ParserContext& ctx, char c) {
 
 // Export declaration (for let/var)
 inline void handleStateExportDeclaration(ParserContext& ctx, char c) {
-    if (c == 'l' && ctx.code.substr(ctx.index, 2) == "et") {
+    if (c == 'l') {
         // Export let declaration
-        ctx.index += 2; // Skip "et"
         auto* exportDecl = new ExportNamedDeclaration(ctx.currentNode);
         ctx.currentNode->children.push_back(exportDecl);
         ctx.currentNode = exportDecl;
@@ -708,9 +650,8 @@ inline void handleStateExportDeclaration(ParserContext& ctx, char c) {
         exportDecl->children.push_back(varDecl);
         ctx.currentNode = varDecl;
         ctx.state = STATE::EXPECT_IDENTIFIER;
-    } else if (c == 'v' && ctx.code.substr(ctx.index, 2) == "ar") {
+    } else if (c == 'v') {
         // Export var declaration
-        ctx.index += 2; // Skip "ar"
         auto* exportDecl = new ExportNamedDeclaration(ctx.currentNode);
         ctx.currentNode->children.push_back(exportDecl);
         ctx.currentNode = exportDecl;

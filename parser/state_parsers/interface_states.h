@@ -110,6 +110,16 @@ inline void handleStateInterfaceDeclarationName(ParserContext& ctx, char c) {
     } else if (isIdentifierPart(c)) {
         // Continue parsing interface name - accumulate characters
         return;
+    } else if (c == '<') {
+        // Generic parameters start
+        if (ctx.stringStart > 0 && ctx.stringStart < ctx.index) {
+            std::string interfaceName = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
+            if (auto* interfaceNode = dynamic_cast<InterfaceDeclarationNode*>(ctx.currentNode)) {
+                interfaceNode->name = interfaceName;
+            }
+        }
+        ctx.state = STATE::INTERFACE_GENERIC_PARAMETERS_START;
+        ctx.index--; // Re-process this character
     } else if (c == '{') {
         // Interface name complete, extract it
         if (ctx.stringStart > 0 && ctx.stringStart < ctx.index) {
@@ -123,28 +133,16 @@ inline void handleStateInterfaceDeclarationName(ParserContext& ctx, char c) {
         ctx.state = STATE::INTERFACE_BODY_START;
         ctx.index--; // Re-process this character
     } else if (c == 'e') {
-        // Check for 'extends'
-        if (ctx.index + 6 <= ctx.code.length() && ctx.code.substr(ctx.index, 6) == "xtends") {
-            // Interface name complete, extract it
-            if (ctx.stringStart > 0 && ctx.stringStart < ctx.index) {
-                std::string interfaceName = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
-                if (auto* interfaceNode = dynamic_cast<InterfaceDeclarationNode*>(ctx.currentNode)) {
-                    interfaceNode->name = interfaceName;
-                }
+        // Interface name complete, extract it
+        if (ctx.stringStart > 0 && ctx.stringStart < ctx.index) {
+            std::string interfaceName = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
+            if (auto* interfaceNode = dynamic_cast<InterfaceDeclarationNode*>(ctx.currentNode)) {
+                interfaceNode->name = interfaceName;
             }
-            ctx.index += 6; // Skip 'xtends'
-            // Skip whitespace after 'extends'
-            while (ctx.index < ctx.code.length() && std::isspace(static_cast<unsigned char>(ctx.code[ctx.index]))) {
-                ctx.index++;
-            }
-            // Now parse the extended interface name
-            ctx.stringStart = ctx.index;
-            ctx.state = STATE::INTERFACE_EXTENDS_NAME;
-        } else {
-            reportParseError(ctx.code, ctx.index, "Expected 'extends' keyword", ctx.state);
         }
+        ctx.state = STATE::INTERFACE_EXTENDS_E;
     } else {
-        reportParseError(ctx.code, ctx.index, "Expected interface name, 'extends', or '{'", ctx.state);
+        reportParseError(ctx.code, ctx.index, "Expected interface name, '<', 'extends', or '{'", ctx.state);
     }
 }
 
@@ -154,19 +152,7 @@ inline void handleStateInterfaceExtendsStart(ParserContext& ctx, char c) {
         ctx.state = STATE::INTERFACE_BODY_START;
         ctx.index--; // Re-process this character
     } else if (c == 'e') {
-        // Check for 'extends'
-        if (ctx.index + 6 <= ctx.code.length() && ctx.code.substr(ctx.index, 6) == "xtends") {
-            ctx.index += 6; // Skip 'xtends'
-            // Skip whitespace after 'extends'
-            while (ctx.index < ctx.code.length() && std::isspace(static_cast<unsigned char>(ctx.code[ctx.index]))) {
-                ctx.index++;
-            }
-            // Now parse the extended interface name
-            ctx.stringStart = ctx.index;
-            ctx.state = STATE::INTERFACE_EXTENDS_NAME;
-        } else {
-            reportParseError(ctx.code, ctx.index, "Expected 'extends' keyword", ctx.state);
-        }
+        ctx.state = STATE::INTERFACE_EXTENDS_E;
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace
         return;
@@ -249,10 +235,9 @@ inline void handleStateInterfaceBody(ParserContext& ctx, char c) {
             // 'new' keyword (construct signature)
             ctx.index += 2; // Skip 'ew'
             ctx.state = STATE::INTERFACE_CONSTRUCT_SIGNATURE_START;
-        } else if (c == 'r' && ctx.index + 7 <= ctx.code.length() && ctx.code.substr(ctx.index - 1, 8) == "readonly") {
+        } else if (c == 'r') {
             // 'readonly' keyword
-            ctx.index += 7; // Skip 'eadonly'
-            ctx.state = STATE::INTERFACE_PROPERTY_READONLY;
+            ctx.state = STATE::INTERFACE_READONLY_R;
         } else {
             // Property or method name
             ctx.stringStart = ctx.index - 1;
@@ -593,4 +578,91 @@ inline void handleStateInterfaceConstructSignatureReturnType(ParserContext& ctx,
         // Type parsing would go here
         ctx.state = STATE::INTERFACE_CONSTRUCT_SIGNATURE_RETURN_TYPE;
     }
+}
+
+// Interface generic parameter parsing: interface Name<T, U>
+inline void handleStateInterfaceGenericParametersStart(ParserContext& ctx, char c) {
+    if (std::isspace(static_cast<unsigned char>(c))) {
+        return;
+    }
+
+    if (c == '<') {
+        // Create generic type parameters node
+        auto* genericParams = new GenericTypeParametersNode(ctx.currentNode);
+        if (auto* interfaceNode = dynamic_cast<InterfaceDeclarationNode*>(ctx.currentNode)) {
+            interfaceNode->genericParameters = genericParams;
+        }
+        ctx.currentNode->children.push_back(genericParams);
+        ctx.currentNode = genericParams;
+        ctx.state = STATE::INTERFACE_GENERIC_PARAMETER_NAME;
+    } else {
+        throw std::runtime_error("Expected '<' for interface generic type parameters, got: " + std::string(1, c));
+    }
+}
+
+inline void handleStateInterfaceGenericParameterName(ParserContext& ctx, char c) {
+    if (std::isspace(static_cast<unsigned char>(c))) {
+        return;
+    }
+
+    if (std::isalnum(static_cast<unsigned char>(c)) != 0 || c == '_') {
+        ctx.stringStart = ctx.index;
+        ctx.state = STATE::INTERFACE_GENERIC_PARAMETER_SEPARATOR;
+        return;
+    }
+
+    throw std::runtime_error("Expected identifier for interface generic type parameter, got: " + std::string(1, c));
+}
+
+inline void handleStateInterfaceGenericParameterSeparator(ParserContext& ctx, char c) {
+    if (std::isalnum(static_cast<unsigned char>(c)) != 0 || c == '_') {
+        return;
+    }
+
+    if (std::isspace(static_cast<unsigned char>(c))) {
+        return;
+    }
+
+    if (c == ',') {
+        // Add the parameter name
+        std::string paramName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
+        // Trim trailing whitespace
+        paramName.erase(paramName.find_last_not_of(" \t\n\r\f\v") + 1);
+
+        auto* genericParams = dynamic_cast<GenericTypeParametersNode*>(ctx.currentNode);
+        if (!genericParams) {
+            throw std::runtime_error("Expected GenericTypeParametersNode");
+        }
+        genericParams->addParameter(paramName);
+
+        // Continue with next parameter
+        ctx.state = STATE::INTERFACE_GENERIC_PARAMETER_NAME;
+        return;
+    }
+
+    if (c == '>') {
+        // Add the last parameter name
+        std::string paramName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
+        // Trim trailing whitespace
+        paramName.erase(paramName.find_last_not_of(" \t\n\r\f\v") + 1);
+
+        auto* genericParams = dynamic_cast<GenericTypeParametersNode*>(ctx.currentNode);
+        if (!genericParams) {
+            throw std::runtime_error("Expected GenericTypeParametersNode");
+        }
+        genericParams->addParameter(paramName);
+
+        // Move back to parent and continue with interface declaration
+        ctx.currentNode = ctx.currentNode->parent;
+        ctx.state = STATE::INTERFACE_EXTENDS_START;
+        return;
+    }
+
+    throw std::runtime_error("Expected ',' or '>' in interface generic type parameters, got: " + std::string(1, c));
+}
+
+inline void handleStateInterfaceGenericParametersEnd(ParserContext& ctx, char c) {
+    // This state is not currently used but is included for completeness
+    // The logic is handled in INTERFACE_GENERIC_PARAMETER_SEPARATOR
+    throw std::runtime_error("Unexpected state: INTERFACE_GENERIC_PARAMETERS_END");
 }

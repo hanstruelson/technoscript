@@ -113,12 +113,12 @@ inline void handleStateFunctionDeclarationName(ParserContext& ctx, char c) {
         return;
     } else if (c == '<') {
         // Function name complete, extract it and check for generics
-        std::string funcName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
+        std::string funcName = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
         if (auto* funcNode = dynamic_cast<FunctionDeclarationNode*>(ctx.currentNode)) {
             funcNode->name = funcName;
         }
         ctx.state = STATE::FUNCTION_GENERIC_PARAMETERS_START;
-        // Let the main loop handle the '<' character in the new state
+        // The '<' character has been consumed, so don't re-process it
     } else if (c == '(') {
         // Function name complete, extract it
         std::string funcName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);

@@ -99,7 +99,7 @@ This document tracks the implementation progress of TypeScript language features
 ### Generic Types
 - ✅ **Generic type usage** - Generic types like Array<T>, Promise<T>
 - ✅ **Generic functions** - Functions with type parameters
-- ❌ **Generic interfaces** - Interfaces with type parameters
+- ✅ **Generic interfaces** - Interfaces with type parameters
 - ❌ **Generic classes** - Classes with type parameters
 - ❌ **Generic type aliases** - Type aliases with generics
 - ❌ **Generic constraints** - extends keyword for type bounds
@@ -107,12 +107,12 @@ This document tracks the implementation progress of TypeScript language features
 - ❌ **Generic mapped types** - Transforming types with generics
 
 ### Advanced Generics
-- ❌ **Conditional types** - T extends U ? X : Y syntax
-- ❌ **Infer keyword** - Inferring types in conditional types
-- ❌ **Template literal types** - String manipulation at type level
-- ❌ **Mapped types** - Transforming object types
+- ✅ **Conditional types** - T extends U ? X : Y syntax
+- ✅ **Infer keyword** - Inferring types in conditional types
+- ✅ **Template literal types** - String manipulation at type level
+- ✅ **Mapped types** - Transforming object types
 - ❌ **Key remapping in mapped types** - as keyword in mapped types
-- ❌ **Recursive conditional types** - Self-referential conditional types
+- ✅ **Recursive conditional types** - Self-referential conditional types
 
 ## 6. Advanced Types
 

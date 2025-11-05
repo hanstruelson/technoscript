@@ -75,6 +75,16 @@ inline void handleStateClassDeclarationName(ParserContext& ctx, char c) {
     } else if (isIdentifierPart(c)) {
         // Continue parsing class name - accumulate characters
         return;
+    } else if (c == '<') {
+        // Generic parameters start
+        if (ctx.stringStart > 0 && ctx.stringStart < ctx.index) {
+            std::string className = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
+            if (auto* classNode = dynamic_cast<ClassDeclarationNode*>(ctx.currentNode)) {
+                classNode->name = className;
+            }
+        }
+        ctx.state = STATE::CLASS_GENERIC_PARAMETERS_START;
+        ctx.index--; // Re-process this character
     } else if (c == '{') {
         // Class name complete (or anonymous class), extract it
         if (ctx.stringStart > 0 && ctx.stringStart < ctx.index) {
@@ -87,7 +97,7 @@ inline void handleStateClassDeclarationName(ParserContext& ctx, char c) {
         }
         ctx.state = STATE::CLASS_BODY;
     } else {
-        reportParseError(ctx.code, ctx.index, "Expected class name or '{', 'extends', or 'implements'", ctx.state);
+        reportParseError(ctx.code, ctx.index, "Expected class name, '<', or '{', 'extends', or 'implements'", ctx.state);
     }
 }
 
@@ -96,33 +106,9 @@ inline void handleStateClassExtendsStart(ParserContext& ctx, char c) {
         // No extends/implements, go to body
         ctx.state = STATE::CLASS_BODY;
     } else if (c == 'e') {
-        // Check for 'extends'
-        if (ctx.index + 6 <= ctx.code.length() && ctx.code.substr(ctx.index, 6) == "xtends") {
-            ctx.index += 6; // Skip 'xtends'
-            // Skip whitespace after 'extends'
-            while (ctx.index < ctx.code.length() && std::isspace(static_cast<unsigned char>(ctx.code[ctx.index]))) {
-                ctx.index++;
-            }
-            // Now parse the class name
-            ctx.stringStart = ctx.index;
-            ctx.state = STATE::CLASS_EXTENDS_NAME;
-        } else {
-            reportParseError(ctx.code, ctx.index, "Expected 'extends' keyword", ctx.state);
-        }
+        ctx.state = STATE::CLASS_EXTENDS_E;
     } else if (c == 'i') {
-        // Check for 'implements'
-        if (ctx.index + 9 <= ctx.code.length() && ctx.code.substr(ctx.index, 9) == "mplements") {
-            ctx.index += 9; // Skip 'mplements'
-            // Skip whitespace after 'implements'
-            while (ctx.index < ctx.code.length() && std::isspace(static_cast<unsigned char>(ctx.code[ctx.index]))) {
-                ctx.index++;
-            }
-            // Now parse the interface name
-            ctx.stringStart = ctx.index;
-            ctx.state = STATE::CLASS_IMPLEMENTS_NAME;
-        } else {
-            reportParseError(ctx.code, ctx.index, "Expected 'implements' keyword", ctx.state);
-        }
+        ctx.state = STATE::CLASS_IMPLEMENTS_I;
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace
         return;
@@ -163,19 +149,7 @@ inline void handleStateClassImplementsStart(ParserContext& ctx, char c) {
         ctx.state = STATE::CLASS_BODY;
         ctx.index--; // Re-process this character
     } else if (c == 'i') {
-        // Check for 'implements'
-        if (ctx.index + 9 <= ctx.code.length() && ctx.code.substr(ctx.index, 9) == "mplements") {
-            ctx.index += 9; // Skip 'mplements'
-            // Skip whitespace after 'implements'
-            while (ctx.index < ctx.code.length() && std::isspace(static_cast<unsigned char>(ctx.code[ctx.index]))) {
-                ctx.index++;
-            }
-            // Now parse the interface name
-            ctx.stringStart = ctx.index;
-            ctx.state = STATE::CLASS_IMPLEMENTS_NAME;
-        } else {
-            reportParseError(ctx.code, ctx.index, "Expected 'implements' keyword", ctx.state);
-        }
+        ctx.state = STATE::CLASS_IMPLEMENTS_I;
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace
         return;
@@ -379,12 +353,11 @@ inline void handleStateClassMethodReturnType(ParserContext& ctx, char c) {
 }
 
 inline void handleStateClassMethodBodyStart(ParserContext& ctx, char c) {
-    if (c == '{') {
-        ctx.state = STATE::CLASS_METHOD_BODY;
-    } else if (std::isspace(static_cast<unsigned char>(c))) {
-        // Skip whitespace
+    if (c == '}') {
+        ctx.currentNode = ctx.currentNode->parent;
+        ctx.state = STATE::CLASS_BODY;
     } else {
-        reportParseError(ctx.code, ctx.index, "Expected '{' to start method body", ctx.state);
+        ctx.state = STATE::CLASS_METHOD_BODY;
     }
 }
 
@@ -404,8 +377,11 @@ inline void handleStateClassAccessModifierPublic(ParserContext& ctx, char c) {
         // Continue checking 'public'
         // For now, just set a flag and continue
         ctx.state = STATE::CLASS_PROPERTY_KEY;
+    } else if (c == 'r') {
+        // Check for 'private'
+        ctx.state = STATE::CLASS_ACCESS_MODIFIER_PRIVATE;
     } else {
-        // Not 'public', treat as regular identifier
+        // Not 'public' or 'private', treat as regular identifier
         ctx.stringStart = ctx.index - 2; // 'p' was at index-2, current char is at index-1
         ctx.state = STATE::CLASS_PROPERTY_KEY;
         ctx.index--; // Re-process current character
@@ -571,4 +547,91 @@ inline void handleStateClassSetterBody(ParserContext& ctx, char c) {
     } else {
         reportParseError(ctx.code, ctx.index, "Expected '{' to start setter body", ctx.state);
     }
+}
+
+// Class generic parameter parsing: class Name<T, U>
+inline void handleStateClassGenericParametersStart(ParserContext& ctx, char c) {
+    if (std::isspace(static_cast<unsigned char>(c))) {
+        return;
+    }
+
+    if (c == '<') {
+        // Create generic type parameters node
+        auto* genericParams = new GenericTypeParametersNode(ctx.currentNode);
+        if (auto* classNode = dynamic_cast<ClassDeclarationNode*>(ctx.currentNode)) {
+            classNode->genericParameters = genericParams;
+        }
+        ctx.currentNode->children.push_back(genericParams);
+        ctx.currentNode = genericParams;
+        ctx.state = STATE::CLASS_GENERIC_PARAMETER_NAME;
+    } else {
+        throw std::runtime_error("Expected '<' for class generic type parameters, got: " + std::string(1, c));
+    }
+}
+
+inline void handleStateClassGenericParameterName(ParserContext& ctx, char c) {
+    if (std::isspace(static_cast<unsigned char>(c))) {
+        return;
+    }
+
+    if (std::isalnum(static_cast<unsigned char>(c)) != 0 || c == '_') {
+        ctx.stringStart = ctx.index;
+        ctx.state = STATE::CLASS_GENERIC_PARAMETER_SEPARATOR;
+        return;
+    }
+
+    throw std::runtime_error("Expected identifier for class generic type parameter, got: " + std::string(1, c));
+}
+
+inline void handleStateClassGenericParameterSeparator(ParserContext& ctx, char c) {
+    if (std::isalnum(static_cast<unsigned char>(c)) != 0 || c == '_') {
+        return;
+    }
+
+    if (std::isspace(static_cast<unsigned char>(c))) {
+        return;
+    }
+
+    if (c == ',') {
+        // Add the parameter name
+        std::string paramName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
+        // Trim trailing whitespace
+        paramName.erase(paramName.find_last_not_of(" \t\n\r\f\v") + 1);
+
+        auto* genericParams = dynamic_cast<GenericTypeParametersNode*>(ctx.currentNode);
+        if (!genericParams) {
+            throw std::runtime_error("Expected GenericTypeParametersNode");
+        }
+        genericParams->addParameter(paramName);
+
+        // Continue with next parameter
+        ctx.state = STATE::CLASS_GENERIC_PARAMETER_NAME;
+        return;
+    }
+
+    if (c == '>') {
+        // Add the last parameter name
+        std::string paramName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
+        // Trim trailing whitespace
+        paramName.erase(paramName.find_last_not_of(" \t\n\r\f\v") + 1);
+
+        auto* genericParams = dynamic_cast<GenericTypeParametersNode*>(ctx.currentNode);
+        if (!genericParams) {
+            throw std::runtime_error("Expected GenericTypeParametersNode");
+        }
+        genericParams->addParameter(paramName);
+
+        // Move back to parent and continue with class declaration
+        ctx.currentNode = ctx.currentNode->parent;
+        ctx.state = STATE::CLASS_EXTENDS_START;
+        return;
+    }
+
+    throw std::runtime_error("Expected ',' or '>' in class generic type parameters, got: " + std::string(1, c));
+}
+
+inline void handleStateClassGenericParametersEnd(ParserContext& ctx, char c) {
+    // This state is not currently used but is included for completeness
+    // The logic is handled in CLASS_GENERIC_PARAMETER_SEPARATOR
+    throw std::runtime_error("Unexpected state: CLASS_GENERIC_PARAMETERS_END");
 }

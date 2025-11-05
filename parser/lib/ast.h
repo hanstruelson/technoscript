@@ -16,6 +16,11 @@ enum ASTNodeType {
     INTERSECTION_TYPE,
     GENERIC_TYPE_PARAMETERS,
     GENERIC_TYPE,
+    // Advanced generics
+    CONDITIONAL_TYPE,
+    INFER_TYPE,
+    TEMPLATE_LITERAL_TYPE,
+    MAPPED_TYPE,
     EXPRESSION,
     BINARY_EXPRESSION,
     LITERAL_EXPRESSION,
@@ -79,7 +84,9 @@ enum ASTNodeType {
     OBJECT_DESTRUCTURING,
     // Enum nodes
     ENUM_DECLARATION,
-    ENUM_MEMBER
+    ENUM_MEMBER,
+    // Type alias nodes
+    TYPE_ALIAS
 };
 
 class ASTNode;
@@ -735,6 +742,7 @@ public:
 class InterfaceDeclarationNode : public ASTNode {
 public:
     std::string name;
+    GenericTypeParametersNode* genericParameters;
     std::vector<std::string> extendsInterfaces;
     std::vector<PropertyNode*> properties;
     std::vector<InterfacePropertyNode*> interfaceProperties;
@@ -743,7 +751,7 @@ public:
     std::vector<ASTNode*> callSignatures;
     std::vector<ASTNode*> constructSignatures;
 
-    InterfaceDeclarationNode(ASTNode* parent) : ASTNode(parent) {
+    InterfaceDeclarationNode(ASTNode* parent) : ASTNode(parent), genericParameters(nullptr) {
         nodeType = ASTNodeType::INTERFACE_DECLARATION;
     }
 
@@ -975,13 +983,14 @@ public:
 class ClassDeclarationNode : public ASTNode {
 public:
     std::string name;
+    GenericTypeParametersNode* genericParameters;
     std::string extendsClass;
     std::vector<std::string> implementsInterfaces;
     std::vector<ClassPropertyNode*> properties;
     std::vector<ClassMethodNode*> methods;
     bool isAbstract;
 
-    ClassDeclarationNode(ASTNode* parent) : ASTNode(parent), isAbstract(false) {
+    ClassDeclarationNode(ASTNode* parent) : ASTNode(parent), genericParameters(nullptr), isAbstract(false) {
         nodeType = ASTNodeType::CLASS_DECLARATION;
     }
 
@@ -1803,6 +1812,27 @@ public:
     }
 };
 
+class TypeAliasNode : public ASTNode {
+public:
+    std::string name;
+    GenericTypeParametersNode* genericParameters;
+    ASTNode* typeAnnotation;
+
+    TypeAliasNode(ASTNode* parent) : ASTNode(parent), genericParameters(nullptr), typeAnnotation(nullptr) {
+        nodeType = ASTNodeType::TYPE_ALIAS;
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        os << pad() << "TypeAlias(" << name << ")\n";
+        if (genericParameters) genericParameters->print(os, indent + 1);
+        if (typeAnnotation) {
+            os << pad() << "  Type:\n";
+            typeAnnotation->print(os, indent + 2);
+        }
+    }
+};
+
 class EnumDeclarationNode : public ASTNode {
 public:
     std::string name;
@@ -1827,5 +1857,136 @@ public:
         if (isConst) os << ", const";
         os << ")\n";
         for (auto member : members) if (member) member->print(os, indent + 1);
+    }
+};
+
+// Advanced generics nodes
+class ConditionalTypeNode : public ASTNode {
+public:
+    ASTNode* checkType;
+    ASTNode* extendsType;
+    ASTNode* trueType;
+    ASTNode* falseType;
+
+    ConditionalTypeNode(ASTNode* parent) : ASTNode(parent), checkType(nullptr), extendsType(nullptr), trueType(nullptr), falseType(nullptr) {
+        nodeType = ASTNodeType::CONDITIONAL_TYPE;
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        os << pad() << "ConditionalType\n";
+        if (checkType) {
+            os << pad() << "  Check:\n";
+            checkType->print(os, indent + 2);
+        }
+        if (extendsType) {
+            os << pad() << "  Extends:\n";
+            extendsType->print(os, indent + 2);
+        }
+        if (trueType) {
+            os << pad() << "  True:\n";
+            trueType->print(os, indent + 2);
+        }
+        if (falseType) {
+            os << pad() << "  False:\n";
+            falseType->print(os, indent + 2);
+        }
+    }
+};
+
+class InferTypeNode : public ASTNode {
+public:
+    std::string typeParameter;
+
+    InferTypeNode(ASTNode* parent) : ASTNode(parent) {
+        nodeType = ASTNodeType::INFER_TYPE;
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        os << pad() << "InferType(" << typeParameter << ")\n";
+    }
+};
+
+class TemplateLiteralTypeNode : public ASTNode {
+public:
+    std::vector<std::string> quasis;
+    std::vector<ASTNode*> types;
+
+    TemplateLiteralTypeNode(ASTNode* parent) : ASTNode(parent) {
+        nodeType = ASTNodeType::TEMPLATE_LITERAL_TYPE;
+    }
+
+    void addQuasi(const std::string& quasi) {
+        quasis.push_back(quasi);
+    }
+
+    void addType(ASTNode* type) {
+        types.push_back(type);
+        if (type) {
+            type->parent = this;
+            children.push_back(type);
+        }
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        os << pad() << "TemplateLiteralType\n";
+        for (size_t i = 0; i < quasis.size(); ++i) {
+            os << pad() << "  Quasi: \"" << quasis[i] << "\"\n";
+            if (i < types.size() && types[i]) {
+                os << pad() << "  Type:\n";
+                types[i]->print(os, indent + 2);
+            }
+        }
+    }
+};
+
+class MappedTypeNode : public ASTNode {
+public:
+    std::string typeParameter;
+    ASTNode* constraintType;
+    ASTNode* valueType;
+    std::string asClause; // For key remapping
+    bool isReadonly;
+    bool isOptional;
+
+    MappedTypeNode(ASTNode* parent) : ASTNode(parent), constraintType(nullptr), valueType(nullptr), isReadonly(false), isOptional(false) {
+        nodeType = ASTNodeType::MAPPED_TYPE;
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        os << pad() << "MappedType";
+        if (isReadonly) os << "(readonly";
+        os << "[" << typeParameter << " in ";
+        // Print constraint type
+        if (constraintType) {
+            if (constraintType->nodeType == ASTNodeType::TYPE_ANNOTATION) {
+                auto* typeNode = static_cast<TypeAnnotationNode*>(constraintType);
+                static const char* typeMap[] = {"int64","float64","string","raw_memory","object"};
+                os << typeMap[static_cast<int>(typeNode->dataType)];
+            } else {
+                os << "type";
+            }
+        }
+        if (!asClause.empty()) {
+            os << " as " << asClause;
+        }
+        os << "]";
+        if (isOptional) os << "?";
+        os << ": ";
+        // Print value type
+        if (valueType) {
+            if (valueType->nodeType == ASTNodeType::TYPE_ANNOTATION) {
+                auto* typeNode = static_cast<TypeAnnotationNode*>(valueType);
+                static const char* typeMap[] = {"int64","float64","string","raw_memory","object"};
+                os << typeMap[static_cast<int>(typeNode->dataType)];
+            } else {
+                os << "type";
+            }
+        }
+        os << ")\n";
+        for (auto child : children) if (child) child->print(os, indent + 1);
     }
 };

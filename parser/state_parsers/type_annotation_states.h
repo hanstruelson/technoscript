@@ -66,6 +66,34 @@ inline void handleStateTypeAnnotation(ParserContext& ctx, char c) {
         return;
     }
 
+    // Check for advanced generics keywords
+    std::string currentToken = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
+
+    if (c == 'i') {
+        // Infer type
+        ctx.state = STATE::TYPE_INFER_I;
+        return;
+    }
+
+    if (c == '`') {
+        // Template literal type
+        ctx.state = STATE::TYPE_TEMPLATE_LITERAL_START;
+        return;
+    }
+
+    if (c == '{') {
+        // Mapped type
+        ctx.state = STATE::TYPE_MAPPED_START;
+        return;
+    }
+
+    // Check for conditional type (T extends U ? X : Y)
+    if (c == 'e') {
+        // Start conditional type parsing
+        ctx.state = STATE::TYPE_CONDITIONAL_CHECK;
+        return;
+    }
+
     if (c == '|') {
         // Union type - create union type node if not already created
         std::string currentType = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);

@@ -659,12 +659,14 @@ inline void handleStateSwitchDefault(ParserContext& ctx, char c) {
     }
 }
 
-// Try-catch-finally handlers
+// Try-catch-finally handlers and type alias handlers
 inline void handleStateNoneT(ParserContext& ctx, char c) {
     if (c == 'r') {
         ctx.state = STATE::NONE_TR;
+    } else if (c == 'y') {
+        ctx.state = STATE::NONE_TY;
     } else {
-        throw std::runtime_error("Expected 'r' after 't': " + std::string(1, c));
+        throw std::runtime_error("Expected 'r' or 'y' after 't': " + std::string(1, c));
     }
 }
 
