@@ -96,7 +96,7 @@ inline void handleStateNoneIMPORT(ParserContext& ctx, char c) {
 inline void handleStateImportSpecifiersStart(ParserContext& ctx, char c) {
     if (c == '{') {
         // Named imports: import { x, y } from 'module'
-        ctx.stringStart = ctx.index + 1; // Next character starts the first specifier name
+        ctx.stringStart = std::numeric_limits<size_t>::max(); // Not set yet
         ctx.state = STATE::IMPORT_SPECIFIER_NAME;
     } else if (c == '*') {
         // Namespace import: import * as name from 'module'
@@ -131,6 +131,15 @@ inline void handleStateImportSpecifiersStart(ParserContext& ctx, char c) {
 
 // Import specifier name (inside braces)
 inline void handleStateImportSpecifierName(ParserContext& ctx, char c) {
+    if (std::isspace(static_cast<unsigned char>(c))) {
+        // Skip whitespace
+        return;
+    }
+
+    if (ctx.stringStart == std::numeric_limits<size_t>::max()) {
+        ctx.stringStart = ctx.index - 1;
+    }
+
     if (isalnum(c) || c == '_') {
         // Continue building specifier name
         return;
@@ -172,24 +181,25 @@ inline void handleStateImportSpecifierName(ParserContext& ctx, char c) {
     }
 }
 
-// Import specifier "as" keyword
+// Import specifier after name (handles "as" or other endings)
 inline void handleStateImportSpecifierAs(ParserContext& ctx, char c) {
-    if (c == 'a') {
-        // Start of "as" - expect 's' next
-        return;
-    } else if (c == 's') {
-        // End of "as"
-        ctx.state = STATE::IMPORT_SPECIFIER_LOCAL_NAME;
-        ctx.stringStart = ctx.index + 1; // Next identifier starts after 's'
-    } else if (c == 'f' && ctx.code.substr(ctx.index, 3) == "rom") {
-        // "from" keyword (f already consumed, check for "rom")
-        ctx.state = STATE::IMPORT_FROM;
-        ctx.index += 3; // Skip "rom"
-    } else if (std::isspace(static_cast<unsigned char>(c))) {
+    if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace
         return;
+    } else if (c == 'a') {
+        // "as" keyword
+        ctx.state = STATE::IMPORT_AS_A;
+    } else if (c == ',') {
+        // Next specifier
+        ctx.state = STATE::IMPORT_SPECIFIER_SEPARATOR;
+    } else if (c == '}') {
+        // End of specifiers
+        ctx.state = STATE::IMPORT_SPECIFIERS_END;
+    } else if (c == 'f') {
+        // "from" keyword
+        ctx.state = STATE::IMPORT_FROM_F;
     } else {
-        throw std::runtime_error("Expected 'as' or 'from' after '*': " + std::string(1, c));
+        throw std::runtime_error("Expected 'as', ',', '}', or 'from' after specifier name: " + std::string(1, c));
     }
 }
 
@@ -227,8 +237,8 @@ inline void handleStateImportSpecifierLocalName(ParserContext& ctx, char c) {
             defaultSpecifier->local = localName;
         }
         ctx.state = STATE::IMPORT_SPECIFIERS_END;
-    } else if (c == 'f' && ctx.code.substr(ctx.index, 3) == "rom") {
-        // "from" keyword (f already consumed)
+    } else if (c == 'f') {
+        // "from" keyword start
         std::string localName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
         if (auto* specifier = dynamic_cast<ImportSpecifier*>(ctx.currentNode)) {
             specifier->local = localName;
@@ -237,8 +247,7 @@ inline void handleStateImportSpecifierLocalName(ParserContext& ctx, char c) {
         } else if (auto* defaultSpecifier = dynamic_cast<ImportDefaultSpecifier*>(ctx.currentNode)) {
             defaultSpecifier->local = localName;
         }
-        ctx.state = STATE::IMPORT_FROM;
-        ctx.index += 3; // Skip "rom"
+        ctx.state = STATE::IMPORT_FROM_F;
     } else if (c == '"' || c == '\'') {
         // Start of source string (no "from" keyword for side-effect imports)
         std::string localName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
@@ -311,7 +320,7 @@ inline void handleStateImportFrom(ParserContext& ctx, char c) {
 inline void handleStateImportSourceStart(ParserContext& ctx, char c) {
     if (c == '"' || c == '\'') {
         ctx.quoteChar = c;
-        ctx.stringStart = ctx.index + 1; // Start of string content
+        ctx.stringStart = ctx.index; // Start of string content
         ctx.state = STATE::IMPORT_SOURCE;
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace
@@ -325,7 +334,7 @@ inline void handleStateImportSourceStart(ParserContext& ctx, char c) {
 inline void handleStateImportSource(ParserContext& ctx, char c) {
     if (c == ctx.quoteChar) {
         // End of source string
-        std::string source = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
+        std::string source = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart - 1);
         if (auto* importDecl = dynamic_cast<ImportDeclaration*>(ctx.currentNode)) {
             importDecl->source = source;
         }
@@ -477,16 +486,14 @@ inline void handleStateExportSpecifierName(ParserContext& ctx, char c) {
     }
 }
 
-// Export specifier "as" keyword
+// Export specifier "as" keyword - first 'a'
 inline void handleStateExportSpecifierAs(ParserContext& ctx, char c) {
-    if (c == 'a') {
-        // Start of "as"
-        return;
-    } else if (c == 's') {
-        // End of "as"
-        ctx.state = STATE::EXPORT_SPECIFIER_EXPORTED_NAME;
+    if (c == 's') {
+        // Second character of "as"
+        ctx.state = STATE::EXPORT_AS_AS;
+        ctx.stringStart = ctx.index + 1; // Next identifier starts after 's'
     } else {
-        throw std::runtime_error("Expected 'as' keyword: " + std::string(1, c));
+        throw std::runtime_error("Expected 's' after 'a' in 'as': " + std::string(1, c));
     }
 }
 
@@ -564,16 +571,13 @@ inline void handleStateExportAll(ParserContext& ctx, char c) {
     }
 }
 
-// Export "from" keyword
+// Export "from" keyword - first 'f'
 inline void handleStateExportFrom(ParserContext& ctx, char c) {
-    if (c == 'f') {
-        // Start of "from"
-        return;
-    } else if (c == 'm') {
-        // End of "from"
-        ctx.state = STATE::EXPORT_SOURCE_START;
+    if (c == 'r') {
+        // Second character of "from"
+        ctx.state = STATE::EXPORT_FROM_FR;
     } else {
-        throw std::runtime_error("Expected 'from' keyword: " + std::string(1, c));
+        throw std::runtime_error("Expected 'r' after 'f' in 'from': " + std::string(1, c));
     }
 }
 
@@ -581,6 +585,7 @@ inline void handleStateExportFrom(ParserContext& ctx, char c) {
 inline void handleStateExportSourceStart(ParserContext& ctx, char c) {
     if (c == '"' || c == '\'') {
         ctx.quoteChar = c;
+        ctx.stringStart = ctx.index;
         ctx.state = STATE::EXPORT_SOURCE;
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace
@@ -594,7 +599,7 @@ inline void handleStateExportSourceStart(ParserContext& ctx, char c) {
 inline void handleStateExportSource(ParserContext& ctx, char c) {
     if (c == ctx.quoteChar) {
         // End of source string
-        std::string source = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
+        std::string source = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart - 1);
         if (auto* exportDecl = dynamic_cast<ExportNamedDeclaration*>(ctx.currentNode)) {
             exportDecl->source = source;
         } else if (auto* exportAllDecl = dynamic_cast<ExportAllDeclaration*>(ctx.currentNode)) {

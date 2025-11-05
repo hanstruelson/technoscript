@@ -2,6 +2,7 @@
 
 #include <cctype>
 #include <iostream>
+#include <limits>
 #include <stdexcept>
 #include <string>
 
@@ -279,7 +280,7 @@ inline void handleStateTypeTemplateLiteralQuasi(ParserContext& ctx, char c) {
     }
 
     // Continue with quasi
-    if (ctx.stringStart == -1) {
+    if (ctx.stringStart == std::numeric_limits<size_t>::max()) {
         ctx.stringStart = ctx.index;
     }
 }
@@ -288,13 +289,13 @@ inline void handleStateTypeTemplateLiteralInterpolation(ParserContext& ctx, char
     if (c == '}') {
         // End of interpolation, back to quasi
         ctx.state = STATE::TYPE_TEMPLATE_LITERAL_QUASI;
-        ctx.stringStart = -1; // Reset for next quasi
+        ctx.stringStart = std::numeric_limits<size_t>::max(); // Reset for next quasi
         return;
     }
 
     // Parse type in interpolation (simplified)
     if (std::isalnum(static_cast<unsigned char>(c)) != 0 || c == '_') {
-        if (ctx.stringStart == -1) {
+        if (ctx.stringStart == std::numeric_limits<size_t>::max()) {
             ctx.stringStart = ctx.index;
         }
         return;

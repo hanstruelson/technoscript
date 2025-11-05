@@ -1637,7 +1637,7 @@ public:
 
     void print(std::ostream& os, int indent) const override {
         auto pad = [indent]() { return string(indent * 2, ' '); };
-        os << pad() << "ImportDeclaration(from: \"" << source << "\")\n";
+        os << pad() << "ImportDeclaration(from: " << source << ")\n";
         if (defaultSpecifier) defaultSpecifier->print(os, indent + 1);
         if (namespaceSpecifier) namespaceSpecifier->print(os, indent + 1);
         for (auto specifier : specifiers) if (specifier) specifier->print(os, indent + 1);
