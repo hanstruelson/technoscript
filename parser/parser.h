@@ -654,11 +654,11 @@ inline void parse(const std::string& code) {
                 case STATE::CLASS_DECLARATION_NAME:
                     handleStateClassDeclarationName(ctx, c);
                     break;
-                case STATE::CLASS_EXTENDS_START:
-                    handleStateClassExtendsStart(ctx, c);
+                case STATE::CLASS_AFTER_NAME_START:
+                    handleStateClassAfterNameStart(ctx, c);
                     break;
-                case STATE::CLASS_EXTENDS_NAME:
-                    handleStateClassExtendsName(ctx, c);
+                case STATE::CLASS_AFTER_NAME_NAME:
+                    handleStateClassAfterNameName(ctx, c);
                     break;
                 case STATE::CLASS_IMPLEMENTS_START:
                     handleStateClassImplementsStart(ctx, c);
@@ -778,14 +778,14 @@ inline void parse(const std::string& code) {
                 case STATE::INTERFACE_DECLARATION_NAME:
                     handleStateInterfaceDeclarationName(ctx, c);
                     break;
-                case STATE::INTERFACE_EXTENDS_START:
-                    handleStateInterfaceExtendsStart(ctx, c);
+                case STATE::INTERFACE_AFTER_NAME_START:
+                    handleStateInterfaceAfterNameStart(ctx, c);
                     break;
-                case STATE::INTERFACE_EXTENDS_NAME:
-                    handleStateInterfaceExtendsName(ctx, c);
+                case STATE::INTERFACE_AFTER_NAME_NAME:
+                    handleStateInterfaceAfterNameName(ctx, c);
                     break;
-                case STATE::INTERFACE_EXTENDS_SEPARATOR:
-                    handleStateInterfaceExtendsSeparator(ctx, c);
+                case STATE::INTERFACE_AFTER_NAME_SEPARATOR:
+                    handleStateInterfaceAfterNameSeparator(ctx, c);
                     break;
                 case STATE::INTERFACE_BODY_START:
                     handleStateInterfaceBodyStart(ctx, c);
@@ -812,7 +812,7 @@ inline void parse(const std::string& code) {
                     handleStateInterfacePropertyOptional(ctx, c);
                     break;
                 case STATE::INTERFACE_PROPERTY_READONLY:
-                    handleStateInterfacePropertyReadonly(ctx, c);
+                    handleStateInterfacePropertyKey(ctx, c);
                     break;
 
                 case STATE::INTERFACE_INDEX_SIGNATURE_START:
@@ -1191,108 +1191,108 @@ inline void parse(const std::string& code) {
                 case STATE::TYPE_MAPPED_OPTIONAL:
                     handleStateTypeMappedOptional(ctx, c);
                     break;
-                // Interface extends states
-                case STATE::INTERFACE_EXTENDS_E:
-                    handleStateInterfaceExtendsE(ctx, c);
+                // Interface after name states
+                case STATE::INTERFACE_AFTER_NAME_E:
+                    handleStateInterfaceAfterNameE(ctx, c);
                     break;
-                case STATE::INTERFACE_EXTENDS_EX:
-                    handleStateInterfaceExtendsEx(ctx, c);
+                case STATE::INTERFACE_AFTER_NAME_EX:
+                    handleStateInterfaceAfterNameEx(ctx, c);
                     break;
-                case STATE::INTERFACE_EXTENDS_EXT:
-                    handleStateInterfaceExtendsExt(ctx, c);
+                case STATE::INTERFACE_AFTER_NAME_EXT:
+                    handleStateInterfaceAfterNameExt(ctx, c);
                     break;
-                case STATE::INTERFACE_EXTENDS_EXTE:
-                    handleStateInterfaceExtendsExte(ctx, c);
+                case STATE::INTERFACE_AFTER_NAME_EXTE:
+                    handleStateInterfaceAfterNameExte(ctx, c);
                     break;
-                case STATE::INTERFACE_EXTENDS_EXTEN:
-                    handleStateInterfaceExtendsExten(ctx, c);
+                case STATE::INTERFACE_AFTER_NAME_EXTEN:
+                    handleStateInterfaceAfterNameExten(ctx, c);
                     break;
-                case STATE::INTERFACE_EXTENDS_EXTEND:
-                    handleStateInterfaceExtendsExtend(ctx, c);
+                case STATE::INTERFACE_AFTER_NAME_EXTEND:
+                    handleStateInterfaceAfterNameExtend(ctx, c);
                     break;
-                case STATE::INTERFACE_EXTENDS_EXTENDS:
-                    handleStateInterfaceExtendsExtends(ctx, c);
+                case STATE::INTERFACE_AFTER_NAME_EXTENDS:
+                    handleStateInterfaceAfterNameExtends(ctx, c);
                     break;
-                // Interface readonly states
-                case STATE::INTERFACE_READONLY_R:
-                    handleStateInterfaceReadonlyR(ctx, c);
+                // Interface member modifier states
+                case STATE::INTERFACE_MEMBER_R:
+                    handleStateInterfaceMemberR(ctx, c);
                     break;
-                case STATE::INTERFACE_READONLY_RE:
-                    handleStateInterfaceReadonlyRe(ctx, c);
+                case STATE::INTERFACE_MEMBER_RE:
+                    handleStateInterfaceMemberRe(ctx, c);
                     break;
-                case STATE::INTERFACE_READONLY_REA:
-                    handleStateInterfaceReadonlyRea(ctx, c);
+                case STATE::INTERFACE_MEMBER_REA:
+                    handleStateInterfaceMemberRea(ctx, c);
                     break;
-                case STATE::INTERFACE_READONLY_READ:
-                    handleStateInterfaceReadonlyRead(ctx, c);
+                case STATE::INTERFACE_MEMBER_READ:
+                    handleStateInterfaceMemberRead(ctx, c);
                     break;
-                case STATE::INTERFACE_READONLY_READO:
-                    handleStateInterfaceReadonlyReado(ctx, c);
+                case STATE::INTERFACE_MEMBER_READO:
+                    handleStateInterfaceMemberReado(ctx, c);
                     break;
-                case STATE::INTERFACE_READONLY_READON:
-                    handleStateInterfaceReadonlyReadon(ctx, c);
+                case STATE::INTERFACE_MEMBER_READON:
+                    handleStateInterfaceMemberReadon(ctx, c);
                     break;
-                case STATE::INTERFACE_READONLY_READONL:
-                    handleStateInterfaceReadonlyReadonl(ctx, c);
+                case STATE::INTERFACE_MEMBER_READONL:
+                    handleStateInterfaceMemberReadonl(ctx, c);
                     break;
-                case STATE::INTERFACE_READONLY_READONLY:
-                    handleStateInterfaceReadonlyReadonly(ctx, c);
+                case STATE::INTERFACE_MEMBER_READONLY:
+                    handleStateInterfaceMemberReadonly(ctx, c);
                     break;
-                // Class extends states
-                case STATE::CLASS_EXTENDS_E:
-                    handleStateClassExtendsE(ctx, c);
+                // Class after name states
+                case STATE::CLASS_AFTER_NAME_E:
+                    handleStateClassAfterNameE(ctx, c);
                     break;
-                case STATE::CLASS_EXTENDS_EX:
-                    handleStateClassExtendsEx(ctx, c);
+                case STATE::CLASS_AFTER_NAME_EX:
+                    handleStateClassAfterNameEx(ctx, c);
                     break;
-                case STATE::CLASS_EXTENDS_EXT:
-                    handleStateClassExtendsExt(ctx, c);
+                case STATE::CLASS_AFTER_NAME_EXT:
+                    handleStateClassAfterNameExt(ctx, c);
                     break;
-                case STATE::CLASS_EXTENDS_EXTE:
-                    handleStateClassExtendsExte(ctx, c);
+                case STATE::CLASS_AFTER_NAME_EXTE:
+                    handleStateClassAfterNameExte(ctx, c);
                     break;
-                case STATE::CLASS_EXTENDS_EXTEN:
-                    handleStateClassExtendsExten(ctx, c);
+                case STATE::CLASS_AFTER_NAME_EXTEN:
+                    handleStateClassAfterNameExten(ctx, c);
                     break;
-                case STATE::CLASS_EXTENDS_EXTEND:
-                    handleStateClassExtendsExtend(ctx, c);
+                case STATE::CLASS_AFTER_NAME_EXTEND:
+                    handleStateClassAfterNameExtend(ctx, c);
                     break;
-                case STATE::CLASS_EXTENDS_EXTENDS:
-                    handleStateClassExtendsExtends(ctx, c);
+                case STATE::CLASS_AFTER_NAME_EXTENDS:
+                    handleStateClassAfterNameExtends(ctx, c);
                     break;
                 // Class implements states
-                case STATE::CLASS_IMPLEMENTS_I:
+                case STATE::CLASS_INHERITANCE_I:
                     handleStateClassImplementsI(ctx, c);
                     break;
-                case STATE::CLASS_IMPLEMENTS_IM:
+                case STATE::CLASS_INHERITANCE_IM:
                     handleStateClassImplementsIm(ctx, c);
                     break;
-                case STATE::CLASS_IMPLEMENTS_IMP:
+                case STATE::CLASS_INHERITANCE_IMP:
                     handleStateClassImplementsImp(ctx, c);
                     break;
-                case STATE::CLASS_IMPLEMENTS_IMPL:
+                case STATE::CLASS_INHERITANCE_IMPL:
                     handleStateClassImplementsImpl(ctx, c);
                     break;
-                case STATE::CLASS_IMPLEMENTS_IMPLE:
+                case STATE::CLASS_INHERITANCE_IMPLE:
                     handleStateClassImplementsImple(ctx, c);
                     break;
-                case STATE::CLASS_IMPLEMENTS_IMPLEM:
+                case STATE::CLASS_INHERITANCE_IMPLEM:
                     handleStateClassImplementsImplem(ctx, c);
                     break;
-                case STATE::CLASS_IMPLEMENTS_IMPLEME:
+                case STATE::CLASS_INHERITANCE_IMPLEME:
                     handleStateClassImplementsImpleme(ctx, c);
                     break;
-                case STATE::CLASS_IMPLEMENTS_IMPLEMEN:
+                case STATE::CLASS_INHERITANCE_IMPLEMEN:
                     handleStateClassImplementsImplemen(ctx, c);
                     break;
-                case STATE::CLASS_IMPLEMENTS_IMPLEMENTS:
+                case STATE::CLASS_INHERITANCE_IMPLEMENTS:
                     handleStateClassImplementsImplements(ctx, c);
                     break;
                 // Module import/export keyword states
-                case STATE::IMPORT_AS_A:
+                case STATE::POST_IMPORT_SPECIFIER_A:
                     handleStateImportAsA(ctx, c);
                     break;
-                case STATE::IMPORT_AS_AS:
+                case STATE::IMPORT_SPECIFIER_AFTER_AS:
                     handleStateImportAsAs(ctx, c);
                     break;
                 case STATE::IMPORT_FROM_F:
@@ -1307,10 +1307,16 @@ inline void parse(const std::string& code) {
                 case STATE::IMPORT_FROM_FROM:
                     handleStateImportFromFrom(ctx, c);
                     break;
+                case STATE::EXPORT_A:
+                    handleStateExportA(ctx, c);
+                    break;
+                case STATE::EXPORT_AS:
+                    handleStateExportAs(ctx, c);
+                    break;
                 case STATE::EXPORT_AS_A:
                     handleStateExportAsA(ctx, c);
                     break;
-                case STATE::EXPORT_AS_AS:
+                case STATE::EXPORT_SPECIFIER_AFTER_AS:
                     handleStateExportAsAs(ctx, c);
                     break;
                 case STATE::EXPORT_FROM_F:
@@ -1346,77 +1352,42 @@ inline void parse(const std::string& code) {
                 case STATE::EXPORT_DEFAULT_DEFAULT:
                     handleStateExportDefaultDefault(ctx, c);
                     break;
-                case STATE::EXPORT_CONST_C:
-                    handleStateExportConstC(ctx, c);
+
+                case STATE::EXPORT_V:
+                    handleStateExportV(ctx, c);
                     break;
-                case STATE::EXPORT_CONST_CO:
-                    handleStateExportConstCo(ctx, c);
+                case STATE::EXPORT_VA:
+                    handleStateExportVa(ctx, c);
                     break;
-                case STATE::EXPORT_CONST_CON:
-                    handleStateExportConstCon(ctx, c);
+                case STATE::EXPORT_VAR:
+                    handleStateExportVar(ctx, c);
                     break;
-                case STATE::EXPORT_CONST_CONS:
-                    handleStateExportConstCons(ctx, c);
+                case STATE::EXPORT_F:
+                    handleStateExportF(ctx, c);
                     break;
-                case STATE::EXPORT_CONST_CONST:
-                    handleStateExportConstConst(ctx, c);
+                case STATE::EXPORT_FU:
+                    handleStateExportFu(ctx, c);
                     break;
-                case STATE::EXPORT_CLASS_C:
-                    handleStateExportClassC(ctx, c);
+                case STATE::EXPORT_FUN:
+                    handleStateExportFun(ctx, c);
                     break;
-                case STATE::EXPORT_CLASS_CL:
-                    handleStateExportClassCl(ctx, c);
+                case STATE::EXPORT_FUNC:
+                    handleStateExportFunc(ctx, c);
                     break;
-                case STATE::EXPORT_CLASS_CLA:
-                    handleStateExportClassCla(ctx, c);
+                case STATE::EXPORT_FUNCT:
+                    handleStateExportFunct(ctx, c);
                     break;
-                case STATE::EXPORT_CLASS_CLAS:
-                    handleStateExportClassClas(ctx, c);
+                case STATE::EXPORT_FUNCTI:
+                    handleStateExportFuncti(ctx, c);
                     break;
-                case STATE::EXPORT_CLASS_CLASS:
-                    handleStateExportClassClass(ctx, c);
+                case STATE::EXPORT_FUNCTIO:
+                    handleStateExportFunctio(ctx, c);
                     break;
-                case STATE::EXPORT_FUNCTION_F:
-                    handleStateExportFunctionF(ctx, c);
+                case STATE::EXPORT_FUNCTION:
+                    handleStateExportFunction(ctx, c);
                     break;
-                case STATE::EXPORT_FUNCTION_FU:
-                    handleStateExportFunctionFu(ctx, c);
-                    break;
-                case STATE::EXPORT_FUNCTION_FUN:
-                    handleStateExportFunctionFun(ctx, c);
-                    break;
-                case STATE::EXPORT_FUNCTION_FUNC:
-                    handleStateExportFunctionFunc(ctx, c);
-                    break;
-                case STATE::EXPORT_FUNCTION_FUNCT:
-                    handleStateExportFunctionFunct(ctx, c);
-                    break;
-                case STATE::EXPORT_FUNCTION_FUNCTI:
-                    handleStateExportFunctionFuncti(ctx, c);
-                    break;
-                case STATE::EXPORT_FUNCTION_FUNCTIO:
-                    handleStateExportFunctionFunctio(ctx, c);
-                    break;
-                case STATE::EXPORT_FUNCTION_FUNCTION:
-                    handleStateExportFunctionFunction(ctx, c);
-                    break;
-                case STATE::EXPORT_LET_L:
-                    handleStateExportLetL(ctx, c);
-                    break;
-                case STATE::EXPORT_LET_LE:
-                    handleStateExportLetLe(ctx, c);
-                    break;
-                case STATE::EXPORT_LET_LET:
-                    handleStateExportLetLet(ctx, c);
-                    break;
-                case STATE::EXPORT_VAR_V:
-                    handleStateExportVarV(ctx, c);
-                    break;
-                case STATE::EXPORT_VAR_VA:
-                    handleStateExportVarVa(ctx, c);
-                    break;
-                case STATE::EXPORT_VAR_VAR:
-                    handleStateExportVarVar(ctx, c);
+                case STATE::EXPORT_IDENTIFIER:
+                    handleStateExportIdentifier(ctx, c);
                     break;
             }
         } catch (const std::exception& e) {

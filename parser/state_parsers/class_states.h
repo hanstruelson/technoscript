@@ -63,7 +63,7 @@ inline void handleStateClassDeclarationName(ParserContext& ctx, char c) {
             if (auto* classNode = dynamic_cast<ClassDeclarationNode*>(ctx.currentNode)) {
                 classNode->name = className;
             }
-            ctx.state = STATE::CLASS_EXTENDS_START;
+            ctx.state = STATE::CLASS_AFTER_NAME_START;
         } else {
             // Skip whitespace before class name starts
             return;
@@ -106,9 +106,9 @@ inline void handleStateClassExtendsStart(ParserContext& ctx, char c) {
         // No extends/implements, go to body
         ctx.state = STATE::CLASS_BODY;
     } else if (c == 'e') {
-        ctx.state = STATE::CLASS_EXTENDS_E;
+        ctx.state = STATE::CLASS_AFTER_NAME_E;
     } else if (c == 'i') {
-        ctx.state = STATE::CLASS_IMPLEMENTS_I;
+        ctx.state = STATE::CLASS_INHERITANCE_I;
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace
         return;
@@ -149,7 +149,7 @@ inline void handleStateClassImplementsStart(ParserContext& ctx, char c) {
         ctx.state = STATE::CLASS_BODY;
         ctx.index--; // Re-process this character
     } else if (c == 'i') {
-        ctx.state = STATE::CLASS_IMPLEMENTS_I;
+        ctx.state = STATE::CLASS_INHERITANCE_I;
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace
         return;
@@ -623,7 +623,7 @@ inline void handleStateClassGenericParameterSeparator(ParserContext& ctx, char c
 
         // Move back to parent and continue with class declaration
         ctx.currentNode = ctx.currentNode->parent;
-        ctx.state = STATE::CLASS_EXTENDS_START;
+        ctx.state = STATE::CLASS_AFTER_NAME_START;
         return;
     }
 

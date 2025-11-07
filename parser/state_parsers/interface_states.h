@@ -98,7 +98,7 @@ inline void handleStateInterfaceDeclarationName(ParserContext& ctx, char c) {
             if (auto* interfaceNode = dynamic_cast<InterfaceDeclarationNode*>(ctx.currentNode)) {
                 interfaceNode->name = interfaceName;
             }
-            ctx.state = STATE::INTERFACE_EXTENDS_START;
+            ctx.state = STATE::INTERFACE_AFTER_NAME_START;
         } else {
             // Skip whitespace before interface name starts
             return;
@@ -140,19 +140,19 @@ inline void handleStateInterfaceDeclarationName(ParserContext& ctx, char c) {
                 interfaceNode->name = interfaceName;
             }
         }
-        ctx.state = STATE::INTERFACE_EXTENDS_E;
+        ctx.state = STATE::INTERFACE_AFTER_NAME_E;
     } else {
         reportParseError(ctx.code, ctx.index, "Expected interface name, '<', 'extends', or '{'", ctx.state);
     }
 }
 
-inline void handleStateInterfaceExtendsStart(ParserContext& ctx, char c) {
+inline void handleStateInterfaceAfterNameStart(ParserContext& ctx, char c) {
     if (c == '{') {
         // No extends, go to body
         ctx.state = STATE::INTERFACE_BODY_START;
         ctx.index--; // Re-process this character
     } else if (c == 'e') {
-        ctx.state = STATE::INTERFACE_EXTENDS_E;
+        ctx.state = STATE::INTERFACE_AFTER_NAME_E;
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace
         return;
@@ -162,7 +162,7 @@ inline void handleStateInterfaceExtendsStart(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateInterfaceExtendsName(ParserContext& ctx, char c) {
+inline void handleStateInterfaceAfterNameName(ParserContext& ctx, char c) {
     if (isalnum(c) || c == '_') {
         // Continue building interface name
         return;
@@ -172,7 +172,7 @@ inline void handleStateInterfaceExtendsName(ParserContext& ctx, char c) {
         if (auto* interfaceNode = dynamic_cast<InterfaceDeclarationNode*>(ctx.currentNode)) {
             interfaceNode->addExtendsInterface(extendsInterface);
         }
-        ctx.state = STATE::INTERFACE_EXTENDS_SEPARATOR;
+        ctx.state = STATE::INTERFACE_AFTER_NAME_SEPARATOR;
     } else if (c == '{') {
         // End of interface name, add to extends list, go to body
         std::string extendsInterface = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
@@ -189,11 +189,11 @@ inline void handleStateInterfaceExtendsName(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateInterfaceExtendsSeparator(ParserContext& ctx, char c) {
+inline void handleStateInterfaceAfterNameSeparator(ParserContext& ctx, char c) {
     if (isalnum(c) || c == '_') {
         // Next interface name
         ctx.stringStart = ctx.index - 1;
-        ctx.state = STATE::INTERFACE_EXTENDS_NAME;
+        ctx.state = STATE::INTERFACE_AFTER_NAME_NAME;
     } else if (c == '{') {
         // End of extends, go to body
         ctx.state = STATE::INTERFACE_BODY_START;
@@ -235,13 +235,15 @@ inline void handleStateInterfaceBody(ParserContext& ctx, char c) {
             // 'new' keyword (construct signature)
             ctx.index += 2; // Skip 'ew'
             ctx.state = STATE::INTERFACE_CONSTRUCT_SIGNATURE_START;
-        } else if (c == 'r') {
-            // 'readonly' keyword
-            ctx.state = STATE::INTERFACE_READONLY_R;
+} else if (c == 'r') {
+    // 'readonly' keyword
+    ctx.state = STATE::INTERFACE_MEMBER_R;
         } else {
             // Property or method name
             ctx.stringStart = ctx.index - 1;
-            ctx.state = STATE::INTERFACE_PROPERTY_KEY;
+            if (ctx.state != STATE::INTERFACE_PROPERTY_READONLY) {
+                ctx.state = STATE::INTERFACE_PROPERTY_KEY;
+            }
         }
     } else if (std::isspace(static_cast<unsigned char>(c)) || c == ';') {
         // Skip whitespace and empty statements
@@ -654,7 +656,7 @@ inline void handleStateInterfaceGenericParameterSeparator(ParserContext& ctx, ch
 
         // Move back to parent and continue with interface declaration
         ctx.currentNode = ctx.currentNode->parent;
-        ctx.state = STATE::INTERFACE_EXTENDS_START;
+        ctx.state = STATE::INTERFACE_AFTER_NAME_START;
         return;
     }
 

@@ -280,7 +280,7 @@ inline void handleStateTypeTemplateLiteralQuasi(ParserContext& ctx, char c) {
     }
 
     // Continue with quasi
-    if (ctx.stringStart == std::numeric_limits<size_t>::max()) {
+    if (ctx.stringStart == 0) {
         ctx.stringStart = ctx.index;
     }
 }
@@ -289,13 +289,13 @@ inline void handleStateTypeTemplateLiteralInterpolation(ParserContext& ctx, char
     if (c == '}') {
         // End of interpolation, back to quasi
         ctx.state = STATE::TYPE_TEMPLATE_LITERAL_QUASI;
-        ctx.stringStart = std::numeric_limits<size_t>::max(); // Reset for next quasi
+        ctx.stringStart = 0; // Reset for next quasi
         return;
     }
 
     // Parse type in interpolation (simplified)
     if (std::isalnum(static_cast<unsigned char>(c)) != 0 || c == '_') {
-        if (ctx.stringStart == std::numeric_limits<size_t>::max()) {
+        if (ctx.stringStart == 0) {
             ctx.stringStart = ctx.index;
         }
         return;
@@ -340,9 +340,9 @@ inline void handleStateTypeMappedRe(ParserContext& ctx, char c) {
         ctx.state = STATE::TYPE_MAPPED_REA;
         return;
     }
-    // Not readonly, back to parameter
-    ctx.state = STATE::TYPE_MAPPED_PARAMETER;
-    ctx.index -= 2; // Re-process "r" and current char
+    // Not readonly, treat as type identifier
+    ctx.stringStart = ctx.index - 2;
+    ctx.state = STATE::TYPE_ANNOTATION;
 }
 
 inline void handleStateTypeMappedRea(ParserContext& ctx, char c) {
@@ -350,9 +350,9 @@ inline void handleStateTypeMappedRea(ParserContext& ctx, char c) {
         ctx.state = STATE::TYPE_MAPPED_READ;
         return;
     }
-    // Not readonly, back to parameter
-    ctx.state = STATE::TYPE_MAPPED_PARAMETER;
-    ctx.index -= 3; // Re-process "re" and current char
+    // Not readonly, treat as type identifier
+    ctx.stringStart = ctx.index - 3;
+    ctx.state = STATE::TYPE_ANNOTATION;
 }
 
 inline void handleStateTypeMappedRead(ParserContext& ctx, char c) {
@@ -360,9 +360,9 @@ inline void handleStateTypeMappedRead(ParserContext& ctx, char c) {
         ctx.state = STATE::TYPE_MAPPED_READO;
         return;
     }
-    // Not readonly, back to parameter
-    ctx.state = STATE::TYPE_MAPPED_PARAMETER;
-    ctx.index -= 4; // Re-process "rea" and current char
+    // Not readonly, treat as type identifier
+    ctx.stringStart = ctx.index - 4;
+    ctx.state = STATE::TYPE_ANNOTATION;
 }
 
 inline void handleStateTypeMappedReado(ParserContext& ctx, char c) {
@@ -370,9 +370,9 @@ inline void handleStateTypeMappedReado(ParserContext& ctx, char c) {
         ctx.state = STATE::TYPE_MAPPED_READON;
         return;
     }
-    // Not readonly, back to parameter
-    ctx.state = STATE::TYPE_MAPPED_PARAMETER;
-    ctx.index -= 5; // Re-process "read" and current char
+    // Not readonly, treat as type identifier
+    ctx.stringStart = ctx.index - 5;
+    ctx.state = STATE::TYPE_ANNOTATION;
 }
 
 inline void handleStateTypeMappedReadon(ParserContext& ctx, char c) {
@@ -380,9 +380,9 @@ inline void handleStateTypeMappedReadon(ParserContext& ctx, char c) {
         ctx.state = STATE::TYPE_MAPPED_READONL;
         return;
     }
-    // Not readonly, back to parameter
-    ctx.state = STATE::TYPE_MAPPED_PARAMETER;
-    ctx.index -= 6; // Re-process "reado" and current char
+    // Not readonly, treat as type identifier
+    ctx.stringStart = ctx.index - 6;
+    ctx.state = STATE::TYPE_ANNOTATION;
 }
 
 inline void handleStateTypeMappedReadonl(ParserContext& ctx, char c) {
@@ -390,9 +390,9 @@ inline void handleStateTypeMappedReadonl(ParserContext& ctx, char c) {
         ctx.state = STATE::TYPE_MAPPED_READONLY;
         return;
     }
-    // Not readonly, back to parameter
-    ctx.state = STATE::TYPE_MAPPED_PARAMETER;
-    ctx.index -= 7; // Re-process "readon" and current char
+    // Not readonly, treat as type identifier
+    ctx.stringStart = ctx.index - 7;
+    ctx.state = STATE::TYPE_ANNOTATION;
 }
 
 inline void handleStateTypeMappedReadonly(ParserContext& ctx, char c) {
@@ -404,9 +404,9 @@ inline void handleStateTypeMappedReadonly(ParserContext& ctx, char c) {
         ctx.state = STATE::TYPE_MAPPED_PARAMETER;
         return;
     }
-    // Not readonly, back to parameter
-    ctx.state = STATE::TYPE_MAPPED_PARAMETER;
-    ctx.index -= 8; // Re-process "readonly" without 'y'
+    // Not readonly, treat as type identifier
+    ctx.stringStart = ctx.index - 8;
+    ctx.state = STATE::TYPE_ANNOTATION;
 }
 
 inline void handleStateTypeMappedParameter(ParserContext& ctx, char c) {

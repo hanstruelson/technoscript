@@ -33,7 +33,9 @@ inline void handleStateExportSpecifierAs(ParserContext& ctx, char c);
 inline void handleStateExportSpecifierExportedName(ParserContext& ctx, char c);
 inline void handleStateExportSpecifierSeparator(ParserContext& ctx, char c);
 inline void handleStateExportSpecifiersEnd(ParserContext& ctx, char c);
-inline void handleStateExportFrom(ParserContext& ctx, char c);
+inline void handleStateExportFromF(ParserContext& ctx, char c);
+inline void handleStateExportFromFr(ParserContext& ctx, char c);
+inline void handleStateExportFromFro(ParserContext& ctx, char c);
 inline void handleStateExportSourceStart(ParserContext& ctx, char c);
 inline void handleStateExportSource(ParserContext& ctx, char c);
 inline void handleStateExportSourceEnd(ParserContext& ctx, char c);
@@ -96,7 +98,7 @@ inline void handleStateNoneIMPORT(ParserContext& ctx, char c) {
 inline void handleStateImportSpecifiersStart(ParserContext& ctx, char c) {
     if (c == '{') {
         // Named imports: import { x, y } from 'module'
-        ctx.stringStart = std::numeric_limits<size_t>::max(); // Not set yet
+        ctx.stringStart = 0; // Not set yet
         ctx.state = STATE::IMPORT_SPECIFIER_NAME;
     } else if (c == '*') {
         // Namespace import: import * as name from 'module'
@@ -136,7 +138,7 @@ inline void handleStateImportSpecifierName(ParserContext& ctx, char c) {
         return;
     }
 
-    if (ctx.stringStart == std::numeric_limits<size_t>::max()) {
+    if (ctx.stringStart == 0) {
         ctx.stringStart = ctx.index - 1;
     }
 
@@ -175,7 +177,7 @@ inline void handleStateImportSpecifierName(ParserContext& ctx, char c) {
         ctx.state = STATE::IMPORT_SPECIFIERS_END;
     } else if (c == 'a') {
         // "as" keyword for aliasing
-        ctx.state = STATE::IMPORT_AS_A;
+        ctx.state = STATE::POST_IMPORT_SPECIFIER_A;
     } else {
         throw std::runtime_error("Unexpected character in import specifier name: " + std::string(1, c));
     }
@@ -188,7 +190,7 @@ inline void handleStateImportSpecifierAs(ParserContext& ctx, char c) {
         return;
     } else if (c == 'a') {
         // "as" keyword
-        ctx.state = STATE::IMPORT_AS_A;
+        ctx.state = STATE::POST_IMPORT_SPECIFIER_A;
     } else if (c == ',') {
         // Next specifier
         ctx.state = STATE::IMPORT_SPECIFIER_SEPARATOR;
@@ -416,7 +418,7 @@ inline void handleStateExportSpecifiersStart(ParserContext& ctx, char c) {
         auto* exportDecl = new ExportNamedDeclaration(ctx.currentNode);
         ctx.currentNode->children.push_back(exportDecl);
         ctx.currentNode = exportDecl;
-        ctx.stringStart = ctx.index + 1; // Next character starts the first specifier name
+        ctx.stringStart = 0; // Will be set when first identifier character is encountered
         ctx.state = STATE::EXPORT_SPECIFIER_NAME;
     } else if (c == '*') {
         // Re-export all: export * from 'module'
@@ -427,14 +429,11 @@ inline void handleStateExportSpecifiersStart(ParserContext& ctx, char c) {
     } else if (c == 'd') {
         // Export default
         ctx.state = STATE::EXPORT_DEFAULT_D;
-    } else if (c == 'c') {
-        ctx.state = STATE::EXPORT_CONST_C;
-    } else if (c == 'l') {
-        ctx.state = STATE::EXPORT_LET_L;
-    } else if (c == 'v') {
-        ctx.state = STATE::EXPORT_VAR_V;
-    } else if (c == 'f') {
-        ctx.state = STATE::EXPORT_FUNCTION_F;
+    } else if (isIdentifierStart(c)) {
+        // Identifier to export (could be keyword like const/let/var/function or regular identifier)
+        ctx.stringStart = ctx.index - 1;
+        ctx.state = STATE::EXPORT_IDENTIFIER;
+        ctx.index--; // Re-process this character
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace
         return;
@@ -445,6 +444,15 @@ inline void handleStateExportSpecifiersStart(ParserContext& ctx, char c) {
 
 // Export specifier name
 inline void handleStateExportSpecifierName(ParserContext& ctx, char c) {
+    if (std::isspace(static_cast<unsigned char>(c))) {
+        // Skip whitespace
+        return;
+    }
+
+    if (ctx.stringStart == 0) {
+        ctx.stringStart = ctx.index - 1;
+    }
+
     if (isalnum(c) || c == '_') {
         // Continue building specifier name
         return;
@@ -486,23 +494,54 @@ inline void handleStateExportSpecifierName(ParserContext& ctx, char c) {
     }
 }
 
-// Export specifier "as" keyword - first 'a'
+// Export specifier after name (handles "as" or other endings)
 inline void handleStateExportSpecifierAs(ParserContext& ctx, char c) {
+    if (std::isspace(static_cast<unsigned char>(c))) {
+        // Skip whitespace
+        return;
+    } else if (c == 'a') {
+        // "as" keyword
+        ctx.state = STATE::EXPORT_AS_A;
+    } else if (c == ',') {
+        // Next specifier
+        ctx.state = STATE::EXPORT_SPECIFIER_SEPARATOR;
+    } else if (c == '}') {
+        // End of specifiers
+        ctx.state = STATE::EXPORT_SPECIFIERS_END;
+    } else {
+        throw std::runtime_error("Expected 'as', ',', '}' after specifier name: " + std::string(1, c));
+    }
+}
+
+inline void handleStateExportA(ParserContext& ctx, char c) {
     if (c == 's') {
-        // Second character of "as"
-        ctx.state = STATE::EXPORT_AS_AS;
-        ctx.stringStart = ctx.index + 1; // Next identifier starts after 's'
+        ctx.state = STATE::EXPORT_AS;
     } else {
         throw std::runtime_error("Expected 's' after 'a' in 'as': " + std::string(1, c));
     }
 }
 
+inline void handleStateExportAs(ParserContext& ctx, char c) {
+    if (c == ' ') {
+        // After "as", expect identifier for exported name
+        ctx.state = STATE::EXPORT_SPECIFIER_EXPORTED_NAME;
+        ctx.stringStart = ctx.index; // Start of exported name
+    } else if (std::isspace(static_cast<unsigned char>(c))) {
+        // Skip whitespace
+        return;
+    } else {
+        throw std::runtime_error("Expected space after 'as': " + std::string(1, c));
+    }
+}
+
 // Export specifier exported name
 inline void handleStateExportSpecifierExportedName(ParserContext& ctx, char c) {
-    if (isalnum(c) || c == '_') {
-        // Continue building exported name
+    if (std::isspace(static_cast<unsigned char>(c))) {
+        // Skip whitespace
         return;
-    } else if (c == ',') {
+    }
+
+    if (c == ',') {
         // End of exported name
         std::string exportedName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
         if (auto* specifier = dynamic_cast<ExportSpecifier*>(ctx.currentNode->children.back())) {
@@ -516,6 +555,16 @@ inline void handleStateExportSpecifierExportedName(ParserContext& ctx, char c) {
             specifier->exported = exportedName;
         }
         ctx.state = STATE::EXPORT_SPECIFIERS_END;
+    } else if (c == 'f') {
+        // "from" keyword
+        std::string exportedName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
+        if (auto* specifier = dynamic_cast<ExportSpecifier*>(ctx.currentNode->children.back())) {
+            specifier->exported = exportedName;
+        }
+        ctx.state = STATE::EXPORT_FROM_F;
+    } else if (isalnum(c) || c == '_') {
+        // Continue building exported name
+        return;
     } else {
         throw std::runtime_error("Unexpected character in export specifier exported name: " + std::string(1, c));
     }
@@ -529,11 +578,15 @@ inline void handleStateExportSpecifierSeparator(ParserContext& ctx, char c) {
         ctx.state = STATE::EXPORT_SPECIFIER_NAME;
         // Re-process this character
         ctx.index--;
+    } else if (c == '}') {
+        // End of specifiers
+        ctx.state = STATE::EXPORT_SPECIFIERS_END;
+        ctx.index--; // Re-process this character
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace
         return;
     } else {
-        throw std::runtime_error("Expected identifier after ',': " + std::string(1, c));
+        throw std::runtime_error("Expected identifier or '}' after ',': " + std::string(1, c));
     }
 }
 
@@ -571,10 +624,10 @@ inline void handleStateExportAll(ParserContext& ctx, char c) {
     }
 }
 
-// Export "from" keyword - first 'f'
+// Note: handleStateExportFromFr, handleStateExportFromFro are defined in state_handlers.h
+
 inline void handleStateExportFrom(ParserContext& ctx, char c) {
     if (c == 'r') {
-        // Second character of "from"
         ctx.state = STATE::EXPORT_FROM_FR;
     } else {
         throw std::runtime_error("Expected 'r' after 'f' in 'from': " + std::string(1, c));

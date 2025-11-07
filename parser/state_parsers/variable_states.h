@@ -18,7 +18,9 @@ inline void handleStateNoneVAR(ParserContext& ctx, char c) {
         ctx.currentNode = variable;
         ctx.state = STATE::EXPECT_IDENTIFIER;
     } else {
-        throw std::runtime_error("Unexpected character" + std::string(1, c));
+        ctx.stringStart = ctx.index - 2;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--;
     }
 }
 
@@ -26,7 +28,9 @@ inline void handleStateNoneVA(ParserContext& ctx, char c) {
     if (c == 'r') {
         ctx.state = STATE::NONE_VAR;
     } else {
-        throw std::runtime_error("Unexpected character" + std::string(1, c));
+        ctx.stringStart = ctx.index - 2;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--;
     }
 }
 
@@ -34,7 +38,9 @@ inline void handleStateNoneV(ParserContext& ctx, char c) {
     if (c == 'a') {
         ctx.state = STATE::NONE_VA;
     } else {
-        throw std::runtime_error("Unexpected character" + std::string(1, c));
+        ctx.stringStart = ctx.index - 2;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--;
     }
 }
 
@@ -71,7 +77,9 @@ inline void handleStateNoneCONST(ParserContext& ctx, char c) {
             ctx.state = STATE::EXPECT_IDENTIFIER;
         }
     } else {
-        throw std::runtime_error("Unexpected character" + std::string(1, c));
+        ctx.stringStart = ctx.index - 2;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--;
     }
 }
 
@@ -79,7 +87,9 @@ inline void handleStateNoneCONS(ParserContext& ctx, char c) {
     if (c == 't') {
         ctx.state = STATE::NONE_CONST;
     } else {
-        throw std::runtime_error("Unexpected character" + std::string(1, c));
+        ctx.stringStart = ctx.index - 2;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--;
     }
 }
 
@@ -87,7 +97,9 @@ inline void handleStateNoneCON(ParserContext& ctx, char c) {
     if (c == 's') {
         ctx.state = STATE::NONE_CONS;
     } else {
-        throw std::runtime_error("Unexpected character" + std::string(1, c));
+        ctx.stringStart = ctx.index - 2;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--;
     }
 }
 
@@ -95,7 +107,9 @@ inline void handleStateNoneCO(ParserContext& ctx, char c) {
     if (c == 'n') {
         ctx.state = STATE::NONE_CON;
     } else {
-        throw std::runtime_error("Unexpected character" + std::string(1, c));
+        ctx.stringStart = ctx.index - 2;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--;
     }
 }
 
@@ -105,7 +119,9 @@ inline void handleStateNoneC(ParserContext& ctx, char c) {
     } else if (c == 'l') {
         ctx.state = STATE::NONE_CL;
     } else {
-        throw std::runtime_error("Unexpected character" + std::string(1, c));
+        ctx.stringStart = ctx.index - 2;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--;
     }
 }
 
@@ -118,7 +134,9 @@ inline void handleStateNoneLET(ParserContext& ctx, char c) {
         ctx.currentNode = variable;
         ctx.state = STATE::EXPECT_IDENTIFIER;
     } else {
-        throw std::runtime_error("Unexpected character" + std::string(1, c));
+        ctx.stringStart = ctx.index - 2;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--;
     }
 }
 
@@ -126,7 +144,9 @@ inline void handleStateNoneLE(ParserContext& ctx, char c) {
     if (c == 't') {
         ctx.state = STATE::NONE_LET;
     } else {
-        throw std::runtime_error("Unexpected character" + std::string(1, c));
+        ctx.stringStart = ctx.index - 2;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--;
     }
 }
 
@@ -134,6 +154,8 @@ inline void handleStateNoneL(ParserContext& ctx, char c) {
     if (c == 'e') {
         ctx.state = STATE::NONE_LE;
     } else {
-        throw std::runtime_error("Unexpected character" + std::string(1, c));
+        ctx.stringStart = ctx.index - 2;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--;
     }
 }

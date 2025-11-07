@@ -81,11 +81,7 @@ inline void handleStateTypeAnnotation(ParserContext& ctx, char c) {
         return;
     }
 
-    if (c == '{') {
-        // Mapped type
-        ctx.state = STATE::TYPE_MAPPED_START;
-        return;
-    }
+
 
     // Check for conditional type (T extends U ? X : Y)
     if (c == 'e') {

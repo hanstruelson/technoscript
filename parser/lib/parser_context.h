@@ -27,7 +27,7 @@ struct ParserContext {
     ASTNode* currentNode = nullptr;
     const std::string& code;
     size_t index = 0;
-    size_t stringStart = std::numeric_limits<size_t>::max();
+    size_t stringStart = 0;
     char quoteChar = '\0'; // For string literals
 
     ParserContext(const std::string& codeRef, ASTNode* rootNode)

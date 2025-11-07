@@ -31,9 +31,10 @@ inline void handleStateNoneEnumE(ParserContext& ctx, char c) {
     if (c == 'u') {
         ctx.state = STATE::NONE_ENUM_EN;
     } else {
-        // Not "enum", backtrack
-        ctx.index -= 2;  // Backtrack to 'e' and 'n'
-        ctx.state = STATE::NONE;
+        // Not "enum", treat as identifier
+        ctx.stringStart = ctx.index - 2;  // Include 'e' and 'n'
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--;  // Re-process current char
     }
 }
 
@@ -41,9 +42,10 @@ inline void handleStateNoneEnumEN(ParserContext& ctx, char c) {
     if (c == 'm') {
         ctx.state = STATE::NONE_ENUM_ENU;
     } else {
-        // Not "enum", backtrack
-        ctx.index -= 3;  // Backtrack to 'e', 'n', 'u'
-        ctx.state = STATE::NONE;
+        // Not "enum", treat as identifier
+        ctx.stringStart = ctx.index - 3;  // Include 'e', 'n', 'u'
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--;  // Re-process current char
     }
 }
 
@@ -57,9 +59,10 @@ inline void handleStateNoneEnumENU(ParserContext& ctx, char c) {
         ctx.state = STATE::ENUM_DECLARATION_NAME;
         ctx.index--;  // Re-process this character
     } else {
-        // Not "enum", backtrack
-        ctx.index -= 4;  // Backtrack to 'e', 'n', 'u', 'm'
-        ctx.state = STATE::NONE;
+        // Not "enum", treat as identifier
+        ctx.stringStart = ctx.index - 4;  // Include 'e', 'n', 'u', 'm'
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--;  // Re-process current char
     }
 }
 
@@ -244,10 +247,10 @@ inline void handleStateEnumBody(ParserContext& ctx, char c) {
     }
 }
 
-// Interface extends keyword handlers
-inline void handleStateInterfaceExtendsE(ParserContext& ctx, char c) {
+// Interface after name keyword handlers
+inline void handleStateInterfaceAfterNameE(ParserContext& ctx, char c) {
     if (c == 'x') {
-        ctx.state = STATE::INTERFACE_EXTENDS_EX;
+        ctx.state = STATE::INTERFACE_AFTER_NAME_EX;
     } else {
         // Not "extends", reset to interface body
         ctx.state = STATE::INTERFACE_BODY;
@@ -255,57 +258,62 @@ inline void handleStateInterfaceExtendsE(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateInterfaceExtendsEx(ParserContext& ctx, char c) {
+inline void handleStateInterfaceAfterNameEx(ParserContext& ctx, char c) {
     if (c == 't') {
-        ctx.state = STATE::INTERFACE_EXTENDS_EXT;
+        ctx.state = STATE::INTERFACE_AFTER_NAME_EXT;
     } else {
-        // Not "extends", reset to interface body
-        ctx.state = STATE::INTERFACE_BODY;
-        ctx.index -= 2; // Re-process "ex"
+        // Not "extends", treat as property name
+        ctx.stringStart = ctx.index - 3; // Include 'e','x' and current char
+        ctx.state = STATE::INTERFACE_PROPERTY_KEY;
+        ctx.index--; // Re-process this character
     }
 }
 
-inline void handleStateInterfaceExtendsExt(ParserContext& ctx, char c) {
+inline void handleStateInterfaceAfterNameExt(ParserContext& ctx, char c) {
     if (c == 'e') {
-        ctx.state = STATE::INTERFACE_EXTENDS_EXTE;
+        ctx.state = STATE::INTERFACE_AFTER_NAME_EXTE;
     } else {
-        // Not "extends", reset to interface body
-        ctx.state = STATE::INTERFACE_BODY;
-        ctx.index -= 3; // Re-process "ext"
+        // Not "extends", treat as property name
+        ctx.stringStart = ctx.index - 4; // Include 'e','x','t' and current char
+        ctx.state = STATE::INTERFACE_PROPERTY_KEY;
+        ctx.index--; // Re-process this character
     }
 }
 
-inline void handleStateInterfaceExtendsExte(ParserContext& ctx, char c) {
+inline void handleStateInterfaceAfterNameExte(ParserContext& ctx, char c) {
     if (c == 'n') {
-        ctx.state = STATE::INTERFACE_EXTENDS_EXTEN;
+        ctx.state = STATE::INTERFACE_AFTER_NAME_EXTEN;
     } else {
-        // Not "extends", reset to interface body
-        ctx.state = STATE::INTERFACE_BODY;
-        ctx.index -= 4; // Re-process "exte"
+        // Not "extends", treat as property name
+        ctx.stringStart = ctx.index - 5; // Include 'e','x','t','e' and current char
+        ctx.state = STATE::INTERFACE_PROPERTY_KEY;
+        ctx.index--; // Re-process this character
     }
 }
 
-inline void handleStateInterfaceExtendsExten(ParserContext& ctx, char c) {
+inline void handleStateInterfaceAfterNameExten(ParserContext& ctx, char c) {
     if (c == 'd') {
-        ctx.state = STATE::INTERFACE_EXTENDS_EXTEND;
+        ctx.state = STATE::INTERFACE_AFTER_NAME_EXTEND;
     } else {
-        // Not "extends", reset to interface body
-        ctx.state = STATE::INTERFACE_BODY;
-        ctx.index -= 5; // Re-process "exten"
+        // Not "extends", treat as property name
+        ctx.stringStart = ctx.index - 6; // Include 'e','x','t','e','n' and current char
+        ctx.state = STATE::INTERFACE_PROPERTY_KEY;
+        ctx.index--; // Re-process this character
     }
 }
 
-inline void handleStateInterfaceExtendsExtend(ParserContext& ctx, char c) {
+inline void handleStateInterfaceAfterNameExtend(ParserContext& ctx, char c) {
     if (c == 's') {
-        ctx.state = STATE::INTERFACE_EXTENDS_EXTENDS;
+        ctx.state = STATE::INTERFACE_AFTER_NAME_EXTENDS;
     } else {
-        // Not "extends", reset to interface body
-        ctx.state = STATE::INTERFACE_BODY;
-        ctx.index -= 6; // Re-process "extend"
+        // Not "extends", treat as property name
+        ctx.stringStart = ctx.index - 7; // Include 'e','x','t','e','n','d' and current char
+        ctx.state = STATE::INTERFACE_PROPERTY_KEY;
+        ctx.index--; // Re-process this character
     }
 }
 
-inline void handleStateInterfaceExtendsExtends(ParserContext& ctx, char c) {
+inline void handleStateInterfaceAfterNameExtends(ParserContext& ctx, char c) {
     if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace after "extends"
         while (ctx.index < ctx.code.length() && std::isspace(static_cast<unsigned char>(ctx.code[ctx.index]))) {
@@ -313,18 +321,19 @@ inline void handleStateInterfaceExtendsExtends(ParserContext& ctx, char c) {
         }
         // Now parse the extended interface name
         ctx.stringStart = ctx.index;
-        ctx.state = STATE::INTERFACE_EXTENDS_NAME;
+        ctx.state = STATE::INTERFACE_AFTER_NAME_NAME;
     } else {
-        // Not valid after "extends", reset to interface body
-        ctx.state = STATE::INTERFACE_BODY;
-        ctx.index -= 7; // Re-process "extends"
+        // Not valid after "extends", treat as property name
+        ctx.stringStart = ctx.index - 8; // Include entire "extends" + current char
+        ctx.state = STATE::INTERFACE_PROPERTY_KEY;
+        ctx.index--; // Re-process this character
     }
 }
 
-// Interface readonly keyword handlers
-inline void handleStateInterfaceReadonlyR(ParserContext& ctx, char c) {
+// Interface member modifier keyword handlers
+inline void handleStateInterfaceMemberR(ParserContext& ctx, char c) {
     if (c == 'e') {
-        ctx.state = STATE::INTERFACE_READONLY_RE;
+        ctx.state = STATE::INTERFACE_MEMBER_RE;
     } else {
         // Not "readonly", treat as property name
         ctx.stringStart = ctx.index - 2; // Include 'r' and current char
@@ -333,9 +342,9 @@ inline void handleStateInterfaceReadonlyR(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateInterfaceReadonlyRe(ParserContext& ctx, char c) {
+inline void handleStateInterfaceMemberRe(ParserContext& ctx, char c) {
     if (c == 'a') {
-        ctx.state = STATE::INTERFACE_READONLY_REA;
+        ctx.state = STATE::INTERFACE_MEMBER_REA;
     } else {
         // Not "readonly", treat as property name
         ctx.stringStart = ctx.index - 3; // Include 'r','e' and current char
@@ -344,9 +353,9 @@ inline void handleStateInterfaceReadonlyRe(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateInterfaceReadonlyRea(ParserContext& ctx, char c) {
+inline void handleStateInterfaceMemberRea(ParserContext& ctx, char c) {
     if (c == 'd') {
-        ctx.state = STATE::INTERFACE_READONLY_READ;
+        ctx.state = STATE::INTERFACE_MEMBER_READ;
     } else {
         // Not "readonly", treat as property name
         ctx.stringStart = ctx.index - 4; // Include 'r','e','a' and current char
@@ -355,9 +364,9 @@ inline void handleStateInterfaceReadonlyRea(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateInterfaceReadonlyRead(ParserContext& ctx, char c) {
+inline void handleStateInterfaceMemberRead(ParserContext& ctx, char c) {
     if (c == 'o') {
-        ctx.state = STATE::INTERFACE_READONLY_READO;
+        ctx.state = STATE::INTERFACE_MEMBER_READO;
     } else {
         // Not "readonly", treat as property name
         ctx.stringStart = ctx.index - 5; // Include 'r','e','a','d' and current char
@@ -366,9 +375,9 @@ inline void handleStateInterfaceReadonlyRead(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateInterfaceReadonlyReado(ParserContext& ctx, char c) {
+inline void handleStateInterfaceMemberReado(ParserContext& ctx, char c) {
     if (c == 'n') {
-        ctx.state = STATE::INTERFACE_READONLY_READON;
+        ctx.state = STATE::INTERFACE_MEMBER_READON;
     } else {
         // Not "readonly", treat as property name
         ctx.stringStart = ctx.index - 6; // Include 'r','e','a','d','o' and current char
@@ -377,9 +386,9 @@ inline void handleStateInterfaceReadonlyReado(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateInterfaceReadonlyReadon(ParserContext& ctx, char c) {
+inline void handleStateInterfaceMemberReadon(ParserContext& ctx, char c) {
     if (c == 'l') {
-        ctx.state = STATE::INTERFACE_READONLY_READONL;
+        ctx.state = STATE::INTERFACE_MEMBER_READONL;
     } else {
         // Not "readonly", treat as property name
         ctx.stringStart = ctx.index - 7; // Include 'r','e','a','d','o','n' and current char
@@ -388,9 +397,9 @@ inline void handleStateInterfaceReadonlyReadon(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateInterfaceReadonlyReadonl(ParserContext& ctx, char c) {
+inline void handleStateInterfaceMemberReadonl(ParserContext& ctx, char c) {
     if (c == 'y') {
-        ctx.state = STATE::INTERFACE_READONLY_READONLY;
+        ctx.state = STATE::INTERFACE_MEMBER_READONLY;
     } else {
         // Not "readonly", treat as property name
         ctx.stringStart = ctx.index - 8; // Include 'r','e','a','d','o','n','l' and current char
@@ -399,14 +408,14 @@ inline void handleStateInterfaceReadonlyReadonl(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateInterfaceReadonlyReadonly(ParserContext& ctx, char c) {
+inline void handleStateInterfaceMemberReadonly(ParserContext& ctx, char c) {
     if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace after "readonly"
         return;
     } else if (isIdentifierStart(c)) {
         // Start of property name after readonly
         ctx.stringStart = ctx.index - 1;
-        ctx.state = STATE::INTERFACE_PROPERTY_KEY;
+        ctx.state = STATE::INTERFACE_PROPERTY_READONLY;
         // Mark that this property is readonly (handled in property creation)
     } else {
         // Not valid after "readonly", treat as property name
@@ -416,10 +425,52 @@ inline void handleStateInterfaceReadonlyReadonly(ParserContext& ctx, char c) {
     }
 }
 
-// Class extends keyword handlers
-inline void handleStateClassExtendsE(ParserContext& ctx, char c) {
+// Class after name keyword handlers
+inline void handleStateClassAfterNameStart(ParserContext& ctx, char c) {
+    if (std::isspace(static_cast<unsigned char>(c))) {
+        return; // Skip whitespace
+    } else if (c == 'e') {
+        ctx.state = STATE::CLASS_AFTER_NAME_E;
+    } else if (c == 'i') {
+        ctx.state = STATE::CLASS_INHERITANCE_I;
+    } else if (c == '{') {
+        // Start of class body
+        ctx.state = STATE::CLASS_BODY;
+    } else {
+        // Not a keyword, unexpected character
+        ctx.state = STATE::CLASS_BODY;
+        ctx.index--; // Re-process this character
+    }
+}
+
+inline void handleStateClassAfterNameName(ParserContext& ctx, char c) {
+    if (std::isalnum(static_cast<unsigned char>(c)) != 0 || c == '_') {
+        return; // Continue collecting name
+    }
+
+    if (std::isspace(static_cast<unsigned char>(c))) {
+        return; // Skip whitespace
+    }
+
+    if (c == '{') {
+        // End of name, set extends class
+        std::string name = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
+        name.erase(name.find_last_not_of(" \t\n\r\f\v") + 1);
+
+        // Set class extends
+        if (auto* classDecl = dynamic_cast<ClassDeclarationNode*>(ctx.currentNode)) {
+            classDecl->extendsClass = name;
+        }
+
+        ctx.state = STATE::CLASS_BODY;
+    } else {
+        throw std::runtime_error("Unexpected character after class extends name: " + std::string(1, c));
+    }
+}
+
+inline void handleStateClassAfterNameE(ParserContext& ctx, char c) {
     if (c == 'x') {
-        ctx.state = STATE::CLASS_EXTENDS_EX;
+        ctx.state = STATE::CLASS_AFTER_NAME_EX;
     } else {
         // Not "extends", reset to class body
         ctx.state = STATE::CLASS_BODY;
@@ -427,57 +478,62 @@ inline void handleStateClassExtendsE(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateClassExtendsEx(ParserContext& ctx, char c) {
+inline void handleStateClassAfterNameEx(ParserContext& ctx, char c) {
     if (c == 't') {
-        ctx.state = STATE::CLASS_EXTENDS_EXT;
+        ctx.state = STATE::CLASS_AFTER_NAME_EXT;
     } else {
-        // Not "extends", reset to class body
-        ctx.state = STATE::CLASS_BODY;
-        ctx.index -= 2; // Re-process "ex"
+        // Not "extends", treat as identifier
+        ctx.stringStart = ctx.index - 3; // Include 'e','x' and current char
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
     }
 }
 
-inline void handleStateClassExtendsExt(ParserContext& ctx, char c) {
+inline void handleStateClassAfterNameExt(ParserContext& ctx, char c) {
     if (c == 'e') {
-        ctx.state = STATE::CLASS_EXTENDS_EXTE;
+        ctx.state = STATE::CLASS_AFTER_NAME_EXTE;
     } else {
-        // Not "extends", reset to class body
-        ctx.state = STATE::CLASS_BODY;
-        ctx.index -= 3; // Re-process "ext"
+        // Not "extends", treat as identifier
+        ctx.stringStart = ctx.index - 4; // Include 'e','x','t' and current char
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
     }
 }
 
-inline void handleStateClassExtendsExte(ParserContext& ctx, char c) {
+inline void handleStateClassAfterNameExte(ParserContext& ctx, char c) {
     if (c == 'n') {
-        ctx.state = STATE::CLASS_EXTENDS_EXTEN;
+        ctx.state = STATE::CLASS_AFTER_NAME_EXTEN;
     } else {
-        // Not "extends", reset to class body
-        ctx.state = STATE::CLASS_BODY;
-        ctx.index -= 4; // Re-process "exte"
+        // Not "extends", treat as identifier
+        ctx.stringStart = ctx.index - 5; // Include 'e','x','t','e' and current char
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
     }
 }
 
-inline void handleStateClassExtendsExten(ParserContext& ctx, char c) {
+inline void handleStateClassAfterNameExten(ParserContext& ctx, char c) {
     if (c == 'd') {
-        ctx.state = STATE::CLASS_EXTENDS_EXTEND;
+        ctx.state = STATE::CLASS_AFTER_NAME_EXTEND;
     } else {
-        // Not "extends", reset to class body
-        ctx.state = STATE::CLASS_BODY;
-        ctx.index -= 5; // Re-process "exten"
+        // Not "extends", treat as identifier
+        ctx.stringStart = ctx.index - 6; // Include 'e','x','t','e','n' and current char
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
     }
 }
 
-inline void handleStateClassExtendsExtend(ParserContext& ctx, char c) {
+inline void handleStateClassAfterNameExtend(ParserContext& ctx, char c) {
     if (c == 's') {
-        ctx.state = STATE::CLASS_EXTENDS_EXTENDS;
+        ctx.state = STATE::CLASS_AFTER_NAME_EXTENDS;
     } else {
-        // Not "extends", reset to class body
-        ctx.state = STATE::CLASS_BODY;
-        ctx.index -= 6; // Re-process "extend"
+        // Not "extends", treat as identifier
+        ctx.stringStart = ctx.index - 7; // Include 'e','x','t','e','n','d' and current char
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
     }
 }
 
-inline void handleStateClassExtendsExtends(ParserContext& ctx, char c) {
+inline void handleStateClassAfterNameExtends(ParserContext& ctx, char c) {
     if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace after "extends"
         while (ctx.index < ctx.code.length() && std::isspace(static_cast<unsigned char>(ctx.code[ctx.index]))) {
@@ -485,18 +541,19 @@ inline void handleStateClassExtendsExtends(ParserContext& ctx, char c) {
         }
         // Now parse the extended class name
         ctx.stringStart = ctx.index;
-        ctx.state = STATE::CLASS_EXTENDS_NAME;
+        ctx.state = STATE::CLASS_AFTER_NAME_NAME;
     } else {
-        // Not valid after "extends", reset to class body
-        ctx.state = STATE::CLASS_BODY;
-        ctx.index -= 7; // Re-process "extends"
+        // Not valid after "extends", treat as identifier
+        ctx.stringStart = ctx.index - 8; // Include entire "extends" + current char
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
     }
 }
 
 // Class implements keyword handlers
 inline void handleStateClassImplementsI(ParserContext& ctx, char c) {
     if (c == 'm') {
-        ctx.state = STATE::CLASS_IMPLEMENTS_IM;
+        ctx.state = STATE::CLASS_INHERITANCE_IM;
     } else {
         // Not "implements", reset to class body
         ctx.state = STATE::CLASS_BODY;
@@ -506,71 +563,78 @@ inline void handleStateClassImplementsI(ParserContext& ctx, char c) {
 
 inline void handleStateClassImplementsIm(ParserContext& ctx, char c) {
     if (c == 'p') {
-        ctx.state = STATE::CLASS_IMPLEMENTS_IMP;
+        ctx.state = STATE::CLASS_INHERITANCE_IMP;
     } else {
-        // Not "implements", reset to class body
-        ctx.state = STATE::CLASS_BODY;
-        ctx.index -= 2; // Re-process "im"
+        // Not "implements", treat as identifier
+        ctx.stringStart = ctx.index - 3; // Include 'i','m' and current char
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
     }
 }
 
 inline void handleStateClassImplementsImp(ParserContext& ctx, char c) {
     if (c == 'l') {
-        ctx.state = STATE::CLASS_IMPLEMENTS_IMPL;
+        ctx.state = STATE::CLASS_INHERITANCE_IMPL;
     } else {
-        // Not "implements", reset to class body
-        ctx.state = STATE::CLASS_BODY;
-        ctx.index -= 3; // Re-process "imp"
+        // Not "implements", treat as identifier
+        ctx.stringStart = ctx.index - 4; // Include 'i','m','p' and current char
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
     }
 }
 
 inline void handleStateClassImplementsImpl(ParserContext& ctx, char c) {
     if (c == 'e') {
-        ctx.state = STATE::CLASS_IMPLEMENTS_IMPLE;
+        ctx.state = STATE::CLASS_INHERITANCE_IMPLE;
     } else {
-        // Not "implements", reset to class body
-        ctx.state = STATE::CLASS_BODY;
-        ctx.index -= 4; // Re-process "impl"
+        // Not "implements", treat as identifier
+        ctx.stringStart = ctx.index - 5; // Include 'i','m','p','l' and current char
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
     }
 }
 
 inline void handleStateClassImplementsImple(ParserContext& ctx, char c) {
     if (c == 'm') {
-        ctx.state = STATE::CLASS_IMPLEMENTS_IMPLEM;
+        ctx.state = STATE::CLASS_INHERITANCE_IMPLEM;
     } else {
-        // Not "implements", reset to class body
-        ctx.state = STATE::CLASS_BODY;
-        ctx.index -= 5; // Re-process "imple"
+        // Not "implements", treat as identifier
+        ctx.stringStart = ctx.index - 6; // Include 'i','m','p','l','e' and current char
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
     }
 }
 
 inline void handleStateClassImplementsImplem(ParserContext& ctx, char c) {
     if (c == 'e') {
-        ctx.state = STATE::CLASS_IMPLEMENTS_IMPLEME;
+        ctx.state = STATE::CLASS_INHERITANCE_IMPLEME;
     } else {
-        // Not "implements", reset to class body
-        ctx.state = STATE::CLASS_BODY;
-        ctx.index -= 6; // Re-process "implem"
+        // Not "implements", treat as identifier
+        ctx.stringStart = ctx.index - 7; // Include 'i','m','p','l','e','m' and current char
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
     }
 }
 
 inline void handleStateClassImplementsImpleme(ParserContext& ctx, char c) {
     if (c == 'n') {
-        ctx.state = STATE::CLASS_IMPLEMENTS_IMPLEMEN;
+        ctx.state = STATE::CLASS_INHERITANCE_IMPLEMEN;
     } else {
-        // Not "implements", reset to class body
-        ctx.state = STATE::CLASS_BODY;
-        ctx.index -= 7; // Re-process "impleme"
+        // Not "implements", treat as identifier
+        ctx.stringStart = ctx.index - 8; // Include 'i','m','p','l','e','m','e' and current char
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
     }
 }
 
 inline void handleStateClassImplementsImplemen(ParserContext& ctx, char c) {
     if (c == 't') {
-        ctx.state = STATE::CLASS_IMPLEMENTS_IMPLEMENTS;
+        ctx.state = STATE::CLASS_INHERITANCE_IMPLEMENTS;
     } else {
-        // Not "implements", reset to class body
-        ctx.state = STATE::CLASS_BODY;
-        ctx.index -= 8; // Re-process "implemen"
+        // Not "implements", treat as identifier
+        ctx.stringStart = ctx.index - 9; // Include 'i','m','p','l','e','m','e','n' and current char
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
     }
 }
 
@@ -584,19 +648,21 @@ inline void handleStateClassImplementsImplements(ParserContext& ctx, char c) {
         ctx.stringStart = ctx.index;
         ctx.state = STATE::CLASS_IMPLEMENTS_NAME;
     } else {
-        // Not valid after "implements", reset to class body
-        ctx.state = STATE::CLASS_BODY;
-        ctx.index -= 10; // Re-process "implements"
+        // Not valid after "implements", treat as identifier
+        ctx.stringStart = ctx.index - 10; // Include entire "implements" + current char
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
     }
 }
 
 // Module import/export keyword handlers
 inline void handleStateImportAsA(ParserContext& ctx, char c) {
     if (c == 's') {
-        ctx.state = STATE::IMPORT_AS_AS;
+        ctx.state = STATE::IMPORT_SPECIFIER_AFTER_AS;
     } else {
-        // Not "as", backtrack
-        ctx.state = STATE::IMPORT_SPECIFIERS_END;
+        // Not "as", treat as specifier name
+        ctx.stringStart = ctx.index - 2; // Include 'a' and current char
+        ctx.state = STATE::IMPORT_SPECIFIER_NAME;
         ctx.index--; // Re-process this character
     }
 }
@@ -606,9 +672,10 @@ inline void handleStateImportAsAs(ParserContext& ctx, char c) {
         // Skip whitespace after "as"
         ctx.state = STATE::IMPORT_SPECIFIER_LOCAL_NAME;
     } else {
-        // Not valid after "as", backtrack
-        ctx.state = STATE::IMPORT_SPECIFIERS_END;
-        ctx.index -= 2; // Re-process "as"
+        // Not valid after "as", treat as specifier name
+        ctx.stringStart = ctx.index - 3; // Include 'a','s' and current char
+        ctx.state = STATE::IMPORT_SPECIFIER_NAME;
+        ctx.index--; // Re-process this character
     }
 }
 
@@ -616,8 +683,9 @@ inline void handleStateImportFromF(ParserContext& ctx, char c) {
     if (c == 'r') {
         ctx.state = STATE::IMPORT_FROM_FR;
     } else {
-        // Not "from", backtrack
-        ctx.state = STATE::IMPORT_SPECIFIERS_END;
+        // Not "from", treat as specifier name
+        ctx.stringStart = ctx.index - 2; // Include 'f' and current char
+        ctx.state = STATE::IMPORT_SPECIFIER_NAME;
         ctx.index--; // Re-process this character
     }
 }
@@ -626,9 +694,10 @@ inline void handleStateImportFromFr(ParserContext& ctx, char c) {
     if (c == 'o') {
         ctx.state = STATE::IMPORT_FROM_FRO;
     } else {
-        // Not "from", backtrack
-        ctx.state = STATE::IMPORT_SPECIFIERS_END;
-        ctx.index -= 2; // Re-process "fr"
+        // Not "from", treat as specifier name
+        ctx.stringStart = ctx.index - 3; // Include 'f','r' and current char
+        ctx.state = STATE::IMPORT_SPECIFIER_NAME;
+        ctx.index--; // Re-process this character
     }
 }
 
@@ -636,9 +705,10 @@ inline void handleStateImportFromFro(ParserContext& ctx, char c) {
     if (c == 'm') {
         ctx.state = STATE::IMPORT_FROM_FROM;
     } else {
-        // Not "from", backtrack
-        ctx.state = STATE::IMPORT_SPECIFIERS_END;
-        ctx.index -= 3; // Re-process "fro"
+        // Not "from", treat as specifier name
+        ctx.stringStart = ctx.index - 4; // Include 'f','r','o' and current char
+        ctx.state = STATE::IMPORT_SPECIFIER_NAME;
+        ctx.index--; // Re-process this character
     }
 }
 
@@ -647,18 +717,20 @@ inline void handleStateImportFromFrom(ParserContext& ctx, char c) {
         // Skip whitespace after "from"
         ctx.state = STATE::IMPORT_SOURCE_START;
     } else {
-        // Not valid after "from", backtrack
-        ctx.state = STATE::IMPORT_SPECIFIERS_END;
-        ctx.index -= 4; // Re-process "from"
+        // Not valid after "from", treat as specifier name
+        ctx.stringStart = ctx.index - 5; // Include 'f','r','o','m' and current char
+        ctx.state = STATE::IMPORT_SPECIFIER_NAME;
+        ctx.index--; // Re-process this character
     }
 }
 
 inline void handleStateExportAsA(ParserContext& ctx, char c) {
     if (c == 's') {
-        ctx.state = STATE::EXPORT_AS_AS;
+        ctx.state = STATE::EXPORT_SPECIFIER_AFTER_AS;
     } else {
-        // Not "as", backtrack
-        ctx.state = STATE::EXPORT_SPECIFIERS_END;
+        // Not "as", treat as specifier name
+        ctx.stringStart = ctx.index - 2; // Include 'a' and current char
+        ctx.state = STATE::EXPORT_SPECIFIER_NAME;
         ctx.index--; // Re-process this character
     }
 }
@@ -668,9 +740,10 @@ inline void handleStateExportAsAs(ParserContext& ctx, char c) {
         // Skip whitespace after "as"
         ctx.state = STATE::EXPORT_SPECIFIER_EXPORTED_NAME;
     } else {
-        // Not valid after "as", backtrack
-        ctx.state = STATE::EXPORT_SPECIFIERS_END;
-        ctx.index -= 2; // Re-process "as"
+        // Not valid after "as", treat as specifier name
+        ctx.stringStart = ctx.index - 3; // Include 'a','s' and current char
+        ctx.state = STATE::EXPORT_SPECIFIER_NAME;
+        ctx.index--; // Re-process this character
     }
 }
 
@@ -678,8 +751,9 @@ inline void handleStateExportFromF(ParserContext& ctx, char c) {
     if (c == 'r') {
         ctx.state = STATE::EXPORT_FROM_FR;
     } else {
-        // Not "from", backtrack
-        ctx.state = STATE::EXPORT_SPECIFIERS_END;
+        // Not "from", treat as specifier name
+        ctx.stringStart = ctx.index - 2; // Include 'f' and current char
+        ctx.state = STATE::EXPORT_SPECIFIER_NAME;
         ctx.index--; // Re-process this character
     }
 }
@@ -688,9 +762,10 @@ inline void handleStateExportFromFr(ParserContext& ctx, char c) {
     if (c == 'o') {
         ctx.state = STATE::EXPORT_FROM_FRO;
     } else {
-        // Not "from", backtrack
-        ctx.state = STATE::EXPORT_SPECIFIERS_END;
-        ctx.index -= 2; // Re-process "fr"
+        // Not "from", treat as specifier name
+        ctx.stringStart = ctx.index - 3; // Include 'f','r' and current char
+        ctx.state = STATE::EXPORT_SPECIFIER_NAME;
+        ctx.index--; // Re-process this character
     }
 }
 
@@ -698,9 +773,10 @@ inline void handleStateExportFromFro(ParserContext& ctx, char c) {
     if (c == 'm') {
         ctx.state = STATE::EXPORT_FROM_FROM;
     } else {
-        // Not "from", backtrack
-        ctx.state = STATE::EXPORT_SPECIFIERS_END;
-        ctx.index -= 3; // Re-process "fro"
+        // Not "from", treat as specifier name
+        ctx.stringStart = ctx.index - 4; // Include 'f','r','o' and current char
+        ctx.state = STATE::EXPORT_SPECIFIER_NAME;
+        ctx.index--; // Re-process this character
     }
 }
 
@@ -709,9 +785,10 @@ inline void handleStateExportFromFrom(ParserContext& ctx, char c) {
         // Skip whitespace after "from"
         ctx.state = STATE::EXPORT_SOURCE_START;
     } else {
-        // Not valid after "from", backtrack
-        ctx.state = STATE::EXPORT_SPECIFIERS_END;
-        ctx.index -= 4; // Re-process "from"
+        // Not valid after "from", treat as specifier name
+        ctx.stringStart = ctx.index - 5; // Include 'f','r','o','m' and current char
+        ctx.state = STATE::EXPORT_SPECIFIER_NAME;
+        ctx.index--; // Re-process this character
     }
 }
 
@@ -722,6 +799,7 @@ inline void handleStateExportDefaultD(ParserContext& ctx, char c) {
         // Not "default", backtrack
         ctx.state = STATE::EXPORT_SPECIFIERS_START;
         ctx.index--; // Re-process this character
+        ctx.stringStart = ctx.index - 1; // Include 'd' + current char
     }
 }
 
@@ -731,7 +809,8 @@ inline void handleStateExportDefaultDe(ParserContext& ctx, char c) {
     } else {
         // Not "default", backtrack
         ctx.state = STATE::EXPORT_SPECIFIERS_START;
-        ctx.index -= 2; // Re-process "de"
+        ctx.index--; // Re-process current char
+        ctx.stringStart = ctx.index - 2; // Include 'd','e' + current char
     }
 }
 
@@ -741,7 +820,8 @@ inline void handleStateExportDefaultDef(ParserContext& ctx, char c) {
     } else {
         // Not "default", backtrack
         ctx.state = STATE::EXPORT_SPECIFIERS_START;
-        ctx.index -= 3; // Re-process "def"
+        ctx.index--; // Re-process current char
+        ctx.stringStart = ctx.index - 3; // Include 'd','e','f' + current char
     }
 }
 
@@ -751,7 +831,8 @@ inline void handleStateExportDefaultDefa(ParserContext& ctx, char c) {
     } else {
         // Not "default", backtrack
         ctx.state = STATE::EXPORT_SPECIFIERS_START;
-        ctx.index -= 4; // Re-process "defa"
+        ctx.index--; // Re-process current char
+        ctx.stringStart = ctx.index - 4; // Include 'd','e','f','a' + current char
     }
 }
 
@@ -761,7 +842,8 @@ inline void handleStateExportDefaultDefau(ParserContext& ctx, char c) {
     } else {
         // Not "default", backtrack
         ctx.state = STATE::EXPORT_SPECIFIERS_START;
-        ctx.index -= 5; // Re-process "defau"
+        ctx.index--; // Re-process current char
+        ctx.stringStart = ctx.index - 5; // Include 'd','e','f','a','u' + current char
     }
 }
 
@@ -771,7 +853,8 @@ inline void handleStateExportDefaultDefaul(ParserContext& ctx, char c) {
     } else {
         // Not "default", backtrack
         ctx.state = STATE::EXPORT_SPECIFIERS_START;
-        ctx.index -= 6; // Re-process "defaul"
+        ctx.index--; // Re-process current char
+        ctx.stringStart = ctx.index - 6; // Include 'd','e','f','a','u','l' + current char
     }
 }
 
@@ -782,273 +865,38 @@ inline void handleStateExportDefaultDefault(ParserContext& ctx, char c) {
     } else {
         // Not valid after "default", backtrack
         ctx.state = STATE::EXPORT_SPECIFIERS_START;
-        ctx.index -= 7; // Re-process "default"
+        ctx.index--; // Re-process current char
+        ctx.stringStart = ctx.index - 7; // Include 'd','e','f','a','u','l','t' + current char
     }
 }
 
-inline void handleStateExportConstC(ParserContext& ctx, char c) {
-    if (c == 'o') {
-        ctx.state = STATE::EXPORT_CONST_CO;
-    } else {
-        // Not "const", backtrack
-        ctx.state = STATE::EXPORT_SPECIFIERS_START;
-        ctx.index--; // Re-process this character
-    }
-}
 
-inline void handleStateExportConstCo(ParserContext& ctx, char c) {
-    if (c == 'n') {
-        ctx.state = STATE::EXPORT_CONST_CON;
-    } else {
-        // Not "const", backtrack
-        ctx.state = STATE::EXPORT_SPECIFIERS_START;
-        ctx.index -= 2; // Re-process "co"
-    }
-}
 
-inline void handleStateExportConstCon(ParserContext& ctx, char c) {
-    if (c == 's') {
-        ctx.state = STATE::EXPORT_CONST_CONS;
-    } else {
-        // Not "const", backtrack
-        ctx.state = STATE::EXPORT_SPECIFIERS_START;
-        ctx.index -= 3; // Re-process "con"
-    }
-}
 
-inline void handleStateExportConstCons(ParserContext& ctx, char c) {
-    if (c == 't') {
-        ctx.state = STATE::EXPORT_CONST_CONST;
-    } else {
-        // Not "const", backtrack
-        ctx.state = STATE::EXPORT_SPECIFIERS_START;
-        ctx.index -= 4; // Re-process "cons"
-    }
-}
 
-inline void handleStateExportConstConst(ParserContext& ctx, char c) {
-    if (std::isspace(static_cast<unsigned char>(c))) {
-        // Skip whitespace after "const"
-        auto* exportDecl = new ExportNamedDeclaration(ctx.currentNode);
-        ctx.currentNode->children.push_back(exportDecl);
-        ctx.currentNode = exportDecl;
-        // Create const variable inside export
-        auto* varDecl = new VariableDefinitionNode(exportDecl, VariableDefinitionType::CONST);
-        exportDecl->children.push_back(varDecl);
-        ctx.currentNode = varDecl;
-        ctx.state = STATE::EXPECT_IDENTIFIER;
-    } else {
-        // Not valid after "const", backtrack
-        ctx.state = STATE::EXPORT_SPECIFIERS_START;
-        ctx.index -= 5; // Re-process "const"
-    }
-}
-
-inline void handleStateExportClassC(ParserContext& ctx, char c) {
-    if (c == 'l') {
-        ctx.state = STATE::EXPORT_CLASS_CL;
-    } else {
-        // Not "class", backtrack
-        ctx.state = STATE::EXPORT_SPECIFIERS_START;
-        ctx.index--; // Re-process this character
-    }
-}
-
-inline void handleStateExportClassCl(ParserContext& ctx, char c) {
+inline void handleStateExportV(ParserContext& ctx, char c) {
     if (c == 'a') {
-        ctx.state = STATE::EXPORT_CLASS_CLA;
+        ctx.state = STATE::EXPORT_VA;
     } else {
-        // Not "class", backtrack
-        ctx.state = STATE::EXPORT_SPECIFIERS_START;
-        ctx.index -= 2; // Re-process "cl"
+        // Not "var", backtrack and treat as identifier
+        ctx.index--;
+        ctx.stringStart = ctx.index - 1; // Include 'v'
+        ctx.state = STATE::EXPORT_IDENTIFIER;
     }
 }
 
-inline void handleStateExportClassCla(ParserContext& ctx, char c) {
-    if (c == 's') {
-        ctx.state = STATE::EXPORT_CLASS_CLAS;
-    } else {
-        // Not "class", backtrack
-        ctx.state = STATE::EXPORT_SPECIFIERS_START;
-        ctx.index -= 3; // Re-process "cla"
-    }
-}
-
-inline void handleStateExportClassClas(ParserContext& ctx, char c) {
-    if (c == 's') {
-        ctx.state = STATE::EXPORT_CLASS_CLASS;
-    } else {
-        // Not "class", backtrack
-        ctx.state = STATE::EXPORT_SPECIFIERS_START;
-        ctx.index -= 4; // Re-process "clas"
-    }
-}
-
-inline void handleStateExportClassClass(ParserContext& ctx, char c) {
-    if (std::isspace(static_cast<unsigned char>(c))) {
-        // Skip whitespace after "class"
-        auto* exportDecl = new ExportNamedDeclaration(ctx.currentNode);
-        ctx.currentNode->children.push_back(exportDecl);
-        ctx.currentNode = exportDecl;
-        // Create class inside export
-        auto* classDecl = new ClassDeclarationNode(exportDecl);
-        exportDecl->children.push_back(classDecl);
-        ctx.currentNode = classDecl;
-        ctx.state = STATE::CLASS_DECLARATION_NAME;
-    } else {
-        // Not valid after "class", backtrack
-        ctx.state = STATE::EXPORT_SPECIFIERS_START;
-        ctx.index -= 5; // Re-process "class"
-    }
-}
-
-inline void handleStateExportFunctionF(ParserContext& ctx, char c) {
-    if (c == 'u') {
-        ctx.state = STATE::EXPORT_FUNCTION_FU;
-    } else {
-        // Not "function", backtrack
-        ctx.state = STATE::EXPORT_SPECIFIERS_START;
-        ctx.index--; // Re-process this character
-    }
-}
-
-inline void handleStateExportFunctionFu(ParserContext& ctx, char c) {
-    if (c == 'n') {
-        ctx.state = STATE::EXPORT_FUNCTION_FUN;
-    } else {
-        // Not "function", backtrack
-        ctx.state = STATE::EXPORT_SPECIFIERS_START;
-        ctx.index -= 2; // Re-process "fu"
-    }
-}
-
-inline void handleStateExportFunctionFun(ParserContext& ctx, char c) {
-    if (c == 'c') {
-        ctx.state = STATE::EXPORT_FUNCTION_FUNC;
-    } else {
-        // Not "function", backtrack
-        ctx.state = STATE::EXPORT_SPECIFIERS_START;
-        ctx.index -= 3; // Re-process "fun"
-    }
-}
-
-inline void handleStateExportFunctionFunc(ParserContext& ctx, char c) {
-    if (c == 't') {
-        ctx.state = STATE::EXPORT_FUNCTION_FUNCT;
-    } else {
-        // Not "function", backtrack
-        ctx.state = STATE::EXPORT_SPECIFIERS_START;
-        ctx.index -= 4; // Re-process "func"
-    }
-}
-
-inline void handleStateExportFunctionFunct(ParserContext& ctx, char c) {
-    if (c == 'i') {
-        ctx.state = STATE::EXPORT_FUNCTION_FUNCTI;
-    } else {
-        // Not "function", backtrack
-        ctx.state = STATE::EXPORT_SPECIFIERS_START;
-        ctx.index -= 5; // Re-process "funct"
-    }
-}
-
-inline void handleStateExportFunctionFuncti(ParserContext& ctx, char c) {
-    if (c == 'o') {
-        ctx.state = STATE::EXPORT_FUNCTION_FUNCTIO;
-    } else {
-        // Not "function", backtrack
-        ctx.state = STATE::EXPORT_SPECIFIERS_START;
-        ctx.index -= 6; // Re-process "functi"
-    }
-}
-
-inline void handleStateExportFunctionFunctio(ParserContext& ctx, char c) {
-    if (c == 'n') {
-        ctx.state = STATE::EXPORT_FUNCTION_FUNCTION;
-    } else {
-        // Not "function", backtrack
-        ctx.state = STATE::EXPORT_SPECIFIERS_START;
-        ctx.index -= 7; // Re-process "functio"
-    }
-}
-
-inline void handleStateExportFunctionFunction(ParserContext& ctx, char c) {
-    if (std::isspace(static_cast<unsigned char>(c))) {
-        // Skip whitespace after "function"
-        auto* exportDecl = new ExportNamedDeclaration(ctx.currentNode);
-        ctx.currentNode->children.push_back(exportDecl);
-        ctx.currentNode = exportDecl;
-        // Create function inside export
-        auto* funcDecl = new FunctionDeclarationNode(exportDecl);
-        exportDecl->children.push_back(funcDecl);
-        ctx.currentNode = funcDecl;
-        ctx.state = STATE::FUNCTION_DECLARATION_NAME;
-    } else {
-        // Not valid after "function", backtrack
-        ctx.state = STATE::EXPORT_SPECIFIERS_START;
-        ctx.index -= 8; // Re-process "function"
-    }
-}
-
-inline void handleStateExportLetL(ParserContext& ctx, char c) {
-    if (c == 'e') {
-        ctx.state = STATE::EXPORT_LET_LE;
-    } else {
-        // Not "let", backtrack
-        ctx.state = STATE::EXPORT_SPECIFIERS_START;
-        ctx.index--; // Re-process this character
-    }
-}
-
-inline void handleStateExportLetLe(ParserContext& ctx, char c) {
-    if (c == 't') {
-        ctx.state = STATE::EXPORT_LET_LET;
-    } else {
-        // Not "let", backtrack
-        ctx.state = STATE::EXPORT_SPECIFIERS_START;
-        ctx.index -= 2; // Re-process "le"
-    }
-}
-
-inline void handleStateExportLetLet(ParserContext& ctx, char c) {
-    if (std::isspace(static_cast<unsigned char>(c))) {
-        // Skip whitespace after "let"
-        auto* exportDecl = new ExportNamedDeclaration(ctx.currentNode);
-        ctx.currentNode->children.push_back(exportDecl);
-        ctx.currentNode = exportDecl;
-        // Create let variable inside export
-        auto* varDecl = new VariableDefinitionNode(exportDecl, VariableDefinitionType::LET);
-        exportDecl->children.push_back(varDecl);
-        ctx.currentNode = varDecl;
-        ctx.state = STATE::EXPECT_IDENTIFIER;
-    } else {
-        // Not valid after "let", backtrack
-        ctx.state = STATE::EXPORT_SPECIFIERS_START;
-        ctx.index -= 3; // Re-process "let"
-    }
-}
-
-inline void handleStateExportVarV(ParserContext& ctx, char c) {
-    if (c == 'a') {
-        ctx.state = STATE::EXPORT_VAR_VA;
-    } else {
-        // Not "var", backtrack
-        ctx.state = STATE::EXPORT_SPECIFIERS_START;
-        ctx.index--; // Re-process this character
-    }
-}
-
-inline void handleStateExportVarVa(ParserContext& ctx, char c) {
+inline void handleStateExportVa(ParserContext& ctx, char c) {
     if (c == 'r') {
-        ctx.state = STATE::EXPORT_VAR_VAR;
+        ctx.state = STATE::EXPORT_VAR;
     } else {
-        // Not "var", backtrack
-        ctx.state = STATE::EXPORT_SPECIFIERS_START;
-        ctx.index -= 2; // Re-process "va"
+        // Not "var", backtrack and treat as identifier
+        ctx.index--;
+        ctx.stringStart = ctx.index - 2; // Include 'v','a'
+        ctx.state = STATE::EXPORT_IDENTIFIER;
     }
 }
 
-inline void handleStateExportVarVar(ParserContext& ctx, char c) {
+inline void handleStateExportVar(ParserContext& ctx, char c) {
     if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace after "var"
         auto* exportDecl = new ExportNamedDeclaration(ctx.currentNode);
@@ -1060,8 +908,227 @@ inline void handleStateExportVarVar(ParserContext& ctx, char c) {
         ctx.currentNode = varDecl;
         ctx.state = STATE::EXPECT_IDENTIFIER;
     } else {
-        // Not valid after "var", backtrack
-        ctx.state = STATE::EXPORT_SPECIFIERS_START;
-        ctx.index -= 3; // Re-process "var"
+        // Not valid after "var", backtrack and treat as identifier
+        ctx.index--;
+        ctx.stringStart = ctx.index - 3; // Include 'v','a','r'
+        ctx.state = STATE::EXPORT_IDENTIFIER;
+    }
+}
+
+inline void handleStateExportF(ParserContext& ctx, char c) {
+    if (c == 'u') {
+        ctx.state = STATE::EXPORT_FU;
+    } else {
+        // Not "function", backtrack and treat as identifier
+        ctx.index--;
+        ctx.stringStart = ctx.index - 1; // Include 'f'
+        ctx.state = STATE::EXPORT_IDENTIFIER;
+    }
+}
+
+inline void handleStateExportFu(ParserContext& ctx, char c) {
+    if (c == 'n') {
+        ctx.state = STATE::EXPORT_FUN;
+    } else {
+        // Not "function", backtrack and treat as identifier
+        ctx.index--;
+        ctx.stringStart = ctx.index - 2; // Include 'f','u'
+        ctx.state = STATE::EXPORT_IDENTIFIER;
+    }
+}
+
+inline void handleStateExportFun(ParserContext& ctx, char c) {
+    if (c == 'c') {
+        ctx.state = STATE::EXPORT_FUNC;
+    } else {
+        // Not "function", backtrack and treat as identifier
+        ctx.index--;
+        ctx.stringStart = ctx.index - 3; // Include 'f','u','n'
+        ctx.state = STATE::EXPORT_IDENTIFIER;
+    }
+}
+
+inline void handleStateExportFunc(ParserContext& ctx, char c) {
+    if (c == 't') {
+        ctx.state = STATE::EXPORT_FUNCT;
+    } else {
+        // Not "function", backtrack and treat as identifier
+        ctx.index--;
+        ctx.stringStart = ctx.index - 4; // Include 'f','u','n','c'
+        ctx.state = STATE::EXPORT_IDENTIFIER;
+    }
+}
+
+inline void handleStateExportFunct(ParserContext& ctx, char c) {
+    if (c == 'i') {
+        ctx.state = STATE::EXPORT_FUNCTI;
+    } else {
+        // Not "function", backtrack and treat as identifier
+        ctx.index--;
+        ctx.stringStart = ctx.index - 5; // Include 'f','u','n','c','t'
+        ctx.state = STATE::EXPORT_IDENTIFIER;
+    }
+}
+
+inline void handleStateExportFuncti(ParserContext& ctx, char c) {
+    if (c == 'o') {
+        ctx.state = STATE::EXPORT_FUNCTIO;
+    } else {
+        // Not "function", backtrack and treat as identifier
+        ctx.index--;
+        ctx.stringStart = ctx.index - 6; // Include 'f','u','n','c','t','i'
+        ctx.state = STATE::EXPORT_IDENTIFIER;
+    }
+}
+
+inline void handleStateExportFunctio(ParserContext& ctx, char c) {
+    if (c == 'n') {
+        ctx.state = STATE::EXPORT_FUNCTION;
+    } else {
+        // Not "function", backtrack and treat as identifier
+        ctx.index--;
+        ctx.stringStart = ctx.index - 7; // Include 'f','u','n','c','t','i','o'
+        ctx.state = STATE::EXPORT_IDENTIFIER;
+    }
+}
+
+inline void handleStateExportFunction(ParserContext& ctx, char c) {
+    if (std::isspace(static_cast<unsigned char>(c))) {
+        // Skip whitespace after "function"
+        auto* exportDecl = new ExportNamedDeclaration(ctx.currentNode);
+        ctx.currentNode->children.push_back(exportDecl);
+        ctx.currentNode = exportDecl;
+        // Create function inside export
+        auto* funcDecl = new FunctionDeclarationNode(exportDecl);
+        exportDecl->children.push_back(funcDecl);
+        ctx.currentNode = funcDecl;
+        ctx.state = STATE::FUNCTION_DECLARATION_NAME;
+    } else {
+        // Not valid after "function", backtrack and treat as identifier
+        ctx.index--;
+        ctx.stringStart = ctx.index - 8; // Include 'f','u','n','c','t','i','o','n'
+        ctx.state = STATE::EXPORT_IDENTIFIER;
+    }
+}
+
+inline void handleStateExportIdentifier(ParserContext& ctx, char c) {
+    if (std::isspace(static_cast<unsigned char>(c))) {
+        // End of identifier, check if it's a keyword or regular identifier
+        std::string identifier = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
+        // Trim trailing whitespace
+        identifier.erase(identifier.find_last_not_of(" \t\n\r\f\v") + 1);
+
+        if (identifier == "const") {
+            // Export const declaration
+            auto* exportDecl = new ExportNamedDeclaration(ctx.currentNode);
+            ctx.currentNode->children.push_back(exportDecl);
+            ctx.currentNode = exportDecl;
+            // Create const variable inside export
+            auto* varDecl = new VariableDefinitionNode(exportDecl, VariableDefinitionType::CONST);
+            exportDecl->children.push_back(varDecl);
+            ctx.currentNode = varDecl;
+            ctx.state = STATE::EXPECT_IDENTIFIER;
+        } else if (identifier == "let") {
+            // Export let declaration
+            auto* exportDecl = new ExportNamedDeclaration(ctx.currentNode);
+            ctx.currentNode->children.push_back(exportDecl);
+            ctx.currentNode = exportDecl;
+            // Create let variable inside export
+            auto* varDecl = new VariableDefinitionNode(exportDecl, VariableDefinitionType::LET);
+            exportDecl->children.push_back(varDecl);
+            ctx.currentNode = varDecl;
+            ctx.state = STATE::EXPECT_IDENTIFIER;
+        } else if (identifier == "var") {
+            // Export var declaration
+            auto* exportDecl = new ExportNamedDeclaration(ctx.currentNode);
+            ctx.currentNode->children.push_back(exportDecl);
+            ctx.currentNode = exportDecl;
+            // Create var variable inside export
+            auto* varDecl = new VariableDefinitionNode(exportDecl, VariableDefinitionType::VAR);
+            exportDecl->children.push_back(varDecl);
+            ctx.currentNode = varDecl;
+            ctx.state = STATE::EXPECT_IDENTIFIER;
+        } else if (identifier == "function") {
+            // Export function declaration
+            auto* exportDecl = new ExportNamedDeclaration(ctx.currentNode);
+            ctx.currentNode->children.push_back(exportDecl);
+            ctx.currentNode = exportDecl;
+            // Create function inside export
+            auto* funcDecl = new FunctionDeclarationNode(exportDecl);
+            exportDecl->children.push_back(funcDecl);
+            ctx.currentNode = funcDecl;
+            ctx.state = STATE::FUNCTION_DECLARATION_NAME;
+        } else {
+            // Regular identifier to export
+            auto* exportDecl = new ExportNamedDeclaration(ctx.currentNode);
+            ctx.currentNode->children.push_back(exportDecl);
+            ctx.currentNode = exportDecl;
+            auto* specifier = new ExportSpecifier(exportDecl);
+            specifier->local = identifier;
+            specifier->exported = identifier;
+            exportDecl->addSpecifier(specifier);
+            ctx.state = STATE::EXPORT_SPECIFIERS_END;
+        }
+    } else if (c == ';') {
+        // End of identifier, check if it's a keyword or regular identifier
+        std::string identifier = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
+        
+        if (identifier == "const") {
+            // Export const declaration
+            auto* exportDecl = new ExportNamedDeclaration(ctx.currentNode);
+            ctx.currentNode->children.push_back(exportDecl);
+            ctx.currentNode = exportDecl;
+            // Create const variable inside export
+            auto* varDecl = new VariableDefinitionNode(exportDecl, VariableDefinitionType::CONST);
+            exportDecl->children.push_back(varDecl);
+            ctx.currentNode = varDecl;
+            ctx.state = STATE::EXPECT_IDENTIFIER;
+        } else if (identifier == "let") {
+            // Export let declaration
+            auto* exportDecl = new ExportNamedDeclaration(ctx.currentNode);
+            ctx.currentNode->children.push_back(exportDecl);
+            ctx.currentNode = exportDecl;
+            // Create let variable inside export
+            auto* varDecl = new VariableDefinitionNode(exportDecl, VariableDefinitionType::LET);
+            exportDecl->children.push_back(varDecl);
+            ctx.currentNode = varDecl;
+            ctx.state = STATE::EXPECT_IDENTIFIER;
+        } else if (identifier == "var") {
+            // Export var declaration
+            auto* exportDecl = new ExportNamedDeclaration(ctx.currentNode);
+            ctx.currentNode->children.push_back(exportDecl);
+            ctx.currentNode = exportDecl;
+            // Create var variable inside export
+            auto* varDecl = new VariableDefinitionNode(exportDecl, VariableDefinitionType::VAR);
+            exportDecl->children.push_back(varDecl);
+            ctx.currentNode = varDecl;
+            ctx.state = STATE::EXPECT_IDENTIFIER;
+        } else if (identifier == "function") {
+            // Export function declaration
+            auto* exportDecl = new ExportNamedDeclaration(ctx.currentNode);
+            ctx.currentNode->children.push_back(exportDecl);
+            ctx.currentNode = exportDecl;
+            // Create function inside export
+            auto* funcDecl = new FunctionDeclarationNode(exportDecl);
+            exportDecl->children.push_back(funcDecl);
+            ctx.currentNode = funcDecl;
+            ctx.state = STATE::FUNCTION_DECLARATION_NAME;
+        } else {
+            // Regular identifier to export
+            auto* exportDecl = new ExportNamedDeclaration(ctx.currentNode);
+            ctx.currentNode->children.push_back(exportDecl);
+            ctx.currentNode = exportDecl;
+            auto* specifier = new ExportSpecifier(exportDecl);
+            specifier->local = identifier;
+            specifier->exported = identifier;
+            exportDecl->addSpecifier(specifier);
+            ctx.state = STATE::EXPORT_SPECIFIERS_END;
+        }
+        ctx.index--; // Re-process semicolon
+    } else if (isalnum(c) || c == '_') {
+        // Continue building identifier
+        return;
+    } else {
+        throw std::runtime_error("Unexpected character in export identifier: " + std::string(1, c));
     }
 }
