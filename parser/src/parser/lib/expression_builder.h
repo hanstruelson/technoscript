@@ -89,7 +89,7 @@ inline void applyExpressionOperator(ParserContext& ctx, BinaryExpressionOperator
 }
 
 inline bool isIdentifierStart(char c) {
-    return std::isalpha(static_cast<unsigned char>(c)) != 0 || c == '_' || c == '$';
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || c == '$';
 }
 
 inline bool isIdentifierPart(char c) {

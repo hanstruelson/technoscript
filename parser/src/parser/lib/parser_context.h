@@ -20,7 +20,8 @@ struct ExpressionFrame {
         : previous(prev), owner(ownerNode), root(nullptr), lastOperand(nullptr), rightmostBinary(nullptr) {}
 };
 
-// you may NOT add any properties to this state! you must inspet the AST going up instead.
+// you may NOT add any properties to this state!
+// instead add them to the correct AST node and use that.
 struct ParserContext {
     STATE state = STATE::NONE;
     ASTNode* root = nullptr;

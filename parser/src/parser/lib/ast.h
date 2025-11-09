@@ -1,5 +1,6 @@
 #pragma once
 #include <algorithm>
+#include <iostream>
 #include <ostream>
 #include <string>
 #include <vector>
@@ -114,12 +115,35 @@ public:
         }
     }
 
+    virtual void walk() {
+        std::cout << "walk" << std::endl;
+        for (auto child : children) {
+            if (child) child->walk();
+        }
+    }
+
     virtual void print(std::ostream& os, int indent) const {
         auto pad=[indent](){return string(indent*2,' ');};
         os<<pad()<<"ASTNode";
         if(!value.empty()) os<<"("<<value<<")";
         os<<"\n";
         for(auto child:children) if(child) child->print(os,indent+1);
+    }
+};
+
+// Base class for nodes that create lexical scopes
+class LexicalScopeNode : public ASTNode {
+public:
+    bool isBlockScope;
+
+    LexicalScopeNode(ASTNode* parent, bool isBlockScope)
+        : ASTNode(parent), isBlockScope(isBlockScope) {}
+
+    virtual void walk() override {
+        std::cout << "walkLexicalScope" << (isBlockScope ? "Block" : "Function") << std::endl;
+        for (auto child : children) {
+            if (child) child->walk();
+        }
     }
 };
 
@@ -476,7 +500,7 @@ public:
 
 
 
-class FunctionDeclarationNode : public ASTNode {
+class FunctionDeclarationNode : public LexicalScopeNode {
 public:
     std::string name;
     GenericTypeParametersNode* genericParameters;
@@ -485,8 +509,15 @@ public:
     ASTNode* body;
     bool isAsync;
 
-    FunctionDeclarationNode(ASTNode* parent) : ASTNode(parent), genericParameters(nullptr), parameters(nullptr), returnType(nullptr), body(nullptr), isAsync(false) {
+    FunctionDeclarationNode(ASTNode* parent) : LexicalScopeNode(parent, false), genericParameters(nullptr), parameters(nullptr), returnType(nullptr), body(nullptr), isAsync(false) {
         nodeType = ASTNodeType::FUNCTION_DECLARATION;
+    }
+
+    void walk() override {
+        std::cout << "walkFunctionDeclaration" << std::endl;
+        for (auto child : children) {
+            if (child) child->walk();
+        }
     }
 
     void print(std::ostream& os, int indent) const override {
@@ -612,11 +643,11 @@ public:
     }
 };
 
-class BlockStatement : public ASTNode {
+class BlockStatement : public LexicalScopeNode {
 public:
     bool noBraces;
 
-    BlockStatement(ASTNode* parent, bool noBraces = false) : ASTNode(parent), noBraces(noBraces) {
+    BlockStatement(ASTNode* parent, bool noBraces = false) : LexicalScopeNode(parent, true), noBraces(noBraces) {
         nodeType = ASTNodeType::BLOCK_STATEMENT;
     }
 
@@ -624,6 +655,13 @@ public:
         if (statement) {
             statement->parent = this;
             children.push_back(statement);
+        }
+    }
+
+    void walk() override {
+        std::cout << "walkBlockStatement" << std::endl;
+        for (auto child : children) {
+            if (child) child->walk();
         }
     }
 
@@ -702,6 +740,13 @@ public:
     ASTNode* body;
 
     WhileStatement(ASTNode* parent) : ControlStatement(parent, ASTNodeType::WHILE_STATEMENT), condition(nullptr), body(nullptr) {
+    }
+
+    void walk() override {
+        std::cout << "walkWhileStatement" << std::endl;
+        for (auto child : children) {
+            if (child) child->walk();
+        }
     }
 
     void print(std::ostream& os, int indent) const override {
@@ -980,7 +1025,7 @@ public:
     }
 };
 
-class ClassDeclarationNode : public ASTNode {
+class ClassDeclarationNode : public LexicalScopeNode {
 public:
     std::string name;
     GenericTypeParametersNode* genericParameters;
@@ -990,7 +1035,7 @@ public:
     std::vector<ClassMethodNode*> methods;
     bool isAbstract;
 
-    ClassDeclarationNode(ASTNode* parent) : ASTNode(parent), genericParameters(nullptr), isAbstract(false) {
+    ClassDeclarationNode(ASTNode* parent) : LexicalScopeNode(parent, true), genericParameters(nullptr), isAbstract(false) {
         nodeType = ASTNodeType::CLASS_DECLARATION;
     }
 
@@ -1007,6 +1052,13 @@ public:
         if (method) {
             method->parent = this;
             children.push_back(method);
+        }
+    }
+
+    void walk() override {
+        std::cout << "walkClassDeclaration" << std::endl;
+        for (auto child : children) {
+            if (child) child->walk();
         }
     }
 

@@ -413,13 +413,57 @@ inline void handleStateInterfaceMemberReadonly(ParserContext& ctx, char c) {
         // Skip whitespace after "readonly"
         return;
     } else if (isIdentifierStart(c)) {
-        // Start of property name after readonly
+        // Start of property name after readonly - create the property node now
+        auto* propNode = new InterfacePropertyNode(ctx.currentNode);
+        propNode->isReadonly = true;
+        if (auto* interfaceNode = dynamic_cast<InterfaceDeclarationNode*>(ctx.currentNode)) {
+            interfaceNode->addInterfaceProperty(propNode);
+        }
+        ctx.currentNode = propNode;
         ctx.stringStart = ctx.index - 1;
-        ctx.state = STATE::INTERFACE_PROPERTY_READONLY;
-        // Mark that this property is readonly (handled in property creation)
+        ctx.state = STATE::INTERFACE_PROPERTY_KEY;
     } else {
         // Not valid after "readonly", treat as property name
         ctx.stringStart = ctx.index - 9; // Include entire "readonly" + current char
+        ctx.state = STATE::INTERFACE_PROPERTY_KEY;
+        ctx.index--; // Re-process this character
+    }
+}
+
+// Interface member "new" keyword handlers
+inline void handleStateInterfaceMemberN(ParserContext& ctx, char c) {
+    if (c == 'e') {
+        ctx.state = STATE::INTERFACE_MEMBER_NE;
+    } else {
+        // Not "new", treat as property name
+        ctx.stringStart = ctx.index - 2; // Include 'n' and current char
+        ctx.state = STATE::INTERFACE_PROPERTY_KEY;
+        ctx.index--; // Re-process this character
+    }
+}
+
+inline void handleStateInterfaceMemberNe(ParserContext& ctx, char c) {
+    if (c == 'w') {
+        ctx.state = STATE::INTERFACE_MEMBER_NEW;
+    } else {
+        // Not "new", treat as property name
+        ctx.stringStart = ctx.index - 3; // Include 'n','e' and current char
+        ctx.state = STATE::INTERFACE_PROPERTY_KEY;
+        ctx.index--; // Re-process this character
+    }
+}
+
+inline void handleStateInterfaceMemberNew(ParserContext& ctx, char c) {
+    if (std::isspace(static_cast<unsigned char>(c))) {
+        // Skip whitespace after "new"
+        return;
+    } else if (c == '(') {
+        // Start of construct signature
+        ctx.state = STATE::INTERFACE_CONSTRUCT_SIGNATURE_START;
+        ctx.index--; // Re-process this character
+    } else {
+        // Not valid after "new", treat as property name
+        ctx.stringStart = ctx.index - 4; // Include entire "new" + current char
         ctx.state = STATE::INTERFACE_PROPERTY_KEY;
         ctx.index--; // Re-process this character
     }

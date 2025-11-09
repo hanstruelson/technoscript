@@ -2,7 +2,7 @@ CXX = g++
 CXXFLAGS = -std=c++17 -Wall -Wextra -Wno-unused-parameter -O0 -g -I.
 # LDFLAGS = -lcapstone -lasmjit
 # Updated sources after moving emitter functionality into codegen.cpp
-SOURCES = parser.cpp
+SOURCES = src/parser/parser.cpp
 TARGET = parser
 
 all: clean $(TARGET)

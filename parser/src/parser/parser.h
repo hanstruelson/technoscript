@@ -799,8 +799,14 @@ inline void parse(const std::string& code) {
                 case STATE::INTERFACE_PROPERTY_TYPE:
                     handleStateInterfacePropertyType(ctx, c);
                     break;
-                case STATE::INTERFACE_METHOD_PARAMETERS_START:
-                    handleStateInterfaceMethodParametersStart(ctx, c);
+                case STATE::INTERFACE_PROPERTY_TYPE_NAME:
+                    handleStateInterfacePropertyTypeName(ctx, c);
+                    break;
+                case STATE::INTERFACE_PROPERTY_TYPE_END:
+                    handleStateInterfacePropertyTypeEnd(ctx, c);
+                    break;
+                case STATE::INTERFACE_PROPERTY_OPTIONAL:
+                    handleStateInterfacePropertyOptional(ctx, c);
                     break;
                 case STATE::INTERFACE_METHOD_PARAMETERS_END:
                     handleStateInterfaceMethodParametersEnd(ctx, c);
@@ -808,24 +814,38 @@ inline void parse(const std::string& code) {
                 case STATE::INTERFACE_METHOD_RETURN_TYPE:
                     handleStateInterfaceMethodReturnType(ctx, c);
                     break;
-                case STATE::INTERFACE_PROPERTY_OPTIONAL:
-                    handleStateInterfacePropertyOptional(ctx, c);
-                    break;
                 case STATE::INTERFACE_PROPERTY_READONLY:
-                    handleStateInterfacePropertyKey(ctx, c);
+                    handleStateInterfacePropertyReadonly(ctx, c);
                     break;
-
+                case STATE::INTERFACE_METHOD_PARAMETERS_START:
+                    handleStateInterfaceMethodParametersStart(ctx, c);
+                    break;
                 case STATE::INTERFACE_INDEX_SIGNATURE_START:
                     handleStateInterfaceIndexSignatureStart(ctx, c);
                     break;
                 case STATE::INTERFACE_INDEX_SIGNATURE_KEY:
                     handleStateInterfaceIndexSignatureKey(ctx, c);
                     break;
+                case STATE::INTERFACE_INDEX_SIGNATURE_KEY_NAME:
+                    handleStateInterfaceIndexSignatureKeyName(ctx, c);
+                    break;
                 case STATE::INTERFACE_INDEX_SIGNATURE_KEY_TYPE:
                     handleStateInterfaceIndexSignatureKeyType(ctx, c);
                     break;
+                case STATE::INTERFACE_INDEX_SIGNATURE_KEY_TYPE_NAME:
+                    handleStateInterfaceIndexSignatureKeyTypeName(ctx, c);
+                    break;
+                case STATE::INTERFACE_INDEX_SIGNATURE_KEY_TYPE_END:
+                    handleStateInterfaceIndexSignatureKeyTypeEnd(ctx, c);
+                    break;
                 case STATE::INTERFACE_INDEX_SIGNATURE_VALUE_TYPE:
                     handleStateInterfaceIndexSignatureValueType(ctx, c);
+                    break;
+                case STATE::INTERFACE_INDEX_SIGNATURE_VALUE_TYPE_NAME:
+                    handleStateInterfaceIndexSignatureValueTypeName(ctx, c);
+                    break;
+                case STATE::INTERFACE_INDEX_SIGNATURE_VALUE_TYPE_END:
+                    handleStateInterfaceIndexSignatureValueTypeEnd(ctx, c);
                     break;
                 case STATE::INTERFACE_INDEX_SIGNATURE_READONLY:
                     handleStateInterfaceIndexSignatureReadonly(ctx, c);
@@ -1237,6 +1257,16 @@ inline void parse(const std::string& code) {
                     break;
                 case STATE::INTERFACE_MEMBER_READONLY:
                     handleStateInterfaceMemberReadonly(ctx, c);
+                    break;
+                // Interface member "new" keyword states
+                case STATE::INTERFACE_MEMBER_N:
+                    handleStateInterfaceMemberN(ctx, c);
+                    break;
+                case STATE::INTERFACE_MEMBER_NE:
+                    handleStateInterfaceMemberNe(ctx, c);
+                    break;
+                case STATE::INTERFACE_MEMBER_NEW:
+                    handleStateInterfaceMemberNew(ctx, c);
                     break;
                 // Class after name states
                 case STATE::CLASS_AFTER_NAME_E:
