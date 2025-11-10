@@ -79,6 +79,14 @@ inline void handleStateNone(ParserContext& ctx, char c) {
         ctx.state = STATE::NONE_S;
     } else if (c == 't') {
         ctx.state = STATE::NONE_T;
+    } else if (c == 'p') {
+        ctx.state = STATE::NONE_P;
+    } else if (c == 'g') {
+        ctx.state = STATE::NONE_G;
+    } else if (c == 'r') {
+        ctx.state = STATE::NONE_R;
+    } else if (c == 'n') {
+        ctx.state = STATE::NONE_N;
     } else if (c == '/' && ctx.index < ctx.code.length() && ctx.code[ctx.index] == '/') {
         // Single-line comment: skip to end of line
         while (ctx.index < ctx.code.length() && ctx.code[ctx.index] != '\n') {

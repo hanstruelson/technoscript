@@ -472,7 +472,53 @@ enum class STATE {
     EXPORT_FUNCTI,
     EXPORT_FUNCTIO,
     EXPORT_FUNCTION,
-    EXPORT_IDENTIFIER
+    EXPORT_IDENTIFIER,
+
+    // TechnoScript specific features
+    NONE_P,
+    NONE_PR,
+    NONE_PRI,
+    NONE_PRIN,
+    NONE_PRINT,
+    NONE_G,
+    NONE_GO,
+    NONE_SE,
+    NONE_SET,
+    NONE_SETT,
+    NONE_SETTI,
+    NONE_SETTIM,
+    NONE_SETTIMEO,
+    NONE_SETTIMEOU,
+    NONE_SETTIMEOUT,
+    NONE_SL,
+    NONE_SLE,
+    NONE_SLEE,
+    NONE_SLEEP,
+    NONE_R,
+    NONE_RA,
+    NONE_RAW,
+    NONE_RAWM,
+    NONE_RAWME,
+    NONE_RAWMEM,
+    NONE_RAWMEMO,
+    NONE_RAWMEMOR,
+    NONE_RAWMEMORY,
+    NONE_TH,
+    NONE_THI,
+    NONE_THIS,
+    NONE_N,
+    NONE_NE,
+    NONE_NEW,
+    EXPRESSION_MEMBER_ACCESS,
+    EXPRESSION_METHOD_CALL,
+    EXPRESSION_BRACKET_ACCESS,
+    EXPRESSION_NEW,
+    EXPRESSION_THIS,
+    EXPRESSION_INCREMENT,
+    STATEMENT_PRINT,
+    STATEMENT_GO,
+    STATEMENT_SETTIMEOUT,
+    STATEMENT_SLEEP
 };
 
 inline const char* stateToString(STATE state) {
@@ -948,6 +994,52 @@ inline const char* stateToString(STATE state) {
         case STATE::EXPORT_FUNCTIO: return "EXPORT_FUNCTIO";
         case STATE::EXPORT_FUNCTION: return "EXPORT_FUNCTION";
         case STATE::EXPORT_IDENTIFIER: return "EXPORT_IDENTIFIER";
+
+        // TechnoScript specific features
+        case STATE::NONE_P: return "P";
+        case STATE::NONE_PR: return "PR";
+        case STATE::NONE_PRI: return "PRI";
+        case STATE::NONE_PRIN: return "PRIN";
+        case STATE::NONE_PRINT: return "PRINT";
+        case STATE::NONE_G: return "G";
+        case STATE::NONE_GO: return "GO";
+        case STATE::NONE_SE: return "SE";
+        case STATE::NONE_SET: return "SET";
+        case STATE::NONE_SETT: return "SETT";
+        case STATE::NONE_SETTI: return "SETTI";
+        case STATE::NONE_SETTIM: return "SETTIM";
+        case STATE::NONE_SETTIMEO: return "SETTIMEO";
+        case STATE::NONE_SETTIMEOU: return "SETTIMEOU";
+        case STATE::NONE_SETTIMEOUT: return "SETTIMEOUT";
+        case STATE::NONE_SL: return "SL";
+        case STATE::NONE_SLE: return "SLE";
+        case STATE::NONE_SLEE: return "SLEE";
+        case STATE::NONE_SLEEP: return "SLEEP";
+        case STATE::NONE_R: return "R";
+        case STATE::NONE_RA: return "RA";
+        case STATE::NONE_RAW: return "RAW";
+        case STATE::NONE_RAWM: return "RAWM";
+        case STATE::NONE_RAWME: return "RAWME";
+        case STATE::NONE_RAWMEM: return "RAWMEM";
+        case STATE::NONE_RAWMEMO: return "RAWMEMO";
+        case STATE::NONE_RAWMEMOR: return "RAWMEMOR";
+        case STATE::NONE_RAWMEMORY: return "RAWMEMORY";
+        case STATE::NONE_TH: return "TH";
+        case STATE::NONE_THI: return "THI";
+        case STATE::NONE_THIS: return "THIS";
+        case STATE::NONE_N: return "N";
+        case STATE::NONE_NE: return "NE";
+        case STATE::NONE_NEW: return "NEW";
+        case STATE::EXPRESSION_MEMBER_ACCESS: return "EXPRESSION_MEMBER_ACCESS";
+        case STATE::EXPRESSION_METHOD_CALL: return "EXPRESSION_METHOD_CALL";
+        case STATE::EXPRESSION_BRACKET_ACCESS: return "EXPRESSION_BRACKET_ACCESS";
+        case STATE::EXPRESSION_NEW: return "EXPRESSION_NEW";
+        case STATE::EXPRESSION_THIS: return "EXPRESSION_THIS";
+        case STATE::EXPRESSION_INCREMENT: return "EXPRESSION_INCREMENT";
+        case STATE::STATEMENT_PRINT: return "STATEMENT_PRINT";
+        case STATE::STATEMENT_GO: return "STATEMENT_GO";
+        case STATE::STATEMENT_SETTIMEOUT: return "STATEMENT_SETTIMEOUT";
+        case STATE::STATEMENT_SLEEP: return "STATEMENT_SLEEP";
     }
     return "UNKNOWN_STATE";
 }

@@ -1116,7 +1116,7 @@ inline void handleStateExportIdentifier(ParserContext& ctx, char c) {
     } else if (c == ';') {
         // End of identifier, check if it's a keyword or regular identifier
         std::string identifier = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
-        
+
         if (identifier == "const") {
             // Export const declaration
             auto* exportDecl = new ExportNamedDeclaration(ctx.currentNode);
@@ -1174,5 +1174,548 @@ inline void handleStateExportIdentifier(ParserContext& ctx, char c) {
         return;
     } else {
         throw std::runtime_error("Unexpected character in export identifier: " + std::string(1, c));
+    }
+}
+
+// TechnoScript specific handlers
+
+// Print statement handlers
+inline void handleStateNoneP(ParserContext& ctx, char c) {
+    if (c == 'r') {
+        ctx.state = STATE::NONE_PR;
+    } else {
+        // Not "print", treat as identifier
+        ctx.stringStart = ctx.index - 1;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
+    }
+}
+
+inline void handleStateNonePR(ParserContext& ctx, char c) {
+    if (c == 'i') {
+        ctx.state = STATE::NONE_PRI;
+    } else {
+        // Not "print", treat as identifier
+        ctx.stringStart = ctx.index - 2;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
+    }
+}
+
+inline void handleStateNonePRI(ParserContext& ctx, char c) {
+    if (c == 'n') {
+        ctx.state = STATE::NONE_PRIN;
+    } else {
+        // Not "print", treat as identifier
+        ctx.stringStart = ctx.index - 3;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
+    }
+}
+
+inline void handleStateNonePRIN(ParserContext& ctx, char c) {
+    if (c == 't') {
+        ctx.state = STATE::NONE_PRINT;
+    } else {
+        // Not "print", treat as identifier
+        ctx.stringStart = ctx.index - 4;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
+    }
+}
+
+inline void handleStateNonePRINT(ParserContext& ctx, char c) {
+    if (std::isspace(static_cast<unsigned char>(c))) {
+        // Print statement
+        auto* printStmt = new ASTNode(ctx.currentNode);
+        printStmt->nodeType = ASTNodeType::AST_NODE; // TODO: Add PRINT_STMT to AST
+        printStmt->value = "print";
+        ctx.currentNode->addChild(printStmt);
+        ctx.currentNode = printStmt;
+        ctx.state = STATE::STATEMENT_PRINT;
+    } else {
+        // Not "print", treat as identifier
+        ctx.stringStart = ctx.index - 5;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
+    }
+}
+
+inline void handleStateStatementPrint(ParserContext& ctx, char c) {
+    if (c == '(') {
+        // Parse arguments
+        ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;
+    } else if (std::isspace(static_cast<unsigned char>(c))) {
+        // Skip whitespace
+    } else {
+        throw std::runtime_error("Expected '(' after print");
+    }
+}
+
+// Go statement handlers
+inline void handleStateNoneG(ParserContext& ctx, char c) {
+    if (c == 'o') {
+        ctx.state = STATE::NONE_GO;
+    } else {
+        // Not "go", treat as identifier
+        ctx.stringStart = ctx.index - 1;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
+    }
+}
+
+inline void handleStateNoneGO(ParserContext& ctx, char c) {
+    if (std::isspace(static_cast<unsigned char>(c))) {
+        // Go statement
+        auto* goStmt = new ASTNode(ctx.currentNode);
+        goStmt->nodeType = ASTNodeType::AST_NODE; // TODO: Add GO_STMT to AST
+        goStmt->value = "go";
+        ctx.currentNode->addChild(goStmt);
+        ctx.currentNode = goStmt;
+        ctx.state = STATE::STATEMENT_GO;
+    } else {
+        // Not "go", treat as identifier
+        ctx.stringStart = ctx.index - 2;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
+    }
+}
+
+inline void handleStateStatementGo(ParserContext& ctx, char c) {
+    if (std::isspace(static_cast<unsigned char>(c))) {
+        // Skip whitespace
+    } else {
+        // Parse function call
+        ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;
+        ctx.index--; // Re-process this character
+    }
+}
+
+// SetTimeout handlers
+inline void handleStateNoneSE(ParserContext& ctx, char c) {
+    if (c == 't') {
+        ctx.state = STATE::NONE_SET;
+    } else {
+        // Not "setTimeout", treat as identifier
+        ctx.stringStart = ctx.index - 1;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
+    }
+}
+
+inline void handleStateNoneSET(ParserContext& ctx, char c) {
+    if (c == 'T') {
+        ctx.state = STATE::NONE_SETT;
+    } else {
+        // Not "setTimeout", treat as identifier
+        ctx.stringStart = ctx.index - 2;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
+    }
+}
+
+inline void handleStateNoneSETT(ParserContext& ctx, char c) {
+    if (c == 'i') {
+        ctx.state = STATE::NONE_SETTI;
+    } else {
+        // Not "setTimeout", treat as identifier
+        ctx.stringStart = ctx.index - 3;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
+    }
+}
+
+inline void handleStateNoneSETTI(ParserContext& ctx, char c) {
+    if (c == 'm') {
+        ctx.state = STATE::NONE_SETTIM;
+    } else {
+        // Not "setTimeout", treat as identifier
+        ctx.stringStart = ctx.index - 4;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
+    }
+}
+
+inline void handleStateNoneSETTIM(ParserContext& ctx, char c) {
+    if (c == 'e') {
+        ctx.state = STATE::NONE_SETTIMEO;
+    } else {
+        // Not "setTimeout", treat as identifier
+        ctx.stringStart = ctx.index - 5;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
+    }
+}
+
+inline void handleStateNoneSETTIMEO(ParserContext& ctx, char c) {
+    if (c == 'o') {
+        ctx.state = STATE::NONE_SETTIMEOU;
+    } else {
+        // Not "setTimeout", treat as identifier
+        ctx.stringStart = ctx.index - 6;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
+    }
+}
+
+inline void handleStateNoneSETTIMEOU(ParserContext& ctx, char c) {
+    if (c == 'u') {
+        ctx.state = STATE::NONE_SETTIMEOUT;
+    } else {
+        // Not "setTimeout", treat as identifier
+        ctx.stringStart = ctx.index - 7;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
+    }
+}
+
+inline void handleStateNoneSETTIMEOUT(ParserContext& ctx, char c) {
+    if (c == '(') {
+        // SetTimeout statement
+        auto* setTimeoutStmt = new ASTNode(ctx.currentNode);
+        setTimeoutStmt->nodeType = ASTNodeType::AST_NODE; // TODO: Add SETTIMEOUT_STMT to AST
+        setTimeoutStmt->value = "setTimeout";
+        ctx.currentNode->addChild(setTimeoutStmt);
+        ctx.currentNode = setTimeoutStmt;
+        ctx.state = STATE::STATEMENT_SETTIMEOUT;
+        ctx.index--; // Re-process '('
+    } else {
+        // Not "setTimeout", treat as identifier
+        ctx.stringStart = ctx.index - 8;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
+    }
+}
+
+inline void handleStateStatementSetTimeout(ParserContext& ctx, char c) {
+    if (c == '(') {
+        // Parse arguments
+        ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;
+    } else if (std::isspace(static_cast<unsigned char>(c))) {
+        // Skip whitespace
+    } else {
+        throw std::runtime_error("Expected '(' after setTimeout");
+    }
+}
+
+// Sleep handlers
+inline void handleStateNoneSL(ParserContext& ctx, char c) {
+    if (c == 'e') {
+        ctx.state = STATE::NONE_SLE;
+    } else {
+        // Not "sleep", treat as identifier
+        ctx.stringStart = ctx.index - 1;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
+    }
+}
+
+inline void handleStateNoneSLE(ParserContext& ctx, char c) {
+    if (c == 'e') {
+        ctx.state = STATE::NONE_SLEE;
+    } else {
+        // Not "sleep", treat as identifier
+        ctx.stringStart = ctx.index - 2;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
+    }
+}
+
+inline void handleStateNoneSLEE(ParserContext& ctx, char c) {
+    if (c == 'p') {
+        ctx.state = STATE::NONE_SLEEP;
+    } else {
+        // Not "sleep", treat as identifier
+        ctx.stringStart = ctx.index - 3;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
+    }
+}
+
+inline void handleStateNoneSLEEP(ParserContext& ctx, char c) {
+    if (c == '(') {
+        // Sleep statement
+        auto* sleepStmt = new ASTNode(ctx.currentNode);
+        sleepStmt->nodeType = ASTNodeType::AST_NODE; // TODO: Add SLEEP_STMT to AST
+        sleepStmt->value = "sleep";
+        ctx.currentNode->addChild(sleepStmt);
+        ctx.currentNode = sleepStmt;
+        ctx.state = STATE::STATEMENT_SLEEP;
+        ctx.index--; // Re-process '('
+    } else {
+        // Not "sleep", treat as identifier
+        ctx.stringStart = ctx.index - 4;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
+    }
+}
+
+inline void handleStateStatementSleep(ParserContext& ctx, char c) {
+    if (c == '(') {
+        // Parse arguments
+        ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;
+    } else if (std::isspace(static_cast<unsigned char>(c))) {
+        // Skip whitespace
+    } else {
+        throw std::runtime_error("Expected '(' after sleep");
+    }
+}
+
+// RawMemory handlers
+inline void handleStateNoneR(ParserContext& ctx, char c) {
+    if (c == 'a') {
+        ctx.state = STATE::NONE_RA;
+    } else {
+        // Not "RawMemory", treat as identifier
+        ctx.stringStart = ctx.index - 1;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
+    }
+}
+
+inline void handleStateNoneRA(ParserContext& ctx, char c) {
+    if (c == 'w') {
+        ctx.state = STATE::NONE_RAW;
+    } else {
+        // Not "RawMemory", treat as identifier
+        ctx.stringStart = ctx.index - 2;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
+    }
+}
+
+inline void handleStateNoneRAW(ParserContext& ctx, char c) {
+    if (c == 'M') {
+        ctx.state = STATE::NONE_RAWM;
+    } else {
+        // Not "RawMemory", treat as identifier
+        ctx.stringStart = ctx.index - 3;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
+    }
+}
+
+inline void handleStateNoneRAWM(ParserContext& ctx, char c) {
+    if (c == 'e') {
+        ctx.state = STATE::NONE_RAWME;
+    } else {
+        // Not "RawMemory", treat as identifier
+        ctx.stringStart = ctx.index - 4;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
+    }
+}
+
+inline void handleStateNoneRAWME(ParserContext& ctx, char c) {
+    if (c == 'm') {
+        ctx.state = STATE::NONE_RAWMEM;
+    } else {
+        // Not "RawMemory", treat as identifier
+        ctx.stringStart = ctx.index - 5;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
+    }
+}
+
+inline void handleStateNoneRAWMEM(ParserContext& ctx, char c) {
+    if (c == 'o') {
+        ctx.state = STATE::NONE_RAWMEMO;
+    } else {
+        // Not "RawMemory", treat as identifier
+        ctx.stringStart = ctx.index - 6;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
+    }
+}
+
+inline void handleStateNoneRAWMEMO(ParserContext& ctx, char c) {
+    if (c == 'r') {
+        ctx.state = STATE::NONE_RAWMEMOR;
+    } else {
+        // Not "RawMemory", treat as identifier
+        ctx.stringStart = ctx.index - 7;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
+    }
+}
+
+inline void handleStateNoneRAWMEMOR(ParserContext& ctx, char c) {
+    if (c == 'y') {
+        ctx.state = STATE::NONE_RAWMEMORY;
+    } else {
+        // Not "RawMemory", treat as identifier
+        ctx.stringStart = ctx.index - 8;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
+    }
+}
+
+inline void handleStateNoneRAWMEMORY(ParserContext& ctx, char c) {
+    if (std::isspace(static_cast<unsigned char>(c))) {
+        // RawMemory type
+        ctx.state = STATE::TYPE_ANNOTATION;
+        // Set type to RAW_MEMORY
+        // This would need to be handled in the type annotation handler
+    } else {
+        // Not "RawMemory", treat as identifier
+        ctx.stringStart = ctx.index - 9;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
+    }
+}
+
+// This handlers
+inline void handleStateNoneTH(ParserContext& ctx, char c) {
+    if (c == 'i') {
+        ctx.state = STATE::NONE_THI;
+    } else {
+        // Not "this", treat as identifier
+        ctx.stringStart = ctx.index - 1;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
+    }
+}
+
+inline void handleStateNoneTHI(ParserContext& ctx, char c) {
+    if (c == 's') {
+        ctx.state = STATE::NONE_THIS;
+    } else {
+        // Not "this", treat as identifier
+        ctx.stringStart = ctx.index - 2;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
+    }
+}
+
+inline void handleStateNoneTHIS(ParserContext& ctx, char c) {
+    if (std::isspace(static_cast<unsigned char>(c)) || c == '.' || c == '[' || c == '(') {
+        // This expression
+        auto* thisExpr = new ASTNode(ctx.currentNode);
+        thisExpr->nodeType = ASTNodeType::AST_NODE; // TODO: Add THIS_EXPR to AST
+        thisExpr->value = "this";
+        ctx.currentNode->addChild(thisExpr);
+        ctx.currentNode = thisExpr;
+        ctx.state = STATE::EXPRESSION_THIS;
+        ctx.index--; // Re-process this character
+    } else {
+        // Not "this", treat as identifier
+        ctx.stringStart = ctx.index - 3;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
+    }
+}
+
+inline void handleStateExpressionThis(ParserContext& ctx, char c) {
+    if (c == '.') {
+        ctx.state = STATE::EXPRESSION_MEMBER_ACCESS;
+    } else if (c == '[') {
+        ctx.state = STATE::EXPRESSION_BRACKET_ACCESS;
+    } else if (c == '(') {
+        ctx.state = STATE::EXPRESSION_METHOD_CALL;
+    } else if (std::isspace(static_cast<unsigned char>(c))) {
+        // End of this expression
+        ctx.currentNode = ctx.currentNode->parent;
+        ctx.state = STATE::NONE;
+    } else {
+        throw std::runtime_error("Unexpected character after 'this'");
+    }
+}
+
+// New handlers
+inline void handleStateNoneN(ParserContext& ctx, char c) {
+    if (c == 'e') {
+        ctx.state = STATE::NONE_NE;
+    } else {
+        // Not "new", treat as identifier
+        ctx.stringStart = ctx.index - 1;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
+    }
+}
+
+inline void handleStateNoneNE(ParserContext& ctx, char c) {
+    if (c == 'w') {
+        ctx.state = STATE::NONE_NEW;
+    } else {
+        // Not "new", treat as identifier
+        ctx.stringStart = ctx.index - 2;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
+    }
+}
+
+inline void handleStateNoneNEW(ParserContext& ctx, char c) {
+    if (std::isspace(static_cast<unsigned char>(c))) {
+        // New expression
+        auto* newExpr = new ASTNode(ctx.currentNode);
+        newExpr->nodeType = ASTNodeType::AST_NODE; // TODO: Add NEW_EXPR to AST
+        newExpr->value = "new";
+        ctx.currentNode->addChild(newExpr);
+        ctx.currentNode = newExpr;
+        ctx.state = STATE::EXPRESSION_NEW;
+    } else {
+        // Not "new", treat as identifier
+        ctx.stringStart = ctx.index - 3;
+        ctx.state = STATE::IDENTIFIER_NAME;
+        ctx.index--; // Re-process this character
+    }
+}
+
+inline void handleStateExpressionNew(ParserContext& ctx, char c) {
+    if (std::isspace(static_cast<unsigned char>(c))) {
+        // Skip whitespace
+    } else {
+        // Parse constructor call
+        ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;
+        ctx.index--; // Re-process this character
+    }
+}
+
+// Expression handlers for member access, method calls, bracket access
+inline void handleStateExpressionMemberAccess(ParserContext& ctx, char c) {
+    if (std::isspace(static_cast<unsigned char>(c))) {
+        // Skip whitespace
+    } else if (isIdentifierStart(c)) {
+        ctx.stringStart = ctx.index - 1;
+        ctx.state = STATE::IDENTIFIER_NAME;
+    } else {
+        throw std::runtime_error("Expected identifier after '.'");
+    }
+}
+
+inline void handleStateExpressionMethodCall(ParserContext& ctx, char c) {
+    if (c == '(') {
+        // Parse arguments
+        ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;
+    } else if (std::isspace(static_cast<unsigned char>(c))) {
+        // Skip whitespace
+    } else {
+        throw std::runtime_error("Expected '(' for method call");
+    }
+}
+
+inline void handleStateExpressionBracketAccess(ParserContext& ctx, char c) {
+    if (c == '[') {
+        // Parse index expression
+        ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;
+    } else if (std::isspace(static_cast<unsigned char>(c))) {
+        // Skip whitespace
+    } else {
+        throw std::runtime_error("Expected '[' for bracket access");
+    }
+}
+
+// Increment handler
+inline void handleStateExpressionIncrement(ParserContext& ctx, char c) {
+    if (c == '+') {
+        // ++ operator
+        auto* incrementExpr = new ASTNode(ctx.currentNode);
+        incrementExpr->nodeType = ASTNodeType::AST_NODE; // TODO: Add INCREMENT_EXPR to AST
+        incrementExpr->value = "++";
+        ctx.currentNode->addChild(incrementExpr);
+        ctx.currentNode = incrementExpr;
+        ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;
+    } else {
+        throw std::runtime_error("Expected '+' for increment operator");
     }
 }

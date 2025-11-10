@@ -1419,6 +1419,140 @@ inline void parse(const std::string& code) {
                 case STATE::EXPORT_IDENTIFIER:
                     handleStateExportIdentifier(ctx, c);
                     break;
+
+                // TechnoScript specific features
+                case STATE::NONE_P:
+                    handleStateNoneP(ctx, c);
+                    break;
+                case STATE::NONE_PR:
+                    handleStateNonePR(ctx, c);
+                    break;
+                case STATE::NONE_PRI:
+                    handleStateNonePRI(ctx, c);
+                    break;
+                case STATE::NONE_PRIN:
+                    handleStateNonePRIN(ctx, c);
+                    break;
+                case STATE::NONE_PRINT:
+                    handleStateNonePRINT(ctx, c);
+                    break;
+                case STATE::NONE_G:
+                    handleStateNoneG(ctx, c);
+                    break;
+                case STATE::NONE_GO:
+                    handleStateNoneGO(ctx, c);
+                    break;
+                case STATE::NONE_SE:
+                    handleStateNoneSE(ctx, c);
+                    break;
+                case STATE::NONE_SET:
+                    handleStateNoneSET(ctx, c);
+                    break;
+                case STATE::NONE_SETT:
+                    handleStateNoneSETT(ctx, c);
+                    break;
+                case STATE::NONE_SETTI:
+                    handleStateNoneSETTI(ctx, c);
+                    break;
+                case STATE::NONE_SETTIM:
+                    handleStateNoneSETTIM(ctx, c);
+                    break;
+                case STATE::NONE_SETTIMEO:
+                    handleStateNoneSETTIMEO(ctx, c);
+                    break;
+                case STATE::NONE_SETTIMEOU:
+                    handleStateNoneSETTIMEOU(ctx, c);
+                    break;
+                case STATE::NONE_SETTIMEOUT:
+                    handleStateNoneSETTIMEOUT(ctx, c);
+                    break;
+                case STATE::NONE_SL:
+                    handleStateNoneSL(ctx, c);
+                    break;
+                case STATE::NONE_SLE:
+                    handleStateNoneSLE(ctx, c);
+                    break;
+                case STATE::NONE_SLEE:
+                    handleStateNoneSLEE(ctx, c);
+                    break;
+                case STATE::NONE_SLEEP:
+                    handleStateNoneSLEEP(ctx, c);
+                    break;
+                case STATE::NONE_R:
+                    handleStateNoneR(ctx, c);
+                    break;
+                case STATE::NONE_RA:
+                    handleStateNoneRA(ctx, c);
+                    break;
+                case STATE::NONE_RAW:
+                    handleStateNoneRAW(ctx, c);
+                    break;
+                case STATE::NONE_RAWM:
+                    handleStateNoneRAWM(ctx, c);
+                    break;
+                case STATE::NONE_RAWME:
+                    handleStateNoneRAWME(ctx, c);
+                    break;
+                case STATE::NONE_RAWMEM:
+                    handleStateNoneRAWMEM(ctx, c);
+                    break;
+                case STATE::NONE_RAWMEMO:
+                    handleStateNoneRAWMEMO(ctx, c);
+                    break;
+                case STATE::NONE_RAWMEMOR:
+                    handleStateNoneRAWMEMOR(ctx, c);
+                    break;
+                case STATE::NONE_RAWMEMORY:
+                    handleStateNoneRAWMEMORY(ctx, c);
+                    break;
+                case STATE::NONE_TH:
+                    handleStateNoneTH(ctx, c);
+                    break;
+                case STATE::NONE_THI:
+                    handleStateNoneTHI(ctx, c);
+                    break;
+                case STATE::NONE_THIS:
+                    handleStateNoneTHIS(ctx, c);
+                    break;
+                case STATE::NONE_N:
+                    handleStateNoneN(ctx, c);
+                    break;
+                case STATE::NONE_NE:
+                    handleStateNoneNE(ctx, c);
+                    break;
+                case STATE::NONE_NEW:
+                    handleStateNoneNEW(ctx, c);
+                    break;
+                case STATE::EXPRESSION_MEMBER_ACCESS:
+                    handleStateExpressionMemberAccess(ctx, c);
+                    break;
+                case STATE::EXPRESSION_METHOD_CALL:
+                    handleStateExpressionMethodCall(ctx, c);
+                    break;
+                case STATE::EXPRESSION_BRACKET_ACCESS:
+                    handleStateExpressionBracketAccess(ctx, c);
+                    break;
+                case STATE::EXPRESSION_NEW:
+                    handleStateExpressionNew(ctx, c);
+                    break;
+                case STATE::EXPRESSION_THIS:
+                    handleStateExpressionThis(ctx, c);
+                    break;
+                case STATE::EXPRESSION_INCREMENT:
+                    handleStateExpressionIncrement(ctx, c);
+                    break;
+                case STATE::STATEMENT_PRINT:
+                    handleStateStatementPrint(ctx, c);
+                    break;
+                case STATE::STATEMENT_GO:
+                    handleStateStatementGo(ctx, c);
+                    break;
+                case STATE::STATEMENT_SETTIMEOUT:
+                    handleStateStatementSetTimeout(ctx, c);
+                    break;
+                case STATE::STATEMENT_SLEEP:
+                    handleStateStatementSleep(ctx, c);
+                    break;
             }
         } catch (const std::exception& e) {
             reportParseError(code, ctx.index - 1, e.what(), ctx.state);
