@@ -33,8 +33,10 @@ inline void reportParseError(const std::string& code, std::size_t index, const s
     std::cerr << std::string(column, ' ') << "^\n";
 }
 
-inline void parse(const std::string& code) {
-    auto* root = new ASTNode(nullptr);
+inline ASTNode* parse(const std::string& code) {
+    // Create a root block statement for the program
+    auto* root = new BlockStatement(nullptr);
+
     ParserContext ctx(code, root);
 
     ctx.index = 0;
@@ -1557,13 +1559,12 @@ inline void parse(const std::string& code) {
         } catch (const std::exception& e) {
             reportParseError(code, ctx.index - 1, e.what(), ctx.state);
             delete root;
-            return;
+            return nullptr;
         } catch (...) {
             reportParseError(code, ctx.index - 1, "Unknown parser error", ctx.state);
             delete root;
-            return;
+            return nullptr;
         }
     }
-    printAst(root);
-    delete root;
+    return root;
 }

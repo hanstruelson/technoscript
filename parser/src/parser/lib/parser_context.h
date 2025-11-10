@@ -31,6 +31,9 @@ struct ParserContext {
     size_t stringStart = 0;
     char quoteChar = '\0'; // For string literals
 
+    // Analysis properties - you can add more of these
+    
+
     ParserContext(const std::string& codeRef, ASTNode* rootNode)
         : root(rootNode), currentNode(rootNode), code(codeRef) {}
 

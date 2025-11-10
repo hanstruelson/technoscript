@@ -8,6 +8,9 @@
 #include <set>
 #include <memory>
 
+// Include asmjit for compatibility
+#include <asmjit/asmjit.h>
+
 using namespace std;
 
 
@@ -24,6 +27,8 @@ enum class DataType {
     STRING,
     RAW_MEMORY,
     OBJECT,
+    CLOSURE,
+    ANY,
 };
 
 enum class AccessModifier {
@@ -37,6 +42,7 @@ enum class AccessModifier {
 class FunctionDeclarationNode;
 class LexicalScopeNode;
 class ClassDeclarationNode;
+class ScopeMetadata;
 
 // Analysis structures (similar to old AST)
 struct VariableInfo {
@@ -159,7 +165,10 @@ enum ASTNodeType {
     ENUM_DECLARATION,
     ENUM_MEMBER,
     // Type alias nodes
-    TYPE_ALIAS
+    TYPE_ALIAS,
+    // Compatibility aliases
+    IDENTIFIER = IDENTIFIER_EXPRESSION,
+    FUNCTION_CALL = METHOD_CALL
 };
 
 class ASTNode;
@@ -175,7 +184,10 @@ public:
     ASTNode* parent;
     void (*childrenComplete)(ASTNode*);
 
-    ASTNode(ASTNode* parent) : nodeType(ASTNodeType::AST_NODE), value(""), parent(parent) {}
+    // Compatibility members for codegen
+    ASTNodeType type; // Alias for nodeType
+
+    ASTNode(ASTNode* parent) : nodeType(ASTNodeType::AST_NODE), value(""), parent(parent), type(ASTNodeType::AST_NODE) {}
 
     void addChild(ASTNode* child) {
         child->parent = this;
@@ -203,6 +215,9 @@ public:
     }
 };
 
+// Forward declaration for ScopeMetadata
+class ScopeMetadata;
+
 // Base class for nodes that create lexical scopes
 class LexicalScopeNode : public ASTNode {
 public:
@@ -214,6 +229,10 @@ public:
     std::vector<int> allNeeded; // Analysis: combined dependencies
     int totalSize = 0; // Analysis: total packed size of this scope
     std::map<std::string, VariableInfo> variables; // Analysis: variables in this scope
+
+    // Compatibility members for codegen
+    ScopeMetadata* metadata = nullptr;
+    std::map<int, int> scopeDepthToParentParameterIndexMap;
 
     LexicalScopeNode(ASTNode* parent, bool isBlockScope)
         : ASTNode(parent), isBlockScope(isBlockScope) {}
@@ -264,9 +283,23 @@ public:
     ASTNode* initializer;
     ASTNode* pattern; // For destructuring patterns
 
+    // Compatibility members for codegen
+    bool isArray = false;
+    std::string varName; // Alias for name
+    DataType varType_compat = DataType::INT64;
+
     VariableDefinitionNode(ASTNode* parent, VariableDefinitionType vType)
         : ASTNode(parent), varType(vType), typeAnnotation(nullptr), initializer(nullptr), pattern(nullptr) {
         nodeType = ASTNodeType::VARIABLE_DEFINITION;
+        varName = name;
+        // Map VariableDefinitionType to DataType
+        switch (vType) {
+            case VariableDefinitionType::CONST:
+            case VariableDefinitionType::VAR:
+            case VariableDefinitionType::LET:
+                varType_compat = DataType::INT64; // Default
+                break;
+        }
     }
 
     ~VariableDefinitionNode() override = default;
@@ -345,10 +378,29 @@ public:
     VariableInfo* varRef = nullptr; // Analysis: resolved variable reference
     LexicalScopeNode* accessedIn = nullptr; // Analysis: scope where this identifier is accessed
 
+    // Compatibility members for codegen
+    std::string value; // Alias for name
+
     IdentifierExpressionNode(ASTNode* parent, const std::string& identifier)
         : ExpressionNode(parent), name(identifier) {
         this->value = identifier;
         nodeType = ASTNodeType::IDENTIFIER_EXPRESSION;
+    }
+
+    // Add missing getVariableAccess method
+    struct VariableAccess {
+        bool inCurrentScope = false;
+        int scopeParameterIndex = -1;
+        int offset = 0;
+    };
+
+    VariableAccess getVariableAccess() {
+        VariableAccess access;
+        if (varRef) {
+            access.inCurrentScope = (varRef->definedIn == nullptr); // Simplified
+            access.offset = varRef->offset;
+        }
+        return access;
     }
 
     void print(std::ostream& os, int indent) const override {
@@ -587,8 +639,16 @@ public:
     std::vector<VariableInfo> paramsInfo;        // Regular parameters with calculated offsets
     std::vector<ParameterInfo> hiddenParamsInfo; // Hidden scope parameters with calculated offsets
 
+    // Compatibility members for codegen
+    asmjit::Label* asmjitLabel = nullptr;
+    bool isMethod = false;
+    ClassDeclarationNode* owningClass = nullptr;
+    std::string funcName; // Alias for name
+    ScopeMetadata* metadata = nullptr;
+
     FunctionDeclarationNode(ASTNode* parent) : LexicalScopeNode(parent, false), genericParameters(nullptr), parameters(nullptr), returnType(nullptr), body(nullptr), isAsync(false) {
         nodeType = ASTNodeType::FUNCTION_DECLARATION;
+        funcName = name; // Sync with name
     }
 
     void walk() override {
@@ -724,6 +784,9 @@ public:
 class BlockStatement : public LexicalScopeNode {
 public:
     bool noBraces;
+
+    // Compatibility members for codegen
+    ScopeMetadata* metadata = nullptr;
 
     BlockStatement(ASTNode* parent, bool noBraces = false) : LexicalScopeNode(parent, true), noBraces(noBraces) {
         nodeType = ASTNodeType::BLOCK_STATEMENT;
@@ -1112,6 +1175,9 @@ public:
     std::vector<ClassPropertyNode*> properties;
     std::vector<ClassMethodNode*> methods;
     bool isAbstract;
+
+    // Compatibility members for codegen
+    std::string className; // Alias for name
 
     // Analysis: Class inheritance and layout information
     std::vector<std::string> parentClassNames;  // Names of parent classes (from parsing)
@@ -2192,6 +2258,9 @@ public:
     int thisOffset = 0;                // Offset to adjust this pointer
     ClassDeclarationNode* objectClass = nullptr;      // Class of the object
     int methodClosureOffset = 0;       // Offset in object where method closure is stored
+
+    // Compatibility members for codegen
+    VariableInfo* varRef = nullptr;
 
     MethodCallNode(ASTNode* parent, const std::string& method)
         : ExpressionNode(parent), object(nullptr), methodName(method) {

@@ -14,6 +14,11 @@ struct UnknownVariableInfo {
     LexicalScopeNode* scope;
 };
 
+// Scope layout constants
+namespace ScopeLayout {
+    constexpr int DATA_OFFSET = 16;
+}
+
 // Shared packing utility for both lexical scopes and classes
 namespace VariablePacking {
     // Get size for a type (without closure/object special handling)
@@ -35,7 +40,7 @@ namespace VariablePacking {
             return a->size > b->size;
         });
 
-        int offset = 0;
+        int offset = ScopeLayout::DATA_OFFSET;
         for (auto* var : vars) {
             int size = var->size;
             int align = (var->type == DataType::OBJECT) ? 8 : size;
@@ -238,6 +243,11 @@ private:
                     parentScope->variables[funcNode->name] = funcInfo;
                 }
 
+                // Collect var declarations for hoisting to function scope
+                if (funcNode->body) {
+                    collectVarDeclarations(funcNode->body, funcNode);
+                }
+
                 // Analyze function body with function as parent scope
                 if (funcNode->body) {
                     analyzeNodeSinglePass(funcNode->body, funcNode, depth + 1);
@@ -245,7 +255,7 @@ private:
 
                 // Calculate parameter layout
                 if (funcNode->parameters) {
-                    int paramOffset = 16; // Skip return address and saved RBP
+                    int paramOffset = ScopeLayout::DATA_OFFSET; // Skip return address and saved RBP
                     for (auto* param : funcNode->parameters->parameters) {
                         if (param && !param->pattern->value.empty()) {
                             VariableInfo paramInfo;
@@ -290,7 +300,8 @@ private:
             case ASTNodeType::VARIABLE_DEFINITION: {
                 auto* varDef = static_cast<VariableDefinitionNode*>(node);
 
-                if (!varDef->name.empty() && parentScope) {
+                // Only add let/const to current scope - var is already hoisted to function scope
+                if (varDef->varType != VariableDefinitionType::VAR && !varDef->name.empty() && parentScope) {
                     VariableInfo varInfo;
                     varInfo.name = varDef->name;
                     varInfo.varType = varDef->varType;
@@ -618,6 +629,31 @@ private:
         return nullptr;
     }
 
+    // Collect var declarations for hoisting
+    void collectVarDeclarations(ASTNode* node, LexicalScopeNode* targetScope) {
+        if (!node) return;
+
+        if (node->nodeType == ASTNodeType::VARIABLE_DEFINITION) {
+            auto* varDef = static_cast<VariableDefinitionNode*>(node);
+            if (varDef->varType == VariableDefinitionType::VAR && !varDef->name.empty()) {
+                VariableInfo varInfo;
+                varInfo.name = varDef->name;
+                varInfo.varType = varDef->varType;
+                varInfo.type = DataType::INT64;
+                varInfo.size = 8;
+                varInfo.definingScope = targetScope;
+                targetScope->variables[varDef->name] = varInfo;
+            }
+        } else if (node->nodeType == ASTNodeType::FUNCTION_DECLARATION) {
+            // Skip nested functions - they handle their own vars
+            return;
+        }
+
+        for (auto* child : node->children) {
+            collectVarDeclarations(child, targetScope);
+        }
+    }
+
     // Helper methods for dependency tracking
     void addParentDep(LexicalScopeNode* scope, int depthIdx) {
         if (scope && scope->parentDeps.find(depthIdx) == scope->parentDeps.end()) {
@@ -639,6 +675,8 @@ public:
     void analyze(ASTNode* root) {
         if (!root) return;
 
+        this->root = root; // Store root for registry access
+
         // First pass: collect all class declarations and resolve inheritance
         collectClassesAndResolveInheritance(root);
 
@@ -647,6 +685,17 @@ public:
 
         // Third pass: analyze all expressions and resolve variables/methods
         analyzeNodeSinglePass(root, nullptr, 0);
+    }
+
+    // Getters for registries
+    const std::map<std::string, ClassDeclarationNode*>& getClassRegistry() const {
+        return context.classRegistry;
+    }
+
+    std::vector<FunctionDeclarationNode*> getFunctionRegistry() {
+        std::vector<FunctionDeclarationNode*> functions;
+        collectFunctionsFromAST(root, functions);
+        return functions;
     }
 
 private:
@@ -670,6 +719,21 @@ private:
         for (auto& pair : context.classRegistry) {
             calculateClassLayout(pair.second);
             buildClassVTable(pair.second);
+        }
+    }
+
+private:
+    ASTNode* root; // Store the root for function collection
+
+    void collectFunctionsFromAST(ASTNode* node, std::vector<FunctionDeclarationNode*>& functions) {
+        if (!node) return;
+
+        if (node->nodeType == ASTNodeType::FUNCTION_DECLARATION) {
+            functions.push_back(static_cast<FunctionDeclarationNode*>(node));
+        }
+
+        for (auto* child : node->children) {
+            collectFunctionsFromAST(child, functions);
         }
     }
 };
