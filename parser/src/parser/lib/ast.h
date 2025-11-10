@@ -4,8 +4,74 @@
 #include <ostream>
 #include <string>
 #include <vector>
+#include <map>
+#include <set>
+#include <memory>
 
 using namespace std;
+
+
+
+enum class VariableDefinitionType {
+    CONST,
+    VAR,
+    LET
+};
+
+enum class DataType {
+    INT64,
+    FLOAT64,
+    STRING,
+    RAW_MEMORY,
+    OBJECT,
+};
+
+enum class AccessModifier {
+    PUBLIC,
+    PRIVATE,
+    PROTECTED,
+    NONE
+};
+
+// Forward declarations for analysis structures
+class FunctionDeclarationNode;
+class LexicalScopeNode;
+class ClassDeclarationNode;
+
+// Analysis structures (similar to old AST)
+struct VariableInfo {
+    DataType type;
+    std::string name;
+    int offset = 0;  // Offset from R15 where this variable/parameter is stored
+    int size = 8;    // Size in bytes: 8 for regular vars, correct closure size for closures, calculated for objects
+    LexicalScopeNode* definedIn = nullptr;
+    FunctionDeclarationNode* funcNode = nullptr; // For closures: back-reference to function
+    ClassDeclarationNode* classNode = nullptr; // For objects: pointer to class definition
+
+    // Additional analysis fields for scoping
+    VariableDefinitionType varType = VariableDefinitionType::VAR;
+    LexicalScopeNode* definingScope = nullptr;
+    int scopeDepth = 0;
+    bool isDefined = true;
+};
+
+// Structure to track closure creation and patching
+struct ClosurePatchInfo {
+    int scopeOffset;              // Offset in scope where closure is stored
+    FunctionDeclarationNode* function;   // Function this closure points to
+    LexicalScopeNode* scope;      // Scope where this closure is created
+};
+
+// New structure for unified parameter information
+struct ParameterInfo {
+    int depth;                    // Scope depth
+    int offset;                   // Byte offset in parameter area
+    LexicalScopeNode* scope;      // Pointer to the actual scope
+    bool isHiddenParam;           // true for lexical scopes, false for regular params
+
+    ParameterInfo(int d = 0, int o = 0, LexicalScopeNode* s = nullptr, bool hidden = false)
+        : depth(d), offset(o), scope(s), isHiddenParam(hidden) {}
+};
 
 struct ParserContext;
 
@@ -71,6 +137,12 @@ enum ASTNodeType {
     CLASS_METHOD,
     CLASS_GETTER,
     CLASS_SETTER,
+    // Object operations
+    MEMBER_ACCESS,
+    MEMBER_ASSIGN,
+    METHOD_CALL,
+    THIS_EXPR,
+    NEW_EXPR,
     // Module declarations
     IMPORT_DECLARATION,
     IMPORT_SPECIFIER,
@@ -135,6 +207,13 @@ public:
 class LexicalScopeNode : public ASTNode {
 public:
     bool isBlockScope;
+    int depth = 0; // Analysis: scope depth
+    LexicalScopeNode* parentFunctionScope = nullptr; // Analysis: parent scope
+    std::set<int> parentDeps; // Analysis: parent scope depths this scope depends on
+    std::set<int> descendantDeps; // Analysis: descendant scope depths needed by descendants
+    std::vector<int> allNeeded; // Analysis: combined dependencies
+    int totalSize = 0; // Analysis: total packed size of this scope
+    std::map<std::string, VariableInfo> variables; // Analysis: variables in this scope
 
     LexicalScopeNode(ASTNode* parent, bool isBlockScope)
         : ASTNode(parent), isBlockScope(isBlockScope) {}
@@ -145,28 +224,21 @@ public:
             if (child) child->walk();
         }
     }
+
+    void updateAllNeeded() {
+        allNeeded.clear();
+        for (int depthIdx : parentDeps) {
+            allNeeded.push_back(depthIdx);
+        }
+        for (int depthIdx : descendantDeps) {
+            if (parentDeps.find(depthIdx) == parentDeps.end()) {
+                allNeeded.push_back(depthIdx);
+            }
+        }
+    }
 };
 
-enum class VariableDefinitionType {
-    CONST,
-    VAR,
-    LET
-};
 
-enum class DataType {
-    INT64,
-    FLOAT64,
-    STRING,
-    RAW_MEMORY,
-    OBJECT,
-};
-
-enum class AccessModifier {
-    PUBLIC,
-    PRIVATE,
-    PROTECTED,
-    NONE
-};
 
 class TypeAnnotationNode : public ASTNode {
 public:
@@ -270,6 +342,8 @@ public:
 class IdentifierExpressionNode : public ExpressionNode {
 public:
     std::string name;
+    VariableInfo* varRef = nullptr; // Analysis: resolved variable reference
+    LexicalScopeNode* accessedIn = nullptr; // Analysis: scope where this identifier is accessed
 
     IdentifierExpressionNode(ASTNode* parent, const std::string& identifier)
         : ExpressionNode(parent), name(identifier) {
@@ -508,6 +582,10 @@ public:
     TypeAnnotationNode* returnType;
     ASTNode* body;
     bool isAsync;
+
+    // Analysis: Unified parameter information
+    std::vector<VariableInfo> paramsInfo;        // Regular parameters with calculated offsets
+    std::vector<ParameterInfo> hiddenParamsInfo; // Hidden scope parameters with calculated offsets
 
     FunctionDeclarationNode(ASTNode* parent) : LexicalScopeNode(parent, false), genericParameters(nullptr), parameters(nullptr), returnType(nullptr), body(nullptr), isAsync(false) {
         nodeType = ASTNodeType::FUNCTION_DECLARATION;
@@ -1034,6 +1112,26 @@ public:
     std::vector<ClassPropertyNode*> properties;
     std::vector<ClassMethodNode*> methods;
     bool isAbstract;
+
+    // Analysis: Class inheritance and layout information
+    std::vector<std::string> parentClassNames;  // Names of parent classes (from parsing)
+    std::vector<ClassDeclarationNode*> parentRefs;     // Resolved parent class pointers (from analysis)
+    std::map<std::string, VariableInfo> fields; // field name -> VariableInfo with offset, size, etc.
+    std::map<std::string, int> parentOffsets;   // parent class name -> offset in object layout
+    std::vector<std::string> allFieldsInOrder;  // All fields (parents + own) in layout order
+    int totalSize = 0;                 // Total size of all fields (no header, no methods, just data)
+
+    // Method closure layout information (build-time layout descriptor)
+    struct MethodLayoutInfo {
+        std::string methodName;
+        FunctionDeclarationNode* method;  // Pointer to the method's FunctionDeclNode (build-time)
+        int thisOffset;            // Offset adjustment needed for this pointer (for inherited methods)
+        ClassDeclarationNode* definingClass; // Which class originally defined this method
+        int closureSize = 0;       // Size of the closure for this method
+        int closureOffsetInObject = 0; // Offset in object where this method's closure is stored
+        VariableInfo closurePointerField; // Virtual field for the closure pointer in object layout
+    };
+    std::vector<MethodLayoutInfo> methodLayout;
 
     ClassDeclarationNode(ASTNode* parent) : LexicalScopeNode(parent, true), genericParameters(nullptr), isAbstract(false) {
         nodeType = ASTNodeType::CLASS_DECLARATION;
@@ -2040,5 +2138,123 @@ public:
         }
         os << ")\n";
         for (auto child : children) if (child) child->print(os, indent + 1);
+    }
+};
+
+// Member access node - for accessing object properties (obj.field)
+class MemberAccessNode : public ExpressionNode {
+public:
+    ExpressionNode* object;  // The object being accessed
+    std::string memberName;
+    ClassDeclarationNode* classRef = nullptr; // Analysis: resolved class reference
+    int memberOffset = 0; // Analysis: byte offset of the field in the object
+
+    MemberAccessNode(ASTNode* parent, const std::string& member)
+        : ExpressionNode(parent), object(nullptr), memberName(member) {
+        nodeType = ASTNodeType::MEMBER_ACCESS;
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        os << pad() << "MemberAccess(" << memberName << ")\n";
+        if (object) object->print(os, indent + 1);
+    }
+};
+
+// Member assignment node - for assigning to object properties (obj.field = value)
+class MemberAssignNode : public ASTNode {
+public:
+    MemberAccessNode* member;
+    ExpressionNode* value;
+
+    MemberAssignNode(ASTNode* parent) : ASTNode(parent), member(nullptr), value(nullptr) {
+        nodeType = ASTNodeType::MEMBER_ASSIGN;
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        os << pad() << "MemberAssign\n";
+        if (member) member->print(os, indent + 1);
+        if (value) value->print(os, indent + 1);
+    }
+};
+
+// Method call node - for calling methods on objects (obj.method(args))
+class MethodCallNode : public ExpressionNode {
+public:
+    ExpressionNode* object;            // The object expression
+    std::string methodName;            // Name of the method to call
+    std::vector<ExpressionNode*> args; // Method arguments
+
+    // Analysis: resolved information
+    FunctionDeclarationNode* resolvedMethod = nullptr; // The actual method function
+    int methodLayoutIndex = -1;        // Index in the method layout
+    int thisOffset = 0;                // Offset to adjust this pointer
+    ClassDeclarationNode* objectClass = nullptr;      // Class of the object
+    int methodClosureOffset = 0;       // Offset in object where method closure is stored
+
+    MethodCallNode(ASTNode* parent, const std::string& method)
+        : ExpressionNode(parent), object(nullptr), methodName(method) {
+        nodeType = ASTNodeType::METHOD_CALL;
+    }
+
+    void addArg(ExpressionNode* arg) {
+        args.push_back(arg);
+        if (arg) {
+            arg->parent = this;
+            children.push_back(arg);
+        }
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        os << pad() << "MethodCall(" << methodName << ")\n";
+        if (object) object->print(os, indent + 1);
+        for (auto arg : args) if (arg) arg->print(os, indent + 1);
+    }
+};
+
+// This expression - represents 'this' keyword in methods
+class ThisExprNode : public ExpressionNode {
+public:
+    ClassDeclarationNode* classContext = nullptr;  // Analysis: which class this method belongs to
+    FunctionDeclarationNode* methodContext = nullptr; // Analysis: the method this 'this' appears in
+
+    ThisExprNode(ASTNode* parent) : ExpressionNode(parent) {
+        nodeType = ASTNodeType::THIS_EXPR;
+        value = "this";
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        os << pad() << "ThisExpr\n";
+    }
+};
+
+// New expression - for creating objects (new ClassName(args))
+class NewExprNode : public ExpressionNode {
+public:
+    std::string className;
+    ClassDeclarationNode* classRef = nullptr; // Analysis: resolved class reference
+    std::vector<ExpressionNode*> args;
+    bool isRawMemory = false;
+
+    NewExprNode(ASTNode* parent, const std::string& name)
+        : ExpressionNode(parent), className(name), classRef(nullptr) {
+        nodeType = ASTNodeType::NEW_EXPR;
+    }
+
+    void addArg(ExpressionNode* arg) {
+        args.push_back(arg);
+        if (arg) {
+            arg->parent = this;
+            children.push_back(arg);
+        }
+    }
+
+    void print(std::ostream& os, int indent) const override {
+        auto pad = [indent]() { return string(indent * 2, ' '); };
+        os << pad() << "NewExpr(" << className << ")\n";
+        for (auto arg : args) if (arg) arg->print(os, indent + 1);
     }
 };

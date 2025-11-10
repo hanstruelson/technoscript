@@ -4,15 +4,7 @@
 #include <stack>
 #include <unordered_map>
 #include <vector>
-
-// Information about a variable definition
-struct VariableInfo {
-    std::string name;
-    VariableDefinitionType varType;
-    LexicalScopeNode* definingScope;
-    int scopeDepth;
-    bool isDefined; // For hoisting - true if actually defined, false if just declared
-};
+#include <map>
 
 // Information about an unknown variable reference
 struct UnknownVariableInfo {
@@ -22,12 +14,48 @@ struct UnknownVariableInfo {
     LexicalScopeNode* scope;
 };
 
+// Shared packing utility for both lexical scopes and classes
+namespace VariablePacking {
+    // Get size for a type (without closure/object special handling)
+    inline int getBaseTypeSize(DataType type) {
+        switch (type) {
+            case DataType::INT64: return 8;
+            case DataType::FLOAT64: return 8;
+            case DataType::STRING: return 8;
+            case DataType::RAW_MEMORY: return 8;
+            case DataType::OBJECT: return 8;
+            default: return 8;
+        }
+    }
+
+    // Pack a collection of variables, returns total size
+    inline int packVariables(std::vector<VariableInfo*>& vars) {
+        // Sort by size (biggest first) for optimal packing
+        std::sort(vars.begin(), vars.end(), [](const VariableInfo* a, const VariableInfo* b) {
+            return a->size > b->size;
+        });
+
+        int offset = 0;
+        for (auto* var : vars) {
+            int size = var->size;
+            int align = (var->type == DataType::OBJECT) ? 8 : size;
+            offset = (offset + align - 1) & ~(align - 1); // Align
+            var->offset = offset;
+            offset += size;
+        }
+
+        // Return 8-byte aligned total size
+        return (offset + 7) & ~7;
+    }
+};
+
 // Analyzer context that maintains scope information
 class AnalyzerContext {
 public:
     std::stack<LexicalScopeNode*> scopeStack;
     std::unordered_map<std::string, VariableInfo> activeVariables; // identifier -> info
     std::unordered_map<std::string, std::vector<UnknownVariableInfo>> unknownVariables; // identifier -> list of references
+    std::map<std::string, ClassDeclarationNode*> classRegistry; // class name -> class
     int currentScopeDepth;
 
     AnalyzerContext() : currentScopeDepth(1) {}
@@ -102,7 +130,12 @@ public:
     }
 
     void defineVariable(const std::string& name, VariableDefinitionType varType, LexicalScopeNode* scope) {
-        VariableInfo info{name, varType, scope, currentScopeDepth, true};
+        VariableInfo info;
+        info.name = name;
+        info.varType = varType;
+        info.definingScope = scope;
+        info.scopeDepth = currentScopeDepth;
+        info.isDefined = true;
         activeVariables[name] = info;
 
         // Check if this resolves any unknown references
@@ -160,109 +193,483 @@ public:
         unknownVariables[name].push_back(info);
         std::cout << "Added unknown variable '" << name << "' at depth " << currentScopeDepth << std::endl;
     }
+
+    ClassDeclarationNode* findClass(const std::string& className) {
+        auto it = classRegistry.find(className);
+        if (it == classRegistry.end()) {
+            throw std::runtime_error("Class '" + className + "' not found");
+        }
+        return it->second;
+    }
+
+    void addClass(ClassDeclarationNode* classDecl) {
+        classRegistry[classDecl->name] = classDecl;
+    }
 };
 
-// Analyzer class that walks the AST with scoping
+// Analyzer class that performs comprehensive analysis like the old analyzer
 class Analyzer {
 private:
     AnalyzerContext context;
+    FunctionDeclarationNode* currentMethodContext = nullptr; // Track which method we're currently analyzing
+    ClassDeclarationNode* currentClassContext = nullptr;     // Track which class the current method belongs to
 
-    void enterScope(LexicalScopeNode* scope) {
-        context.pushScope(scope);
-        std::cout << "Entered scope at depth " << context.currentScopeDepth << std::endl;
-    }
-
-    void exitScope() {
-        context.popScope();
-        std::cout << "Exited scope, now at depth " << context.currentScopeDepth << std::endl;
-    }
-
-    void visitVariableDefinition(VariableDefinitionNode* node) {
-        if (!node->name.empty()) {
-            context.defineVariable(node->name, node->varType, context.currentScope());
-            std::cout << "Defined variable '" << node->name << "' of type "
-                    << (node->varType == VariableDefinitionType::VAR ? "var" :
-                        node->varType == VariableDefinitionType::LET ? "let" : "const")
-                    << " at depth " << context.currentScopeDepth << std::endl;
-        }
-    }
-
-    void visitIdentifierExpression(IdentifierExpressionNode* node) {
-        VariableInfo* varInfo = context.findVariable(node->name);
-        if (varInfo) {
-            std::cout << "Found variable '" << node->name << "' defined at depth "
-                    << varInfo->scopeDepth << " (current depth: " << context.currentScopeDepth << ")" << std::endl;
-        } else {
-            // Variable not found, add to unknown
-            context.addUnknownVariable(node->name, node, context.currentScope());
-        }
-    }
-
-    void visitNode(ASTNode* node) {
+    // Single-pass analysis method that does everything efficiently
+    void analyzeNodeSinglePass(ASTNode* node, LexicalScopeNode* parentScope, int depth) {
         if (!node) return;
+
+        // Set depth on lexical scopes
+        if (auto* scopeNode = dynamic_cast<LexicalScopeNode*>(node)) {
+            scopeNode->depth = depth;
+            scopeNode->parentFunctionScope = parentScope;
+        }
 
         switch (node->nodeType) {
             case ASTNodeType::FUNCTION_DECLARATION: {
                 auto* funcNode = static_cast<FunctionDeclarationNode*>(node);
-                // Function name is defined in parent scope
-                if (!funcNode->name.empty()) {
-                    context.defineVariable(funcNode->name, VariableDefinitionType::VAR, context.currentScope());
-                    std::cout << "Defined function '" << funcNode->name << "' at depth " << context.currentScopeDepth << std::endl;
+
+                // Define function name in parent scope
+                if (!funcNode->name.empty() && parentScope) {
+                    VariableInfo funcInfo;
+                    funcInfo.name = funcNode->name;
+                    funcInfo.type = DataType::OBJECT; // Functions are objects
+                    funcInfo.size = 8;
+                    funcInfo.funcNode = funcNode;
+                    parentScope->variables[funcNode->name] = funcInfo;
                 }
-                // Enter function scope
-                enterScope(funcNode);
-                // Visit function body explicitly
+
+                // Analyze function body with function as parent scope
                 if (funcNode->body) {
-                    visitNode(funcNode->body);
+                    analyzeNodeSinglePass(funcNode->body, funcNode, depth + 1);
                 }
-                // Exit scope
-                exitScope();
-                return; // Don't walk children again
+
+                // Calculate parameter layout
+                if (funcNode->parameters) {
+                    int paramOffset = 16; // Skip return address and saved RBP
+                    for (auto* param : funcNode->parameters->parameters) {
+                        if (param && !param->pattern->value.empty()) {
+                            VariableInfo paramInfo;
+                            paramInfo.name = param->pattern->value;
+                            paramInfo.type = DataType::INT64; // Default type
+                            paramInfo.size = 8;
+                            paramInfo.offset = paramOffset;
+                            funcNode->variables[param->pattern->value] = paramInfo;
+                            paramOffset += 8;
+                        }
+                    }
+                }
+
+                // Pack function scope variables
+                std::vector<VariableInfo*> funcVars;
+                for (auto& varPair : funcNode->variables) {
+                    funcVars.push_back(&varPair.second);
+                }
+                funcNode->totalSize = VariablePacking::packVariables(funcVars);
+
+                break;
             }
+
             case ASTNodeType::BLOCK_STATEMENT: {
                 auto* blockNode = static_cast<BlockStatement*>(node);
-                enterScope(blockNode);
-                // Walk children
-                for (auto child : node->children) {
-                    visitNode(child);
-                }
-                // Exit scope
-                exitScope();
-                return; // Don't walk children again
-            }
-            case ASTNodeType::VARIABLE_DEFINITION: {
-                visitVariableDefinition(static_cast<VariableDefinitionNode*>(node));
-                break;
-            }
-            case ASTNodeType::IDENTIFIER_EXPRESSION: {
-                visitIdentifierExpression(static_cast<IdentifierExpressionNode*>(node));
-                break;
-            }
-            default:
-                break;
-        }
 
-        // Walk children for non-scope nodes
-        for (auto child : node->children) {
-            visitNode(child);
+                // Analyze children with block as parent scope
+                for (auto* child : node->children) {
+                    analyzeNodeSinglePass(child, blockNode, depth + 1);
+                }
+
+                // Pack block scope variables
+                std::vector<VariableInfo*> blockVars;
+                for (auto& varPair : blockNode->variables) {
+                    blockVars.push_back(&varPair.second);
+                }
+                blockNode->totalSize = VariablePacking::packVariables(blockVars);
+
+                break;
+            }
+
+            case ASTNodeType::VARIABLE_DEFINITION: {
+                auto* varDef = static_cast<VariableDefinitionNode*>(node);
+
+                if (!varDef->name.empty() && parentScope) {
+                    VariableInfo varInfo;
+                    varInfo.name = varDef->name;
+                    varInfo.varType = varDef->varType;
+                    varInfo.type = DataType::INT64; // Default type
+                    varInfo.size = 8;
+                    varInfo.definingScope = parentScope;
+
+                    parentScope->variables[varDef->name] = varInfo;
+                }
+
+                // Analyze initializer
+                if (varDef->initializer) {
+                    analyzeNodeSinglePass(varDef->initializer, parentScope, depth);
+                }
+
+                break;
+            }
+
+            case ASTNodeType::IDENTIFIER_EXPRESSION: {
+                auto* identNode = static_cast<IdentifierExpressionNode*>(node);
+
+                // Resolve variable reference
+                VariableInfo* varInfo = findVariable(identNode->name, parentScope);
+                if (varInfo) {
+                    identNode->varRef = varInfo;
+                    identNode->accessedIn = parentScope;
+
+                    // Track dependencies for closure analysis
+                    if (varInfo->definingScope != parentScope) {
+                        addParentDep(parentScope, varInfo->definingScope->depth);
+                        addDescendantDep(varInfo->definingScope, parentScope->depth);
+                    }
+                } else {
+                    // Unresolved variable - this might be a global or error
+                    std::cout << "Warning: Unresolved identifier '" << identNode->name << "' at depth " << depth << std::endl;
+                }
+
+                break;
+            }
+
+            case ASTNodeType::MEMBER_ACCESS: {
+                auto* memberAccess = static_cast<MemberAccessNode*>(node);
+
+                // Analyze object expression
+                if (memberAccess->object) {
+                    analyzeNodeSinglePass(memberAccess->object, parentScope, depth);
+                }
+
+                // Resolve member access if object is a known class instance
+                // This is simplified - in a real implementation we'd need type inference
+                if (memberAccess->object && memberAccess->object->nodeType == ASTNodeType::IDENTIFIER_EXPRESSION) {
+                    auto* ident = static_cast<IdentifierExpressionNode*>(memberAccess->object);
+                    if (ident->varRef && ident->varRef->classNode) {
+                        memberAccess->classRef = ident->varRef->classNode;
+
+                        // Find field offset
+                        auto it = ident->varRef->classNode->fields.find(memberAccess->memberName);
+                        if (it != ident->varRef->classNode->fields.end()) {
+                            memberAccess->memberOffset = it->second.offset;
+                        }
+                    }
+                }
+
+                break;
+            }
+
+            case ASTNodeType::METHOD_CALL: {
+                auto* methodCall = static_cast<MethodCallNode*>(node);
+
+                // Analyze object expression
+                if (methodCall->object) {
+                    analyzeNodeSinglePass(methodCall->object, parentScope, depth);
+                }
+
+                // Analyze arguments
+                for (auto* arg : methodCall->args) {
+                    analyzeNodeSinglePass(arg, parentScope, depth);
+                }
+
+                // Resolve method if object is a known class instance
+                if (methodCall->object && methodCall->object->nodeType == ASTNodeType::IDENTIFIER_EXPRESSION) {
+                    auto* ident = static_cast<IdentifierExpressionNode*>(methodCall->object);
+                    if (ident->varRef && ident->varRef->classNode) {
+                        methodCall->objectClass = ident->varRef->classNode;
+
+                        // Find method in class
+                        auto* methodInfo = findMethodInClass(ident->varRef->classNode, methodCall->methodName);
+                        if (methodInfo) {
+                            methodCall->resolvedMethod = methodInfo->method;
+                            // Calculate index in method layout array
+                            methodCall->methodLayoutIndex = methodInfo - &ident->varRef->classNode->methodLayout[0];
+                            methodCall->thisOffset = methodInfo->thisOffset;
+                            methodCall->methodClosureOffset = methodInfo->closureOffsetInObject;
+                        }
+                    }
+                }
+
+                break;
+            }
+
+            case ASTNodeType::THIS_EXPR: {
+                auto* thisExpr = static_cast<ThisExprNode*>(node);
+
+                // Set class and method context
+                thisExpr->classContext = currentClassContext;
+                thisExpr->methodContext = currentMethodContext;
+
+                break;
+            }
+
+            case ASTNodeType::NEW_EXPR: {
+                auto* newExpr = static_cast<NewExprNode*>(node);
+
+                // Resolve class reference
+                try {
+                    newExpr->classRef = context.findClass(newExpr->className);
+                } catch (const std::runtime_error&) {
+                    std::cout << "Warning: Class '" << newExpr->className << "' not found for new expression" << std::endl;
+                }
+
+                // Analyze constructor arguments
+                for (auto* arg : newExpr->args) {
+                    analyzeNodeSinglePass(arg, parentScope, depth);
+                }
+
+                break;
+            }
+
+            case ASTNodeType::CLASS_DECLARATION: {
+                auto* classDecl = static_cast<ClassDeclarationNode*>(node);
+
+                // Set current class context for method analysis
+                ClassDeclarationNode* prevClassContext = currentClassContext;
+                currentClassContext = classDecl;
+
+                // Analyze class members
+                for (auto* child : node->children) {
+                    if (child->nodeType == ASTNodeType::CLASS_METHOD) {
+                        auto* method = static_cast<ClassMethodNode*>(child);
+
+                        // Set current method context
+                        FunctionDeclarationNode* prevMethodContext = currentMethodContext;
+                        currentMethodContext = static_cast<FunctionDeclarationNode*>(method->body);
+
+                        // Analyze method body
+                        if (method->body) {
+                            analyzeNodeSinglePass(method->body, classDecl, depth + 1);
+                        }
+
+                        currentMethodContext = prevMethodContext;
+                    } else {
+                        analyzeNodeSinglePass(child, parentScope, depth);
+                    }
+                }
+
+                currentClassContext = prevClassContext;
+                break;
+            }
+
+            default: {
+                // For all other node types, just recursively analyze children
+                for (auto* child : node->children) {
+                    analyzeNodeSinglePass(child, parentScope, depth);
+                }
+                break;
+            }
         }
     }
 
-public:
-    void analyze(ASTNode* root) {
-        if (root) {
-            // Start with root scope
-            context.pushScope(nullptr); // Root scope
-            visitNode(root);
-            context.popScope();
+    // Variable resolution (still needed)
+    VariableInfo* findVariable(const std::string& name, LexicalScopeNode* scope) {
+        if (!scope) return nullptr;
+
+        // Check current scope
+        auto it = scope->variables.find(name);
+        if (it != scope->variables.end()) {
+            return &it->second;
         }
 
-        // Report any remaining unknown variables
-        if (!context.unknownVariables.empty()) {
-            std::cout << "\nRemaining unknown variables:" << std::endl;
-            for (const auto& pair : context.unknownVariables) {
-                std::cout << "  '" << pair.first << "': " << pair.second.size() << " references" << std::endl;
+        // Check parent scopes recursively
+        LexicalScopeNode* parent = scope->parentFunctionScope;
+        while (parent) {
+            auto parentIt = parent->variables.find(name);
+            if (parentIt != parent->variables.end()) {
+                return &parentIt->second;
             }
+            parent = parent->parentFunctionScope;
+        }
+
+        return nullptr;
+    }
+
+    // Class inheritance helpers (called once per class during first pass)
+    void resolveClassInheritance(ClassDeclarationNode* classDecl) {
+        if (!classDecl->extendsClass.empty()) {
+            try {
+                ClassDeclarationNode* parentClass = context.findClass(classDecl->extendsClass);
+                classDecl->parentRefs.push_back(parentClass);
+                classDecl->parentClassNames.push_back(classDecl->extendsClass);
+
+                // Calculate parent offset (simplified - just accumulate sizes)
+                int offset = 0;
+                for (auto* parent : classDecl->parentRefs) {
+                    classDecl->parentOffsets[parent->name] = offset;
+                    offset += parent->totalSize;
+                }
+            } catch (const std::runtime_error&) {
+                std::cerr << "Warning: Parent class '" << classDecl->extendsClass << "' not found for class '" << classDecl->name << "'" << std::endl;
+            }
+        }
+    }
+
+    void calculateClassLayout(ClassDeclarationNode* classDecl) {
+        std::vector<VariableInfo*> allFields;
+
+        // Collect fields from all parent classes first
+        for (auto* parent : classDecl->parentRefs) {
+            for (auto& fieldPair : parent->fields) {
+                allFields.push_back(&fieldPair.second);
+                classDecl->allFieldsInOrder.push_back(fieldPair.first);
+            }
+        }
+
+        // Add own fields
+        for (auto* prop : classDecl->properties) {
+            if (prop->name.empty()) continue;
+
+            VariableInfo fieldInfo;
+            fieldInfo.name = prop->name;
+            fieldInfo.type = DataType::OBJECT; // Default to object for now
+            fieldInfo.size = 8; // Default size
+            fieldInfo.classNode = classDecl;
+
+            classDecl->fields[prop->name] = fieldInfo;
+            allFields.push_back(&classDecl->fields[prop->name]);
+            classDecl->allFieldsInOrder.push_back(prop->name);
+        }
+
+        // Pack all fields
+        classDecl->totalSize = VariablePacking::packVariables(allFields);
+    }
+
+    void buildClassVTable(ClassDeclarationNode* classDecl) {
+        // Collect all methods from inheritance hierarchy
+        std::map<std::string, ClassDeclarationNode*> methodDefiningClasses;
+
+        // Start with own methods
+        for (auto* method : classDecl->methods) {
+            if (method->name.empty()) continue;
+            methodDefiningClasses[method->name] = classDecl;
+        }
+
+        // Add inherited methods (if not overridden)
+        for (auto* parent : classDecl->parentRefs) {
+            for (auto& methodInfo : parent->methodLayout) {
+                if (methodDefiningClasses.find(methodInfo.methodName) == methodDefiningClasses.end()) {
+                    methodDefiningClasses[methodInfo.methodName] = methodInfo.definingClass;
+                }
+            }
+        }
+
+        // Build method layout
+        int methodIndex = 0;
+        for (auto& pair : methodDefiningClasses) {
+            const std::string& methodName = pair.first;
+            ClassDeclarationNode* definingClass = pair.second;
+
+            // Find the actual method node
+            FunctionDeclarationNode* methodNode = nullptr;
+            if (definingClass == classDecl) {
+                // Own method
+                for (auto* method : classDecl->methods) {
+                    if (method->name == methodName) {
+                        methodNode = static_cast<FunctionDeclarationNode*>(method->body); // Assuming method body is a function
+                        break;
+                    }
+                }
+            } else {
+                // Inherited method - find in parent's layout
+                for (auto& parentMethod : definingClass->methodLayout) {
+                    if (parentMethod.methodName == methodName) {
+                        methodNode = parentMethod.method;
+                        break;
+                    }
+                }
+            }
+
+            if (methodNode) {
+                ClassDeclarationNode::MethodLayoutInfo layoutInfo;
+                layoutInfo.methodName = methodName;
+                layoutInfo.method = methodNode;
+                layoutInfo.definingClass = definingClass;
+
+                // Calculate this offset adjustment for inherited methods
+                if (definingClass != classDecl) {
+                    auto it = classDecl->parentOffsets.find(definingClass->name);
+                    if (it != classDecl->parentOffsets.end()) {
+                        layoutInfo.thisOffset = it->second;
+                    }
+                }
+
+                // Calculate closure size and offset
+                layoutInfo.closureSize = 8; // Simplified - assume 8 bytes for closure
+                layoutInfo.closureOffsetInObject = classDecl->totalSize + (methodIndex * 8);
+
+                // Create virtual field for closure pointer
+                layoutInfo.closurePointerField.name = "__method_" + methodName + "_closure";
+                layoutInfo.closurePointerField.type = DataType::OBJECT;
+                layoutInfo.closurePointerField.size = 8;
+                layoutInfo.closurePointerField.offset = layoutInfo.closureOffsetInObject;
+
+                classDecl->methodLayout.push_back(layoutInfo);
+                methodIndex++;
+            }
+        }
+    }
+
+    // Method resolution for method calls
+    ClassDeclarationNode::MethodLayoutInfo* findMethodInClass(ClassDeclarationNode* classDecl, const std::string& methodName) {
+        for (auto& methodInfo : classDecl->methodLayout) {
+            if (methodInfo.methodName == methodName) {
+                return &methodInfo;
+            }
+        }
+        return nullptr;
+    }
+
+    // Helper methods for dependency tracking
+    void addParentDep(LexicalScopeNode* scope, int depthIdx) {
+        if (scope && scope->parentDeps.find(depthIdx) == scope->parentDeps.end()) {
+            scope->parentDeps.insert(depthIdx);
+            scope->updateAllNeeded();
+        }
+    }
+
+    void addDescendantDep(LexicalScopeNode* scope, int depthIdx) {
+        if (scope && scope->descendantDeps.find(depthIdx) == scope->descendantDeps.end()) {
+            scope->descendantDeps.insert(depthIdx);
+            scope->updateAllNeeded();
+        }
+    }
+
+
+
+public:
+    void analyze(ASTNode* root) {
+        if (!root) return;
+
+        // First pass: collect all class declarations and resolve inheritance
+        collectClassesAndResolveInheritance(root);
+
+        // Second pass: build class layouts and method tables
+        buildClassLayoutsAndMethods();
+
+        // Third pass: analyze all expressions and resolve variables/methods
+        analyzeNodeSinglePass(root, nullptr, 0);
+    }
+
+private:
+    // First pass: collect classes and resolve inheritance
+    void collectClassesAndResolveInheritance(ASTNode* node) {
+        if (!node) return;
+
+        if (node->nodeType == ASTNodeType::CLASS_DECLARATION) {
+            auto* classDecl = static_cast<ClassDeclarationNode*>(node);
+            context.addClass(classDecl);
+            resolveClassInheritance(classDecl);
+        }
+
+        for (auto* child : node->children) {
+            collectClassesAndResolveInheritance(child);
+        }
+    }
+
+    // Second pass: build layouts and method tables
+    void buildClassLayoutsAndMethods() {
+        for (auto& pair : context.classRegistry) {
+            calculateClassLayout(pair.second);
+            buildClassVTable(pair.second);
         }
     }
 };
