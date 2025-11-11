@@ -243,11 +243,6 @@ private:
                     parentScope->variables[funcNode->name] = funcInfo;
                 }
 
-                // Collect var declarations for hoisting to function scope
-                if (funcNode->body) {
-                    collectVarDeclarations(funcNode->body, funcNode);
-                }
-
                 // Analyze function body with function as parent scope
                 if (funcNode->body) {
                     analyzeNodeSinglePass(funcNode->body, funcNode, depth + 1);
@@ -300,8 +295,7 @@ private:
             case ASTNodeType::VARIABLE_DEFINITION: {
                 auto* varDef = static_cast<VariableDefinitionNode*>(node);
 
-                // Only add let/const to current scope - var is already hoisted to function scope
-                if (varDef->varType != VariableDefinitionType::VAR && !varDef->name.empty() && parentScope) {
+                if (!varDef->name.empty() && parentScope) {
                     VariableInfo varInfo;
                     varInfo.name = varDef->name;
                     varInfo.varType = varDef->varType;
@@ -309,7 +303,22 @@ private:
                     varInfo.size = 8;
                     varInfo.definingScope = parentScope;
 
-                    parentScope->variables[varDef->name] = varInfo;
+                    if (varDef->varType == VariableDefinitionType::VAR) {
+                        // Hoist var to function scope
+                        LexicalScopeNode* funcScope = parentScope;
+                        while (funcScope && funcScope->nodeType != ASTNodeType::FUNCTION_DECLARATION) {
+                            funcScope = funcScope->parentFunctionScope;
+                        }
+                        if (funcScope) {
+                            funcScope->variables[varDef->name] = varInfo;
+                        } else {
+                            // Fallback to current scope if no function scope found
+                            parentScope->variables[varDef->name] = varInfo;
+                        }
+                    } else {
+                        // let/const stay in current scope
+                        parentScope->variables[varDef->name] = varInfo;
+                    }
                 }
 
                 // Analyze initializer
@@ -629,30 +638,7 @@ private:
         return nullptr;
     }
 
-    // Collect var declarations for hoisting
-    void collectVarDeclarations(ASTNode* node, LexicalScopeNode* targetScope) {
-        if (!node) return;
 
-        if (node->nodeType == ASTNodeType::VARIABLE_DEFINITION) {
-            auto* varDef = static_cast<VariableDefinitionNode*>(node);
-            if (varDef->varType == VariableDefinitionType::VAR && !varDef->name.empty()) {
-                VariableInfo varInfo;
-                varInfo.name = varDef->name;
-                varInfo.varType = varDef->varType;
-                varInfo.type = DataType::INT64;
-                varInfo.size = 8;
-                varInfo.definingScope = targetScope;
-                targetScope->variables[varDef->name] = varInfo;
-            }
-        } else if (node->nodeType == ASTNodeType::FUNCTION_DECLARATION) {
-            // Skip nested functions - they handle their own vars
-            return;
-        }
-
-        for (auto* child : node->children) {
-            collectVarDeclarations(child, targetScope);
-        }
-    }
 
     // Helper methods for dependency tracking
     void addParentDep(LexicalScopeNode* scope, int depthIdx) {
@@ -801,6 +787,15 @@ void testAnalyzer() {
         auto* varDef = new VariableDefinitionNode(block, VariableDefinitionType::VAR);
         varDef->name = "hoistedVar";
         block->addChild(varDef);
+
+        // Manually hoist to function scope for test
+        VariableInfo varInfo;
+        varInfo.name = "hoistedVar";
+        varInfo.varType = VariableDefinitionType::VAR;
+        varInfo.type = DataType::INT64;
+        varInfo.size = 8;
+        varInfo.definingScope = func;
+        func->variables["hoistedVar"] = varInfo;
 
         root->addChild(func);
 

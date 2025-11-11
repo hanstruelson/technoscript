@@ -115,6 +115,30 @@ inline void handleStateIdentifierName(ParserContext& ctx, char c) {
     if (ctx.currentNode->nodeType == ASTNodeType::VARIABLE_DEFINITION) {
         auto* varDefNode = dynamic_cast<VariableDefinitionNode*>(ctx.currentNode);
         varDefNode->name = identifier;
+
+        // Add variable to appropriate scope
+        if (!identifier.empty()) {
+            VariableInfo varInfo;
+            varInfo.name = identifier;
+            varInfo.varType = varDefNode->varType;
+            varInfo.type = DataType::INT64;
+            varInfo.size = 8;
+
+            if (varDefNode->varType == VariableDefinitionType::VAR) {
+                // Add to function scope
+                if (ctx.currentFunctionScope) {
+                    varInfo.definingScope = ctx.currentFunctionScope;
+                    ctx.currentFunctionScope->variables[identifier] = varInfo;
+                }
+            } else {
+                // Add to block scope (let/const)
+                if (ctx.currentBlockScope) {
+                    varInfo.definingScope = ctx.currentBlockScope;
+                    ctx.currentBlockScope->variables[identifier] = varInfo;
+                }
+            }
+        }
+
         ctx.state = STATE::VARIABLE_CREATE_IDENTIFIER_COMPLETE;
         ctx.index--;
     } else {

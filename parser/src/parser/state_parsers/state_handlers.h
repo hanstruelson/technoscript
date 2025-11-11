@@ -1225,14 +1225,17 @@ inline void handleStateNonePRIN(ParserContext& ctx, char c) {
 }
 
 inline void handleStateNonePRINT(ParserContext& ctx, char c) {
-    if (std::isspace(static_cast<unsigned char>(c))) {
+    if (std::isspace(static_cast<unsigned char>(c)) || c == '(') {
         // Print statement
         auto* printStmt = new ASTNode(ctx.currentNode);
-        printStmt->nodeType = ASTNodeType::AST_NODE; // TODO: Add PRINT_STMT to AST
+        printStmt->nodeType = AST_NODE;
         printStmt->value = "print";
         ctx.currentNode->addChild(printStmt);
         ctx.currentNode = printStmt;
         ctx.state = STATE::STATEMENT_PRINT;
+        if (c == '(') {
+            ctx.index--; // Re-process '('
+        }
     } else {
         // Not "print", treat as identifier
         ctx.stringStart = ctx.index - 5;
@@ -1243,7 +1246,10 @@ inline void handleStateNonePRINT(ParserContext& ctx, char c) {
 
 inline void handleStateStatementPrint(ParserContext& ctx, char c) {
     if (c == '(') {
-        // Parse arguments
+        // Parse arguments - create parenthesis for argument list
+        auto* parenNode = new ParenthesisExpressionNode(ctx.currentNode);
+        ctx.currentNode->addChild(parenNode);
+        ctx.currentNode = parenNode;
         ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace

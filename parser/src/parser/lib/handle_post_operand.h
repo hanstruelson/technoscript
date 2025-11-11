@@ -33,6 +33,10 @@ inline bool handlePostOperand(ParserContext& ctx, char c) {
         }
         // Regular parenthesis closing
         ParenthesisExpressionNode::closeParenthesis(ctx);
+        // Check if we just closed a print statement
+        if (ctx.currentNode && ctx.currentNode->value == "print") {
+            ctx.state = STATE::NONE;
+        }
     } else if (c == '+') {
         // Check if this is postfix increment (++ after operand)
         if (ctx.index + 1 < ctx.code.length() && ctx.code[ctx.index + 1] == '+') {

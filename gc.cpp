@@ -1,6 +1,6 @@
 #include "gc.h"
 #include "goroutine.h"
-#include "ast.h"
+#include "parser/src/parser/lib/ast.h"
 #include "data_structures/safe_unordered_list.h"
 #include <iostream>
 #include <algorithm>
@@ -75,7 +75,7 @@ MetadataRegistry::~MetadataRegistry() {
     }
 }
 
-void MetadataRegistry::buildClassMetadata(const std::map<std::string, ClassDeclNode*>& classRegistry) {
+void MetadataRegistry::buildClassMetadata(const std::map<std::string, ClassDeclarationNode*>& classRegistry) {
     std::lock_guard<std::mutex> lock(registryMutex);
     
     std::cout << "Building class metadata for " << classRegistry.size() << " classes" << std::endl;
@@ -85,15 +85,15 @@ void MetadataRegistry::buildClassMetadata(const std::map<std::string, ClassDeclN
         std::vector<VarMetadata> allFields;
         
         // Add parent class fields first (in inheritance order)
-        for (ClassDeclNode* parent : classDecl->parentRefs) {
-            int parentOffset = classDecl->parentOffsets[parent->className];
+        for (ClassDeclarationNode* parent : classDecl->parentRefs) {
+            int parentOffset = classDecl->parentOffsets[parent->name];
             for (const auto& [fieldName, fieldInfo] : parent->fields) {
                 void* typeInfo = nullptr;
                 if (fieldInfo.type == DataType::OBJECT && fieldInfo.classNode) {
                     typeInfo = fieldInfo.classNode; // Temp: will resolve to ClassMetadata later
                 }
                 
-                std::string fullFieldName = parent->className + "::" + fieldName;
+                std::string fullFieldName = parent->name + "::" + fieldName;
                 // Field offset = header + field offset (no method closures in instance, just pointers)
                 // Actually, instances have closure POINTERS, not embedded closures
                 // So the offset calculation needs to account for method closure pointers
@@ -163,8 +163,8 @@ void MetadataRegistry::buildClassMetadata(const std::map<std::string, ClassDeclN
             parentNames = new const char*[numParents];
             parentOffsets = new int[numParents];
             for (size_t i = 0; i < classDecl->parentRefs.size(); i++) {
-                parentNames[i] = strdup(classDecl->parentRefs[i]->className.c_str());
-                parentOffsets[i] = classDecl->parentOffsets[classDecl->parentRefs[i]->className];
+                parentNames[i] = strdup(classDecl->parentRefs[i]->name.c_str());
+                parentOffsets[i] = classDecl->parentOffsets[classDecl->parentRefs[i]->name];
             }
         }
         
@@ -179,7 +179,7 @@ void MetadataRegistry::buildClassMetadata(const std::map<std::string, ClassDeclN
         
         // Create ClassMetadata with simple closure array
         ClassMetadata* metadata = new ClassMetadata(
-            strdup(classDecl->className.c_str()),
+            strdup(classDecl->name.c_str()),
             allFields.size(),
             fieldsArray,
             classDecl->totalSize,
@@ -191,7 +191,7 @@ void MetadataRegistry::buildClassMetadata(const std::map<std::string, ClassDeclN
         );
         
         classMetadata[className] = metadata;
-        classDecl->runtimeMetadata = metadata;  // Link back to AST
+        // Note: runtimeMetadata linking removed - not needed in new AST
         
         std::cout << "  - Created metadata for class '" << className 
                   << "' with " << allFields.size() << " fields, " 
@@ -199,12 +199,12 @@ void MetadataRegistry::buildClassMetadata(const std::map<std::string, ClassDeclN
                   << numParents << " parents" << std::endl;
     }
     
-    // Second pass: resolve ClassDeclNode pointers to ClassMetadata pointers
+    // Second pass: resolve ClassDeclarationNode pointers to ClassMetadata pointers
     for (auto& [className, metadata] : classMetadata) {
         for (int i = 0; i < metadata->numFields; i++) {
             if (metadata->fields[i].type == DataType::OBJECT && metadata->fields[i].typeInfo) {
-                ClassDeclNode* classDecl = static_cast<ClassDeclNode*>(metadata->fields[i].typeInfo);
-                auto it = classMetadata.find(classDecl->className);
+                ClassDeclarationNode* classDecl = static_cast<ClassDeclarationNode*>(metadata->fields[i].typeInfo);
+                auto it = classMetadata.find(classDecl->name);
                 if (it != classMetadata.end()) {
                     metadata->fields[i].typeInfo = it->second;
                 } else {
@@ -823,21 +823,7 @@ void GarbageCollector::traceObject(void* obj) {
                 markObject(fieldObj);
             }
         }
-        // Handle closure fields - trace the scope pointers inside the closure
-        else if (field.type == DataType::CLOSURE) {
-            uint8_t* closurePtr = objectStart + field.offset;
-            // Closure layout: [size(8)][func_addr(8)][scope_ptr1(8)][scope_ptr2(8)]...
-            uint64_t closureSize = *reinterpret_cast<uint64_t*>(closurePtr);
-            int numScopes = (closureSize - 16) / 8;
-            
-            // Trace each scope pointer in the closure
-            for (int j = 0; j < numScopes; j++) {
-                void* scopePtr = *reinterpret_cast<void**>(closurePtr + 16 + (j * 8));
-                if (scopePtr) {
-                    markScope(scopePtr);
-                }
-            }
-        }
+        // Note: CLOSURE type removed from new AST - closures handled differently
     }
 }
 
@@ -862,21 +848,7 @@ void GarbageCollector::traceScope(void* scope) {
                 markObject(varObj);
             }
         }
-        // Handle closure variables - trace the scope pointers inside the closure
-        else if (var.type == DataType::CLOSURE) {
-            uint8_t* closurePtr = dataStart + var.offset;
-            // Closure layout: [func_addr(8)][size(8)][scope_ptr1(8)][scope_ptr2(8)]...
-            uint64_t closureSize = *reinterpret_cast<uint64_t*>(closurePtr + 8);
-            int numScopes = (closureSize - 16) / 8;
-            
-            // Trace each scope pointer in the closure
-            for (int j = 0; j < numScopes; j++) {
-                void* scopePtr = *reinterpret_cast<void**>(closurePtr + 16 + (j * 8));
-                if (scopePtr) {
-                    markScope(scopePtr);
-                }
-            }
-        }
+        // Note: CLOSURE type removed from new AST - closures handled differently
     }
 }
 

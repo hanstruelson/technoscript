@@ -8,6 +8,7 @@
 class ASTNode;
 class ExpressionNode;
 class BinaryExpressionNode;
+class LexicalScopeNode;
 
 struct ExpressionFrame {
     ExpressionFrame* previous;
@@ -32,10 +33,11 @@ struct ParserContext {
     char quoteChar = '\0'; // For string literals
 
     // Analysis properties - you can add more of these
-    
+    LexicalScopeNode* currentBlockScope = nullptr;
+    LexicalScopeNode* currentFunctionScope = nullptr;
 
     ParserContext(const std::string& codeRef, ASTNode* rootNode)
-        : root(rootNode), currentNode(rootNode), code(codeRef) {}
+        : root(rootNode), currentNode(rootNode), code(codeRef), currentBlockScope(nullptr), currentFunctionScope(nullptr) {}
 
     ~ParserContext() {
     }

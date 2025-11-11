@@ -32,6 +32,10 @@ inline void handleStateNone(ParserContext& ctx, char c) {
         // End of block - pop back to parent
         if (ctx.currentNode && ctx.currentNode->nodeType == ASTNodeType::BLOCK_STATEMENT) {
             ctx.currentNode = ctx.currentNode->parent;
+            // Restore block scope to parent block
+            if (ctx.currentBlockScope && ctx.currentBlockScope->parent) {
+                ctx.currentBlockScope = dynamic_cast<LexicalScopeNode*>(ctx.currentBlockScope->parent);
+            }
             // Check if this is the end of an if statement
             if (ctx.currentNode && ctx.currentNode->nodeType == ASTNodeType::IF_STATEMENT) {
                 ctx.state = STATE::IF_ALTERNATE_START;

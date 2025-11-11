@@ -4,7 +4,7 @@
 #include <cstring>
 #include <cstdio>
 #include "goroutine.h"
-#include "ast.h"
+#include "parser/src/parser/lib/ast.h"
 
 // Forward declaration of runtime functions
 extern "C" uint64_t runtime_sleep(int64_t milliseconds);

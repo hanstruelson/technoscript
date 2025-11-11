@@ -95,6 +95,11 @@ inline void handleStateNoneFUNCTION(ParserContext& ctx, char c) {
         auto* funcNode = new FunctionDeclarationNode(ctx.currentNode);
         ctx.currentNode->children.push_back(funcNode);
         ctx.currentNode = funcNode;
+
+        // Set function and block scope to this function
+        ctx.currentFunctionScope = funcNode;
+        ctx.currentBlockScope = funcNode;
+
         ctx.state = STATE::FUNCTION_DECLARATION_NAME;
     } else {
         throw std::runtime_error("Expected ' ' after 'function': " + std::string(1, c));
@@ -373,14 +378,25 @@ inline void handleStateFunctionReturnTypeAnnotation(ParserContext& ctx, char c) 
 }
 
 inline void handleStateFunctionBodyStart(ParserContext& ctx, char c) {
-    // For now, just skip the body - complex statement parsing needed
-    if (c == '}') {
-        // End of function body
-        ctx.currentNode = ctx.currentNode->parent;
+    if (c == '{') {
+        // Create function body block
+        auto* block = new BlockStatement(ctx.currentNode);
+        if (auto* funcNode = dynamic_cast<FunctionDeclarationNode*>(ctx.currentNode)) {
+            funcNode->body = block;
+        } else if (auto* funcExpr = dynamic_cast<FunctionExpressionNode*>(ctx.currentNode)) {
+            funcExpr->body = block;
+        } else if (auto* arrowFunc = dynamic_cast<ArrowFunctionExpressionNode*>(ctx.currentNode)) {
+            arrowFunc->body = block;
+        }
+        ctx.currentNode->children.push_back(block);
+        ctx.currentNode = block;
+
+        // Set block scope to this block
+        ctx.currentBlockScope = block;
+
         ctx.state = STATE::NONE;
     } else {
-        // Skip body content for now
-        ctx.state = STATE::FUNCTION_BODY;
+        throw std::runtime_error("Expected '{' for function body: " + std::string(1, c));
     }
 }
 

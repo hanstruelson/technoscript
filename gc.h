@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ast.h"  // For DataType enum and forward declarations
+#include "parser/src/parser/lib/ast.h"  // For DataType enum and forward declarations
 #include <cstdint>
 #include <vector>
 #include <unordered_set>
@@ -77,7 +77,7 @@ private:
     
 public:
     // Build class metadata from AST class registry (called after parsing/analysis)
-    void buildClassMetadata(const std::map<std::string, ClassDeclNode*>& classRegistry);
+    void buildClassMetadata(const std::map<std::string, ClassDeclarationNode*>& classRegistry);
     
     // Get class metadata by name
     ClassMetadata* getClassMetadata(const std::string& className);

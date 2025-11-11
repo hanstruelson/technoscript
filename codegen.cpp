@@ -29,7 +29,7 @@ Codegen::~Codegen() {
     // Function cleanup is handled by asmjit runtime
 }
 
-void Codegen::generateProgram(ASTNode& root, const std::map<std::string, ClassDeclNode*>& classRegistry, const std::vector<FunctionDeclNode*>& functionRegistry) {
+void Codegen::generateProgram(ASTNode& root, const std::map<std::string, ClassDeclarationNode*>& classRegistry, std::vector<FunctionDeclarationNode*>& functionRegistry) {
     generatedFunction = generator.generateCode(&root, classRegistry, functionRegistry);
 }
 
@@ -63,31 +63,71 @@ CodeGenerator::~CodeGenerator() {
     cs_close(&capstoneHandle);
 }
 
-void* CodeGenerator::generateCode(ASTNode* root, const std::map<std::string, ClassDeclNode*>& classRegistry, const std::vector<FunctionDeclNode*>& functionRegistry) {
+void* CodeGenerator::generateCode(ASTNode* root, const std::map<std::string, ClassDeclarationNode*>& classRegistry, std::vector<FunctionDeclarationNode*>& functionRegistry) {
     // Reset and initialize code holder
     code.reset();
     code.init(rt.environment(), rt.cpuFeatures());
-    
+
     // Create builder with the code holder
     cb = new x86::Builder(&code);
-    
+
     // Initialize AsmLibrary with the current builder
     asmLibrary = std::make_unique<AsmLibrary>(*cb, x86::r15);
-    
+
     std::cout << "=== Generated Assembly Code ===" << std::endl;
-    
+
+    // PRE-PROCESSING: Handle synthetic main creation for block statement roots
+    // This needs to happen before metadata initialization
+    // We create a synthetic main function that wraps the block statement for execution
+    if (root->nodeType == ASTNodeType::BLOCK_STATEMENT) {
+        std::cout << "Pre-processing: Creating synthetic main function wrapper for block statement root" << std::endl;
+
+        // Create a synthetic main function that wraps the block statement
+        FunctionDeclarationNode* syntheticMain = new FunctionDeclarationNode(nullptr);
+        syntheticMain->name = "main";
+        syntheticMain->funcName = "main";
+        syntheticMain->body = static_cast<BlockStatement*>(root);
+
+        // Copy variables from the root block statement to the synthetic main function
+        // The synthetic main should have access to all top-level variables
+        BlockStatement* rootBlock = static_cast<BlockStatement*>(root);
+        syntheticMain->variables = rootBlock->variables;
+
+        // Calculate totalSize for the synthetic main function based on its variables
+        // Variables start at DATA_OFFSET (16), so totalSize is max offset + size
+        if (!syntheticMain->variables.empty()) {
+            int maxOffset = 0;
+            for (const auto& [name, varInfo] : syntheticMain->variables) {
+                maxOffset = std::max(maxOffset, varInfo.offset + varInfo.size);
+            }
+            syntheticMain->totalSize = maxOffset;
+        } else {
+            syntheticMain->totalSize = 16; // Minimum for metadata and flags
+        }
+
+        std::cout << "DEBUG: Synthetic main totalSize set to " << syntheticMain->totalSize << std::endl;
+        std::cout << "DEBUG: Synthetic main has " << syntheticMain->variables.size() << " variables" << std::endl;
+
+        // Set the parent of the block to the synthetic main function
+        root->parent = syntheticMain;
+
+        // Add the synthetic main to the function registry
+        functionRegistry.push_back(syntheticMain);
+        std::cout << "Added synthetic main function wrapper to registry during pre-processing" << std::endl;
+    }
+
     // INITIALIZATION: Create all scope metadata at compile time before generating any code
     std::cout << "\n=== Initializing Scope Metadata (Compile Time) ===" << std::endl;
     initializeAllScopeMetadata(root, functionRegistry);
-    
+
     // FIRST PASS: Generate all functions (including methods) upfront
     std::cout << "\n=== First Pass: Generating All Functions ===" << std::endl;
     generateAllFunctions(functionRegistry);
-    
+
     // SECOND PASS: Generate the main program flow (this traverses the AST normally)
     // Classes will be emitted as they appear in the AST, creating closures for methods inline
     std::cout << "\n=== Second Pass: Generating Main Program ===" << std::endl;
-    generateProgram(root);
+    generateProgram(root, functionRegistry);
     
     std::cout << "Code size after program: " << code.codeSize() << std::endl;
     
@@ -131,65 +171,58 @@ void CodeGenerator::declareExternalFunctions() {
     callocLabel = cb->newLabel();
 }
 
-void CodeGenerator::generateAllFunctions(const std::vector<FunctionDeclNode*>& functionRegistry) {
+void CodeGenerator::generateAllFunctions(const std::vector<FunctionDeclarationNode*>& functionRegistry) {
     std::cout << "Generating " << functionRegistry.size() << " functions from registry" << std::endl;
     
     // Create labels for all functions first
     for (auto* funcDecl : functionRegistry) {
-        if (!funcDecl->asmjitLabel) {
-            createFunctionLabel(funcDecl);
-        }
+        createFunctionLabel(funcDecl);
     }
     
     // Generate code for all functions
     for (auto* funcDecl : functionRegistry) {
-        if (funcDecl->isMethod) {
-            std::cout << "Generating method from registry: " << funcDecl->funcName 
-                      << " (class: " << (funcDecl->owningClass ? funcDecl->owningClass->className : "unknown") << ")" << std::endl;
-        } else {
-            std::cout << "Generating function from registry: " << funcDecl->funcName << std::endl;
+        std::cout << "Generating function from registry: " << funcDecl->name << std::endl;
+
+        // Get the function label from our map
+        auto labelIt = functionLabels.find(funcDecl);
+        if (labelIt == functionLabels.end()) {
+            throw std::runtime_error("Function label not created for: " + funcDecl->name);
         }
-        
-        // Generate the function code
-        Label* funcLabel = static_cast<Label*>(funcDecl->asmjitLabel);
-        if (!funcLabel) {
-            throw std::runtime_error("Function label not created for: " + funcDecl->funcName);
-        }
-        
+
         // Bind the function label
-        cb->bind(*funcLabel);
-        
+        cb->bind(labelIt->second);
+
         // Generate function prologue
         generateFunctionPrologue(funcDecl);
-        
+
         // Set this function as current scope
         LexicalScopeNode* previousScope = currentScope;
         currentScope = funcDecl;
-        
+
         // Handle function hoisting - create closures for nested functions in this scope
         for (const auto& [name, varInfo] : funcDecl->variables) {
-            if (varInfo.type == DataType::CLOSURE && varInfo.funcNode) {
+            if (varInfo.funcNode) {  // Check if it's a function reference
                 auto childFuncDecl = varInfo.funcNode;
                 // The label should already exist from the first loop above
                 storeFunctionAddressInClosure(childFuncDecl, funcDecl);
             }
         }
-        
+
         // Process the function body (skip nested functions and classes)
-        for (auto& child : funcDecl->children) {
-            if (child->type != AstNodeType::FUNCTION_DECL && child->type != AstNodeType::CLASS_DECL) {
-                visitNode(child.get());
+        for (auto* child : funcDecl->children) {
+            if (child->nodeType != ASTNodeType::FUNCTION_DECLARATION && child->nodeType != ASTNodeType::CLASS_DECLARATION) {
+                visitNode(child);
             }
         }
-        
+
         // For main function, set return value
-        if (funcDecl->funcName == "main") {
+        if (funcDecl->name == "main") {
             cb->mov(x86::eax, 0);
         }
-        
+
         // Generate function epilogue
         generateFunctionEpilogue(funcDecl);
-        
+
         // Restore previous scope
         currentScope = previousScope;
     }
@@ -203,92 +236,105 @@ void CodeGenerator::generateAllFunctions(const std::vector<FunctionDeclNode*>& f
     std::cout << "Finished generating all functions from registry" << std::endl;
 }
 
-void CodeGenerator::generateProgram(ASTNode* root) {
+void CodeGenerator::generateProgram(ASTNode* root, std::vector<FunctionDeclarationNode*>& functionRegistry) {
     if (!root) {
         throw std::runtime_error("Null program root");
     }
-    
-    std::cout << "Generating program - main should already be generated from registry" << std::endl;
-    
-    // Root should always be a FUNCTION_DECL (the main function)
-    if (root->type == AstNodeType::FUNCTION_DECL) {
-        FunctionDeclNode* mainFunc = static_cast<FunctionDeclNode*>(root);
-        
+
+    std::cout << "Generating program" << std::endl;
+
+    // Handle different root node types
+    if (root->nodeType == ASTNodeType::FUNCTION_DECLARATION) {
+        // Root is already a function (legacy case)
+        FunctionDeclarationNode* mainFunc = static_cast<FunctionDeclarationNode*>(root);
+
         // The main function should already have been generated in generateAllFunctions
-        // But we still need to ensure its label exists (it should)
         if (!mainFunc->asmjitLabel) {
             throw std::runtime_error("Main function label should have been created in generateAllFunctions");
         }
-        
+
         // Process any classes in the main function's children
-        // Classes need special handling to create method closures at the class definition point
-        for (auto& child : mainFunc->children) {
-            if (child->type == AstNodeType::CLASS_DECL) {
-                // We don't regenerate the class methods (they're already generated)
-                // but we might need to do other class-related setup here
+        for (auto* child : root->children) {
+            if (child->nodeType == ASTNodeType::CLASS_DECLARATION) {
                 std::cout << "Skipping class in second pass (methods already generated)" << std::endl;
             }
         }
+    } else if (root->nodeType == ASTNodeType::BLOCK_STATEMENT) {
+        // Root is a block statement - this is the new parser format
+        // The synthetic main function wrapper was already created in generateCode pre-processing
+        std::cout << "Processing block statement root with pre-created synthetic main wrapper" << std::endl;
+
+        // Find the synthetic main function in the registry (already created in generateCode)
+        FunctionDeclarationNode* syntheticMain = nullptr;
+        for (auto* func : functionRegistry) {
+            if (func->name == "main") {
+                syntheticMain = func;
+                break;
+            }
+        }
+
+        if (!syntheticMain) {
+            throw std::runtime_error("Synthetic main function not found in registry");
+        }
+
+        // Generate the synthetic main function (label already created and bound in generateAllFunctions)
+        // No need to bind the label again here
+
+        // Generate prologue for synthetic main
+        generateFunctionPrologue(syntheticMain);
+
+        // Set current scope to synthetic main
+        LexicalScopeNode* previousScope = currentScope;
+        currentScope = syntheticMain;
+
+        // Generate code for the block statement
+        for (auto* child : root->children) {
+            visitNode(child);
+        }
+
+        // For main function, set return value
+        cb->mov(x86::eax, 0);
+
+        // Generate epilogue
+        generateFunctionEpilogue(syntheticMain);
+
+        // Restore previous scope
+        currentScope = previousScope;
+
+        // Process any classes in the block
+        for (auto* child : root->children) {
+            if (child->nodeType == ASTNodeType::CLASS_DECLARATION) {
+                std::cout << "Skipping class in second pass (methods already generated)" << std::endl;
+            }
+        }
+
+        // Clean up synthetic main (but don't delete it as it may be referenced)
+        // The function registry owns it now
     } else {
-        throw std::runtime_error("Invalid program root node type - expected FUNCTION_DECL");
+        throw std::runtime_error("Invalid program root node type - expected FUNCTION_DECLARATION or BLOCK_STATEMENT");
     }
 }
 
 void CodeGenerator::visitNode(ASTNode* node) {
     if (!node) return;
-    
-    switch (node->type) {
-        case AstNodeType::VAR_DECL:
-            generateVarDecl(static_cast<VarDeclNode*>(node));
+
+    switch (node->nodeType) {
+        case ASTNodeType::VARIABLE_DEFINITION:
+            generateVarDecl(static_cast<VariableDefinitionNode*>(node));
             break;
-        case AstNodeType::LET_DECL:
-            generateLetDecl(static_cast<LetDeclNode*>(node));
-            break;
-        case AstNodeType::PRINT_STMT:
-            generatePrintStmt(node);
-            break;
-        case AstNodeType::FUNCTION_DECL:
+        case ASTNodeType::FUNCTION_DECLARATION:
             // Function bodies are generated during the upfront function pass.
             break;
-        case AstNodeType::FUNCTION_CALL:
-            generateFunctionCall(static_cast<FunctionCallNode*>(node));
+        case ASTNodeType::BLOCK_STATEMENT:
+            generateBlockStmt(static_cast<BlockStatement*>(node));
             break;
-        case AstNodeType::METHOD_CALL: {
-            auto methodCall = static_cast<MethodCallNode*>(node);
-            if (isRawMemoryReleaseCall(methodCall)) {
-                generateRawMemoryRelease(methodCall);
-            } else {
-                generateFunctionCall(methodCall);
-            }
+        case ASTNodeType::CLASS_DECLARATION:
+            generateClassDecl(static_cast<ClassDeclarationNode*>(node));
             break;
-        }
-        case AstNodeType::GO_STMT:
-            generateGoStmt(static_cast<GoStmtNode*>(node));
-            break;
-        case AstNodeType::SETTIMEOUT_STMT:
-            generateSetTimeoutStmt(static_cast<SetTimeoutStmtNode*>(node));
-            break;
-        case AstNodeType::BLOCK_STMT:
-            generateBlockStmt(static_cast<BlockStmtNode*>(node));
-            break;
-        case AstNodeType::MEMBER_ASSIGN:
-            generateMemberAssign(static_cast<MemberAssignNode*>(node));
-            break;
-        case AstNodeType::CLASS_DECL:
-            generateClassDecl(static_cast<ClassDeclNode*>(node));
-            break;
-        case AstNodeType::BRACKET_ACCESS: {
-            auto bracketAccess = static_cast<BracketAccessNode*>(node);
-            if (bracketAccess->objectExpression) {
-                visitNode(bracketAccess->objectExpression.get());
-            }
-            // Tensor segments removed; ignore segments
-            break;
-        }
         default:
             // For other nodes, just visit children
-            for (auto& child : node->children) {
-                visitNode(child.get());
+            for (auto* child : node->children) {
+                visitNode(child);
             }
             break;
     }
@@ -322,7 +368,17 @@ void CodeGenerator::allocateScope(LexicalScopeNode* scope) {
     // Store pre-computed metadata pointer at offset 8 in the scope
     // The metadata was created at compile time, so we just load the pointer
     if (!scope->metadata) {
-        throw std::runtime_error("Scope metadata not initialized at compile time!");
+        // For synthetic main function, metadata might not be set yet - create it now
+        if (auto funcScope = dynamic_cast<FunctionDeclarationNode*>(scope)) {
+            if (funcScope->name == "main") {
+                scope->metadata = createScopeMetadata(scope);
+                std::cout << "Created metadata for synthetic main function at runtime" << std::endl;
+            } else {
+                throw std::runtime_error("Scope metadata not initialized at compile time!");
+            }
+        } else {
+            throw std::runtime_error("Scope metadata not initialized at compile time!");
+        }
     }
     cb->mov(x86::r11, reinterpret_cast<uint64_t>(scope->metadata));
     cb->mov(x86::qword_ptr(x86::r15, ScopeLayout::METADATA_OFFSET), x86::r11);
@@ -342,39 +398,41 @@ void CodeGenerator::allocateScope(LexicalScopeNode* scope) {
     currentScope = scope;
 }
 
-void* CodeGenerator::createScopeMetadata(LexicalScopeNode* scope) {
+ScopeMetadata* CodeGenerator::createScopeMetadata(LexicalScopeNode* scope) {
     if (!scope) return nullptr;
-    
+
+    std::cout << "DEBUG createScopeMetadata: Creating metadata for scope with " << scope->variables.size() << " variables" << std::endl;
+
     // This function is now called at COMPILE TIME (during code generation setup)
     // NOT at runtime! The metadata is created once and reused for all scope allocations.
-    
+
     // Count variables that need GC tracking (objects and closures)
     std::vector<VarMetadata> trackedVars;
-    
+
     for (const auto& [varName, varInfo] : scope->variables) {
         // Only track object references and closures (anything that could point to heap objects)
         if (varInfo.type == DataType::OBJECT || varInfo.type == DataType::CLOSURE) {
             void* typeInfo = nullptr;
-            
+
             // For objects, get the class metadata from the registry
             if (varInfo.type == DataType::OBJECT && varInfo.classNode) {
                 typeInfo = MetadataRegistry::getInstance().getClassMetadata(varInfo.classNode->className);
             }
-            
-            std::cout << "  - Tracking variable '" << varName << "' of type " 
+
+            std::cout << "  - Tracking variable '" << varName << "' of type "
                       << (varInfo.type == DataType::OBJECT ? "OBJECT" : "CLOSURE")
                       << " at offset " << varInfo.offset << std::endl;
-            
+
             // Note: offset in VariableInfo is already adjusted for ScopeLayout::DATA_OFFSET
             // But we need the offset relative to data start for the metadata
             trackedVars.emplace_back(varInfo.offset, varInfo.type, typeInfo);
         }
     }
-    
+
     // Allocate metadata structure ONCE at compile time
     ScopeMetadata* metadata = new ScopeMetadata();
     metadata->numVars = trackedVars.size();
-    
+
     if (metadata->numVars > 0) {
         metadata->vars = new VarMetadata[metadata->numVars];
         for (int i = 0; i < metadata->numVars; i++) {
@@ -383,27 +441,31 @@ void* CodeGenerator::createScopeMetadata(LexicalScopeNode* scope) {
     } else {
         metadata->vars = nullptr;
     }
-    
+
     std::cout << "Created scope metadata at compile time with " << metadata->numVars << " tracked variables" << std::endl;
-    
+
     return metadata;
 }
 
-void CodeGenerator::initializeAllScopeMetadata(ASTNode* root, const std::vector<FunctionDeclNode*>& functionRegistry) {
+void CodeGenerator::initializeAllScopeMetadata(ASTNode* root, const std::vector<FunctionDeclarationNode*>& functionRegistry) {
     std::cout << "Initializing scope metadata for all scopes at compile time..." << std::endl;
-    
+    std::cout << "DEBUG: Processing " << functionRegistry.size() << " functions in registry" << std::endl;
+
     // Process all functions in the registry (includes methods)
     for (auto* funcDecl : functionRegistry) {
+        std::cout << "DEBUG: Processing function: " << funcDecl->name << std::endl;
         // Create metadata for the function scope itself
         if (!funcDecl->metadata) {
+            std::cout << "DEBUG: Creating metadata for function: " << funcDecl->name << std::endl;
             funcDecl->metadata = createScopeMetadata(funcDecl);
-            std::cout << "  Created metadata for function: " << funcDecl->funcName << std::endl;
+        } else {
+            std::cout << "DEBUG: Function " << funcDecl->name << " already has metadata" << std::endl;
         }
-        
+
         // Recursively process all nested scopes (blocks) within this function
         initializeScopeMetadataRecursive(funcDecl);
     }
-    
+
     std::cout << "Scope metadata initialization complete!" << std::endl;
 }
 
@@ -411,23 +473,23 @@ void CodeGenerator::initializeScopeMetadataRecursive(ASTNode* node) {
     if (!node) return;
     
     // If this is a lexical scope (block), create its metadata
-    if (node->type == AstNodeType::BLOCK_STMT) {
-        BlockStmtNode* block = static_cast<BlockStmtNode*>(node);
+    if (node->nodeType == ASTNodeType::BLOCK_STATEMENT) {
+        BlockStatement* block = static_cast<BlockStatement*>(node);
         if (!block->metadata) {
             block->metadata = createScopeMetadata(block);
             std::cout << "    Created metadata for block at depth " << block->depth << std::endl;
         }
     }
-    
+
     // Recursively process children (skip nested functions - they're handled in the main loop)
     for (auto& child : node->children) {
-        if (child->type != AstNodeType::FUNCTION_DECL && child->type != AstNodeType::CLASS_DECL) {
-            initializeScopeMetadataRecursive(child.get());
+        if (child->nodeType != ASTNodeType::FUNCTION_DECLARATION && child->nodeType != ASTNodeType::CLASS_DECLARATION) {
+            initializeScopeMetadataRecursive(child);
         }
     }
 }
 
-void CodeGenerator::generateVarDecl(VarDeclNode* varDecl) {
+void CodeGenerator::generateVarDecl(VariableDefinitionNode* varDecl) {
     // For now, we expect a literal assignment
     // var x: int64 = 10
     if (varDecl->children.empty()) {
@@ -435,116 +497,74 @@ void CodeGenerator::generateVarDecl(VarDeclNode* varDecl) {
     }
 
     if (varDecl->isArray) {
-        if (varDecl->varType != DataType::ANY) {
-            throw std::runtime_error("Array variable ANY not implemented yet");
-        }
-        if (varDecl->varType == DataType::INT64) {
-            auto makeArrayAddr = reinterpret_cast<uint64_t>(&makeArray<int64_t>);
-            cb->mov(x86::rdi, static_cast<uint32_t>(varDecl->varType)); // first argument: DataType
-            cb->mov(x86::rax, makeArrayAddr);
-            cb->call(x86::rax);
-            // store result in variable
-            storeVariableInScope(varDecl->varName, x86::rax, currentScope, varDecl);
-        } else {
-            throw std::runtime_error("Array variable type not implemented yet");
-        }
-        // // get pointer to makeTensor
-        // auto tensorFuncAddr = reinterpret_cast<uint64_t>(&makeTensor);
-        // cb->mov(x86::rdi, static_cast<uint32_t>(varDecl->varType)); // first argument: DataType
-        // cb->mov(x86::rax, tensorFuncAddr);
-        // cb->call(x86::rax);
-        // // store result in variable
-        // storeVariableInScope(varDecl->varName, x86::rax, currentScope, varDecl);
+        // For now, assume arrays are not supported - we'll need to update this
+        throw std::runtime_error("Array variables not implemented yet");
     } else {
-        ASTNode* valueNode = varDecl->children[0].get();
-        if (varDecl->varType == DataType::ANY) {
-            loadAnyValue(valueNode, x86::rax, x86::rdx);
-            storeVariableInScope(varDecl->varName, x86::rax, currentScope, valueNode, x86::rdx);
-        } else {
-            // Load the value into a register using declared type
-            loadValue(valueNode, x86::rax, x86::r15, varDecl->varType);
-            storeVariableInScope(varDecl->varName, x86::rax, currentScope, valueNode);
-        }
+        ASTNode* valueNode = varDecl->children[0];
+        // For now, assume all variables are INT64 - we'll need to update this for proper type handling
+        loadValue(valueNode, x86::rax, x86::r15, DataType::INT64);
+        storeVariableInScope(varDecl->name, x86::rax, currentScope, valueNode);
     }
 }
 
-void CodeGenerator::generateLetDecl(LetDeclNode* letDecl) {
-    std::cout << "Generating let declaration: " << letDecl->varName << std::endl;
-    
+void CodeGenerator::generateLetDecl(VariableDefinitionNode* letDecl) {
+    std::cout << "Generating let declaration: " << letDecl->name << std::endl;
+
     // Let declarations work the same as var declarations
     // let x: int64 = 10
-    if (letDecl->children.empty()) {
+    if (letDecl->initializer == nullptr) {
         throw std::runtime_error("Let declaration without assignment not supported");
     }
-    
-    ASTNode* valueNode = letDecl->children[0].get();
-    
+
+    ASTNode* valueNode = letDecl->initializer;
+
     // Load the value into a register using declared type
-    loadValue(valueNode, x86::rax, x86::r15, letDecl->varType);
-    
+    loadValue(valueNode, x86::rax, x86::r15, DataType::INT64); // TODO: get type from typeAnnotation
+
     // Store the value in the current scope
-    storeVariableInScope(letDecl->varName, x86::rax, currentScope, valueNode);
+    storeVariableInScope(letDecl->name, x86::rax, currentScope, valueNode);
 }
 
-void CodeGenerator::assignVariable(VarDeclNode* varDecl, ASTNode* value) {
-    // Load the value into rax using declared type
-    loadValue(value, x86::rax, x86::r15, varDecl->varType);
-    
-    // Store in the lexical scope at the variable's offset
-    storeVariableInScope(varDecl->varName, x86::rax, currentScope, value);
-}
+
 
 void CodeGenerator::loadValue(ASTNode* valueNode, x86::Gp destReg, x86::Gp sourceScopeReg, std::optional<DataType> expectedType) {
     if (!valueNode) return;
-    
-    std::cout << "DEBUG loadValue: node type = " << static_cast<int>(valueNode->type) << std::endl;
-    
-    switch (valueNode->type) {
-        case AstNodeType::LITERAL: {
-            auto* literal = static_cast<LiteralNode*>(valueNode);
+
+    std::cout << "DEBUG loadValue: ENTERING FUNCTION" << std::endl;
+    std::cout << "DEBUG loadValue: node type = " << static_cast<int>(valueNode->nodeType) << std::endl;
+    std::cout << "DEBUG: ASTNodeType::EXPRESSION = " << static_cast<int>(ASTNodeType::EXPRESSION) << std::endl;
+    // Print the node type name if possible
+    std::cout << "DEBUG loadValue: ABOUT TO ENTER SWITCH" << std::endl;
+    switch (valueNode->nodeType) {
+        case ASTNodeType::EXPRESSION: std::cout << "  -> EXPRESSION" << std::endl; break;
+        case ASTNodeType::LITERAL_EXPRESSION: std::cout << "  -> LITERAL_EXPRESSION" << std::endl; break;
+        case ASTNodeType::IDENTIFIER_EXPRESSION: std::cout << "  -> IDENTIFIER_EXPRESSION" << std::endl; break;
+        case ASTNodeType::MEMBER_ACCESS: std::cout << "  -> MEMBER_ACCESS" << std::endl; break;
+        case ASTNodeType::NEW_EXPR: std::cout << "  -> NEW_EXPR" << std::endl; break;
+        case ASTNodeType::THIS_EXPR: std::cout << "  -> THIS_EXPR" << std::endl; break;
+        default: std::cout << "  -> UNKNOWN" << std::endl; break;
+    }
+
+    switch (valueNode->nodeType) {
+        case ASTNodeType::LITERAL_EXPRESSION: {
+            auto* literal = static_cast<LiteralExpressionNode*>(valueNode);
             DataType parseType = expectedType.value_or(DataType::INT64);
             switch (parseType) {
-                case DataType::INT32: {
-                    if (literal->literalKind == LiteralType::STRING) {
-                        throw std::runtime_error("Expected numeric literal for int32");
-                    }
-                    int64_t value = std::stoll(literal->value);
-                    cb->mov(destReg, static_cast<int32_t>(value));
-                    break;
-                }
                 case DataType::INT64: {
-                    if (literal->literalKind == LiteralType::STRING) {
-                        throw std::runtime_error("Expected numeric literal for int64");
-                    }
-                    int64_t value = std::stoll(literal->value);
+                    int64_t value = std::stoll(literal->literal);
                     cb->mov(destReg, value);
                     break;
                 }
                 case DataType::FLOAT64: {
-                    if (literal->literalKind == LiteralType::STRING) {
-                        throw std::runtime_error("Expected numeric literal for float64");
-                    }
-                    double value = std::stod(literal->value);
+                    double value = std::stod(literal->literal);
                     uint64_t bits;
                     std::memcpy(&bits, &value, sizeof(bits));
                     cb->mov(destReg, bits);
                     break;
                 }
-                case DataType::ANY: {
-                    if (literal->literalKind == LiteralType::STRING) {
-                        throw std::runtime_error("String literal not supported for any without explicit handling");
-                    }
-                    double value = std::stod(literal->value);
-                    uint64_t bits;
-                    std::memcpy(&bits, &value, sizeof(bits));
-                    cb->mov(destReg, bits);
-                    break;
-                }
+
                 case DataType::STRING: {
-                    if (literal->literalKind != LiteralType::STRING) {
-                        throw std::runtime_error("Expected string literal for string type");
-                    }
-                    uint64_t strAddr = reinterpret_cast<uint64_t>(literal->value.c_str());
+                    uint64_t strAddr = reinterpret_cast<uint64_t>(literal->literal.c_str());
                     cb->mov(destReg, strAddr);
                     break;
                 }
@@ -553,63 +573,59 @@ void CodeGenerator::loadValue(ASTNode* valueNode, x86::Gp destReg, x86::Gp sourc
             }
             break;
         }
-        case AstNodeType::IDENTIFIER: {
+        case ASTNodeType::IDENTIFIER_EXPRESSION: {
             // Load variable from scope (using provided source scope register)
-            loadVariableFromScope(static_cast<IdentifierNode*>(valueNode), destReg, 0, sourceScopeReg);
+            loadVariableFromScope(static_cast<IdentifierExpressionNode*>(valueNode), destReg, 0, sourceScopeReg);
             break;
         }
-        case AstNodeType::FUNCTION_CALL: {
-            // Generate function call and load result into destReg
-            generateFunctionCall(static_cast<FunctionCallNode*>(valueNode));
-            // Function call result is in rax, move to destReg if different
-            if (destReg.id() != x86::rax.id()) {
-                cb->mov(destReg, x86::rax);
-            }
+        case ASTNodeType::AWAIT_EXPRESSION: {
+            // Handle await expression - not implemented yet
+            throw std::runtime_error("Await expressions not implemented");
             break;
         }
-        case AstNodeType::AWAIT_EXPR: {
-            // Handle await expression
-            generateAwaitExpr(valueNode, destReg);
-            break;
-        }
-        case AstNodeType::SLEEP_CALL: {
-            // Handle sleep call
-            generateSleepCall(valueNode, destReg);
-            break;
-        }
-        case AstNodeType::NEW_EXPR: {
+        case ASTNodeType::NEW_EXPR: {
             // Handle new expression
             generateNewExpr(static_cast<NewExprNode*>(valueNode), destReg, sourceScopeReg);
             break;
         }
-        case AstNodeType::MEMBER_ACCESS: {
+        case ASTNodeType::MEMBER_ACCESS: {
             // Handle member access
             generateMemberAccess(static_cast<MemberAccessNode*>(valueNode), destReg);
             break;
         }
-        case AstNodeType::THIS_EXPR: {
+        case ASTNodeType::EXPRESSION: {
+            std::cout << "  -> Matched EXPRESSION case" << std::endl;
+            // Expression is a wrapper, recurse to the actual expression
+            if (!valueNode->children.empty()) {
+                loadValue(valueNode->children[0], destReg, sourceScopeReg, expectedType);
+            } else {
+                throw std::runtime_error("Empty expression node in loadValue");
+            }
+            break;
+        }
+        case ASTNodeType::THIS_EXPR: {
             // Handle 'this' expression - load from first parameter
             // 'this' is always the first parameter in a method
             // It's stored in the scope like any other variable
-            
+
             // Create a temporary identifier node to load 'this' variable
-            IdentifierNode tempIdentifier("this");
+            IdentifierExpressionNode tempIdentifier(nullptr, "this");
             tempIdentifier.varRef = nullptr;
             tempIdentifier.accessedIn = currentScope;
-            
+
             // Find 'this' in the current scope
             auto it = currentScope->variables.find("this");
             if (it == currentScope->variables.end()) {
                 throw std::runtime_error("'this' not found in method scope");
             }
             tempIdentifier.varRef = &it->second;
-            
+
             // Load 'this' from scope (using provided source scope register)
             loadVariableFromScope(&tempIdentifier, destReg, 0, sourceScopeReg);
             break;
         }
         default:
-            std::cout << "DEBUG loadValue: Unsupported node type " << static_cast<int>(valueNode->type) << std::endl;
+            std::cout << "DEBUG loadValue: Unsupported node type " << static_cast<int>(valueNode->nodeType) << " (default case)" << std::endl;
             throw std::runtime_error("Unsupported value node type in loadValue");
     }
 }
@@ -618,52 +634,46 @@ void CodeGenerator::loadAnyValue(ASTNode* valueNode, x86::Gp valueReg, x86::Gp t
     if (!valueNode) {
         throw std::runtime_error("Null value node for any load");
     }
-    
-    switch (valueNode->type) {
-        case AstNodeType::LITERAL: {
-            auto* literal = static_cast<LiteralNode*>(valueNode);
-            if (literal->literalKind == LiteralType::STRING) {
-                throw std::runtime_error("String literal not yet supported in any value");
-            }
-            double floatValue = std::stod(literal->value);
+
+    switch (valueNode->nodeType) {
+        case ASTNodeType::LITERAL_EXPRESSION: {
+            auto* literal = static_cast<LiteralExpressionNode*>(valueNode);
+            // Assume it's a number for now
+            double floatValue = std::stod(literal->literal);
             uint64_t bits;
             std::memcpy(&bits, &floatValue, sizeof(bits));
             cb->mov(valueReg, bits);
             cb->mov(typeReg, static_cast<uint32_t>(DataType::FLOAT64));
             break;
         }
-        case AstNodeType::IDENTIFIER: {
-            auto* identifier = static_cast<IdentifierNode*>(valueNode);
+        case ASTNodeType::IDENTIFIER_EXPRESSION: {
+            auto* identifier = static_cast<IdentifierExpressionNode*>(valueNode);
             if (!identifier->varRef) {
-                throw std::runtime_error("Identifier not analyzed for any load: " + identifier->value);
+                throw std::runtime_error("Identifier not analyzed for any load: " + identifier->name);
             }
-            
+
             switch (identifier->varRef->type) {
-                case DataType::ANY:
-                    loadVariableFromScope(identifier, typeReg, 0, sourceScopeReg);
-                    loadVariableFromScope(identifier, valueReg, 8, sourceScopeReg);
-                    break;
-                case DataType::INT32:
                 case DataType::INT64:
                 case DataType::FLOAT64:
                 case DataType::OBJECT:
                 case DataType::RAW_MEMORY:
+                case DataType::STRING:
                     loadVariableFromScope(identifier, valueReg, 0, sourceScopeReg);
                     cb->mov(typeReg, static_cast<uint32_t>(identifier->varRef->type));
                     break;
                 default:
-                    throw std::runtime_error("Unsupported identifier type for any value: " + identifier->value);
+                    throw std::runtime_error("Unsupported identifier type for any value: " + identifier->name);
             }
             break;
         }
-        case AstNodeType::NEW_EXPR: {
+        case ASTNodeType::NEW_EXPR: {
             auto* newExpr = static_cast<NewExprNode*>(valueNode);
             generateNewExpr(newExpr, valueReg, sourceScopeReg);
             DataType resultType = newExpr->isRawMemory ? DataType::RAW_MEMORY : DataType::OBJECT;
             cb->mov(typeReg, static_cast<uint32_t>(resultType));
             break;
         }
-        case AstNodeType::MEMBER_ACCESS: {
+        case ASTNodeType::MEMBER_ACCESS: {
             auto* memberAccess = static_cast<MemberAccessNode*>(valueNode);
             if (!memberAccess->classRef) {
                 throw std::runtime_error("Class reference missing for member access in any value");
@@ -673,10 +683,10 @@ void CodeGenerator::loadAnyValue(ASTNode* valueNode, x86::Gp valueReg, x86::Gp t
                 throw std::runtime_error("Field not found for member access in any value: " + memberAccess->memberName);
             }
             DataType fieldType = fieldIt->second.type;
-            
+
             x86::Gp objectReg = x86::r11;
-            loadValue(memberAccess->object.get(), objectReg);
-            
+            loadValue(memberAccess->object, objectReg);
+
             if (fieldType == DataType::ANY) {
                 cb->mov(typeReg, x86::qword_ptr(objectReg, memberAccess->memberOffset));
                 cb->mov(valueReg, x86::qword_ptr(objectReg, memberAccess->memberOffset + 8));
@@ -701,36 +711,14 @@ void CodeGenerator::storeVariableInScope(const std::string& varName, x86::Gp val
     int offset = it->second.offset;
     std::cout << "Storing variable '" << varName << "' at offset " << offset << " in scope" << std::endl;
     
-    if (it->second.type == DataType::ANY) {
-        cb->mov(x86::ptr(x86::r15, offset), typeReg);
-        cb->mov(x86::ptr(x86::r15, offset + 8), valueReg);
-        
-        // If we're storing an object reference that's not a NEW expression, run the write barrier
-        if (valueNode && valueNode->type != AstNodeType::NEW_EXPR) {
-            Label skipObjectBarrier = cb->newLabel();
-            cb->cmp(typeReg, static_cast<uint32_t>(DataType::OBJECT));
-            cb->jne(skipObjectBarrier);
-            
-            cb->mov(x86::rcx, x86::qword_ptr(valueReg, ObjectLayout::FLAGS_OFFSET));  // Load flags
-            cb->test(x86::rcx, ObjectFlags::NEEDS_SET_FLAG);
-            
-            Label skipWriteBarrier = cb->newLabel();
-            cb->jz(skipWriteBarrier);  // Jump if NEEDS_SET_FLAG not set
-            
-            cb->or_(x86::qword_ptr(valueReg, ObjectLayout::FLAGS_OFFSET), ObjectFlags::SET_FLAG);
-            cb->mfence();
-            
-            cb->bind(skipWriteBarrier);
-            cb->bind(skipObjectBarrier);
-        }
-        return;
-    }
+    // Store the value at [r15 + offset]
+    cb->mov(x86::ptr(x86::r15, offset), valueReg);
     
     // Store the value at [r15 + offset]
     cb->mov(x86::ptr(x86::r15, offset), valueReg);
     
     // If this is an object-typed variable and not a NEW expression, handle GC write barrier inline
-    if (it->second.type == DataType::OBJECT && valueNode && valueNode->type != AstNodeType::NEW_EXPR) {
+    if (it->second.type == DataType::OBJECT && valueNode && valueNode->nodeType != ASTNodeType::NEW_EXPR) {
         // Inline GC write barrier - check needs_set_flag and atomically set set_flag if needed
         // This is much faster than a function call
         
@@ -762,7 +750,7 @@ void CodeGenerator::loadParameterIntoRegister(int paramIndex, x86::Gp destReg, x
     // - For functions: regular parameters + hidden parameters (parent scope pointers)
     // - For blocks: only hidden parameters (parent scope pointers)
     
-    if (auto currentFunc = dynamic_cast<FunctionDeclNode*>(currentScope)) {
+    if (auto currentFunc = dynamic_cast<FunctionDeclarationNode*>(currentScope)) {
         // Current scope is a function
         size_t totalRegularParams = currentFunc->paramsInfo.size();
         
@@ -812,7 +800,7 @@ x86::Gp CodeGenerator::getParameterByIndex(int paramIndex) {
     }
 }
 
-void CodeGenerator::loadVariableFromScope(IdentifierNode* identifier, x86::Gp destReg, int offsetInVariable, x86::Gp sourceScopeReg) {
+void CodeGenerator::loadVariableFromScope(IdentifierExpressionNode* identifier, x86::Gp destReg, int offsetInVariable, x86::Gp sourceScopeReg) {
     if (!identifier->varRef) {
         throw std::runtime_error("Variable reference not analyzed: " + identifier->value);
     }
@@ -835,7 +823,7 @@ void CodeGenerator::loadVariableFromScope(IdentifierNode* identifier, x86::Gp de
     }
 }
 
-void CodeGenerator::loadVariableAddress(IdentifierNode* identifier, x86::Gp destReg, int offsetInVariable, x86::Gp sourceScopeReg) {
+void CodeGenerator::loadVariableAddress(IdentifierExpressionNode* identifier, x86::Gp destReg, int offsetInVariable, x86::Gp sourceScopeReg) {
     if (!identifier->varRef) {
         throw std::runtime_error("Variable reference not analyzed: " + identifier->value);
     }
@@ -863,18 +851,18 @@ void CodeGenerator::generatePrintStmt(ASTNode* printStmt) {
         throw std::runtime_error("Print statement without argument");
     }
     
-    ASTNode* arg = printStmt->children[0].get();
+    ASTNode* arg = printStmt->children[0];
     
     DataType detectedType = DataType::INT64;
-    if (arg->type == AstNodeType::LITERAL) {
-        auto* literal = static_cast<LiteralNode*>(arg);
-        detectedType = (literal->literalKind == LiteralType::STRING) ? DataType::STRING : DataType::INT64;
-    } else if (arg->type == AstNodeType::IDENTIFIER) {
-        auto* identifier = static_cast<IdentifierNode*>(arg);
+    if (arg->nodeType == ASTNodeType::LITERAL_EXPRESSION) {
+        auto* literal = static_cast<LiteralExpressionNode*>(arg);
+        detectedType = (literal->literal.find('"') != std::string::npos) ? DataType::STRING : DataType::INT64;
+    } else if (arg->nodeType == ASTNodeType::IDENTIFIER_EXPRESSION) {
+        auto* identifier = static_cast<IdentifierExpressionNode*>(arg);
         if (identifier->varRef) {
             detectedType = identifier->varRef->type;
         }
-    } else if (arg->type == AstNodeType::MEMBER_ACCESS) {
+    } else if (arg->nodeType == ASTNodeType::MEMBER_ACCESS) {
         auto* memberAccess = static_cast<MemberAccessNode*>(arg);
         if (memberAccess->classRef) {
             auto it = memberAccess->classRef->fields.find(memberAccess->memberName);
@@ -886,8 +874,8 @@ void CodeGenerator::generatePrintStmt(ASTNode* printStmt) {
     
     switch (detectedType) {
         case DataType::ANY: {
-            if (arg->type == AstNodeType::IDENTIFIER) {
-                auto* identifier = static_cast<IdentifierNode*>(arg);
+            if (arg->nodeType == ASTNodeType::IDENTIFIER_EXPRESSION) {
+                auto* identifier = static_cast<IdentifierExpressionNode*>(arg);
                 loadVariableFromScope(identifier, x86::rdi, 0);
                 loadVariableFromScope(identifier, x86::rsi, 8);
             } else {
@@ -902,13 +890,13 @@ void CodeGenerator::generatePrintStmt(ASTNode* printStmt) {
         }
         case DataType::FLOAT64: {
             uint64_t bits = 0;
-            if (arg->type == AstNodeType::LITERAL) {
-                double floatValue = std::stod(static_cast<LiteralNode*>(arg)->value);
+            if (arg->nodeType == ASTNodeType::LITERAL_EXPRESSION) {
+                double floatValue = std::stod(static_cast<LiteralExpressionNode*>(arg)->literal);
                 std::memcpy(&bits, &floatValue, sizeof(bits));
                 cb->mov(x86::rax, bits);
-            } else if (arg->type == AstNodeType::IDENTIFIER) {
-                loadVariableFromScope(static_cast<IdentifierNode*>(arg), x86::rax);
-            } else if (arg->type == AstNodeType::MEMBER_ACCESS) {
+            } else if (arg->nodeType == ASTNodeType::IDENTIFIER_EXPRESSION) {
+                loadVariableFromScope(static_cast<IdentifierExpressionNode*>(arg), x86::rax);
+            } else if (arg->nodeType == ASTNodeType::MEMBER_ACCESS) {
                 generateMemberAccess(static_cast<MemberAccessNode*>(arg), x86::rax);
             } else {
                 throw std::runtime_error("Unsupported expression for float64 print");
@@ -920,11 +908,11 @@ void CodeGenerator::generatePrintStmt(ASTNode* printStmt) {
             break;
         }
         case DataType::STRING: {
-            if (arg->type != AstNodeType::LITERAL) {
+            if (arg->nodeType != ASTNodeType::LITERAL_EXPRESSION) {
                 throw std::runtime_error("String print currently supports only literals");
             }
-            auto* literal = static_cast<LiteralNode*>(arg);
-            uint64_t strAddr = reinterpret_cast<uint64_t>(literal->value.c_str());
+            auto* literal = static_cast<LiteralExpressionNode*>(arg);
+            uint64_t strAddr = reinterpret_cast<uint64_t>(literal->literal.c_str());
             cb->mov(x86::rdi, strAddr);
             uint64_t printAddr = reinterpret_cast<uint64_t>(&print_string);
             cb->mov(x86::rax, printAddr);
@@ -932,8 +920,8 @@ void CodeGenerator::generatePrintStmt(ASTNode* printStmt) {
             break;
         }
         default: {
-            if (arg->type == AstNodeType::IDENTIFIER) {
-                loadVariableFromScope(static_cast<IdentifierNode*>(arg), x86::rdi);
+            if (arg->nodeType == ASTNodeType::IDENTIFIER_EXPRESSION) {
+                loadVariableFromScope(static_cast<IdentifierExpressionNode*>(arg), x86::rdi);
             } else {
                 loadValue(arg, x86::rdi);
             }
@@ -945,19 +933,19 @@ void CodeGenerator::generatePrintStmt(ASTNode* printStmt) {
     }
 }
 
-void CodeGenerator::printInt64(IdentifierNode* identifier) {
+void CodeGenerator::printInt64(IdentifierExpressionNode* identifier) {
     // Load the variable value into rdi (first argument for calling convention)
     loadVariableFromScope(identifier, x86::rdi);
-    
+
     std::cout << "Generating call to print_int64" << std::endl;
-    
+
     // Call the external print function
     uint64_t printAddr = reinterpret_cast<uint64_t>(&print_int64);
     cb->mov(x86::rax, printAddr);
     cb->call(x86::rax);
 }
 
-void CodeGenerator::patchMetadataClosures(void* codeBase, const std::map<std::string, ClassDeclNode*>& classRegistry) {
+void CodeGenerator::patchMetadataClosures(void* codeBase, const std::map<std::string, ClassDeclarationNode*>& classRegistry) {
     std::cout << "\n=== Patching Metadata Closures ===" << std::endl;
     
     // Iterate through all classes and patch their method closures
@@ -973,7 +961,7 @@ void CodeGenerator::patchMetadataClosures(void* codeBase, const std::map<std::st
         // Patch each method closure
         for (size_t i = 0; i < classDecl->methodLayout.size(); i++) {
             const auto& methodInfo = classDecl->methodLayout[i];
-            FunctionDeclNode* method = methodInfo.method;
+            FunctionDeclarationNode* method = methodInfo.method;
             
             if (!method || !method->asmjitLabel) {
                 std::cout << "WARNING: No label for method " << methodInfo.methodName << std::endl;
@@ -1032,15 +1020,16 @@ void CodeGenerator::disassembleAndPrint(void* code, size_t codeSize) {
     }
 }
 
-void CodeGenerator::createFunctionLabel(FunctionDeclNode* funcDecl) {
+void CodeGenerator::createFunctionLabel(FunctionDeclarationNode* funcDecl) {
     // Create a new label for this function
     Label funcLabel = cb->newLabel();
-    funcDecl->asmjitLabel = new Label(funcLabel);
-    
-    std::cout << "Created label for function: " << funcDecl->funcName << std::endl;
+    // Store the label in a map since FunctionDeclarationNode doesn't have asmjitLabel member
+    functionLabels[funcDecl] = funcLabel;
+
+    std::cout << "Created label for function: " << funcDecl->name << std::endl;
 }
 
-void CodeGenerator::generateFunctionPrologue(FunctionDeclNode* funcDecl) {
+void CodeGenerator::generateFunctionPrologue(FunctionDeclarationNode* funcDecl) {
     std::cout << "Generating prologue for function: " << funcDecl->funcName << std::endl;
     
     // Standard function prologue
@@ -1054,11 +1043,18 @@ void CodeGenerator::generateFunctionPrologue(FunctionDeclNode* funcDecl) {
     // Special case: main function needs to allocate its own scope since it's not called via our convention
     if (funcDecl->funcName == "main") {
         std::cout << "Main function - allocating scope in prologue" << std::endl;
-        
+        std::cout << "DEBUG: Main function totalSize before allocation: " << funcDecl->totalSize << std::endl;
+
+        // Ensure the main function has a valid scope size
+        if (funcDecl->totalSize == 0) {
+            funcDecl->totalSize = 16; // Minimum scope size for metadata and flags
+            std::cout << "DEBUG: Set main function totalSize to 16" << std::endl;
+        }
+
         // Initialize r14 and r15 to nullptr for main (no parent scope)
         cb->xor_(x86::r14, x86::r14);
         cb->xor_(x86::r15, x86::r15);
-        
+
         // Allocate scope for main
         allocateScope(funcDecl);
         
@@ -1074,7 +1070,7 @@ void CodeGenerator::generateFunctionPrologue(FunctionDeclNode* funcDecl) {
     }
 }
 
-void CodeGenerator::generateFunctionEpilogue(FunctionDeclNode* funcDecl) {
+void CodeGenerator::generateFunctionEpilogue(FunctionDeclarationNode* funcDecl) {
     std::cout << "Generating epilogue for function: " << funcDecl->funcName << std::endl;
     
     // Use generic scope epilogue to free scope and restore parent scope pointer
@@ -1090,7 +1086,7 @@ void CodeGenerator::generateFunctionEpilogue(FunctionDeclNode* funcDecl) {
     cb->ret();
 }
 
-void CodeGenerator::storeFunctionAddressInClosure(FunctionDeclNode* funcDecl, LexicalScopeNode* scope) {
+void CodeGenerator::storeFunctionAddressInClosure(FunctionDeclarationNode* funcDecl, LexicalScopeNode* scope) {
     // Find the closure variable for this function in the current scope
     auto it = scope->variables.find(funcDecl->funcName);
     if (it == scope->variables.end() || it->second.type != DataType::CLOSURE) {
@@ -1142,7 +1138,7 @@ void CodeGenerator::storeFunctionAddressInClosure(FunctionDeclNode* funcDecl, Le
                 // Immediate parent scope lives in r14
                 cb->mov(x86::rax, x86::r14);
                 handled = true;
-            } else if (auto funcDeclParent = dynamic_cast<FunctionDeclNode*>(scope)) {
+            } else if (auto funcDeclParent = dynamic_cast<FunctionDeclarationNode*>(scope)) {
                 // Function scope: parent pointers are stored in hidden parameters
                 int hiddenParamIndex = paramIndex - static_cast<int>(funcDeclParent->paramsInfo.size());
                 if (hiddenParamIndex < 0 || hiddenParamIndex >= static_cast<int>(funcDeclParent->hiddenParamsInfo.size())) {
@@ -1183,7 +1179,7 @@ void CodeGenerator::generateScopePrologue(LexicalScopeNode* scope) {
     std::cout << "Generating scope prologue for scope at depth: " << scope->depth << std::endl;
     
     // Check if this is a function scope - functions are now handled at call site!
-    if (dynamic_cast<FunctionDeclNode*>(scope)) {
+    if (dynamic_cast<FunctionDeclarationNode*>(scope)) {
         throw std::runtime_error("Function scopes should not use generateScopePrologue - scope allocated at call site!");
     }
     
@@ -1253,7 +1249,7 @@ void CodeGenerator::generateScopeEpilogue(LexicalScopeNode* scope) {
     cb->pop(x86::r14);
 }
 
-void CodeGenerator::generateBlockStmt(BlockStmtNode* blockStmt) {
+void CodeGenerator::generateBlockStmt(BlockStatement* blockStmt) {
     std::cout << "Generating block statement" << std::endl;
     
     // Generate the scope prologue (allocate new scope, copy parent scope addresses)
@@ -1265,7 +1261,7 @@ void CodeGenerator::generateBlockStmt(BlockStmtNode* blockStmt) {
     
     // Generate code for all statements in the block
     for (auto& child : blockStmt->children) {
-        visitNode(child.get());
+        visitNode(child);
     }
     
     // Restore previous scope
@@ -1275,7 +1271,7 @@ void CodeGenerator::generateBlockStmt(BlockStmtNode* blockStmt) {
     generateScopeEpilogue(blockStmt);
 }
 
-void CodeGenerator::generateFunctionCall(FunctionCallNode* funcCall) {
+void CodeGenerator::generateFunctionCall(MethodCallNode* funcCall) {
     std::cout << "Generating function call: " << funcCall->value << std::endl;
     
     // Check if this is actually a method call
@@ -1287,7 +1283,7 @@ void CodeGenerator::generateFunctionCall(FunctionCallNode* funcCall) {
     }
     
     // Get target function information
-    FunctionDeclNode* targetFunc;
+    FunctionDeclarationNode* targetFunc;
     
     if (isMethodCall) {
         targetFunc = methodCall->resolvedMethod;
@@ -1318,19 +1314,19 @@ void CodeGenerator::generateFunctionCall(FunctionCallNode* funcCall) {
         // First parameter is "this"
         const VariableInfo& thisParam = targetFunc->paramsInfo[0];
         std::cout << "  Copying 'this' to scope[" << thisParam.offset << "]" << std::endl;
-        loadValue(methodCall->object.get(), x86::rax, x86::r14, DataType::OBJECT);
+        loadValue(methodCall->object, x86::rax, x86::r14, DataType::OBJECT);
         cb->mov(x86::ptr(x86::r15, thisParam.offset), x86::rax);
         
         // Then copy explicit method arguments
         for (size_t i = 0; i < methodCall->args.size(); i++) {
             const VariableInfo& param = targetFunc->paramsInfo[i + 1];
-            ASTNode* arg = methodCall->args[i].get();
+            ASTNode* arg = methodCall->args[i];
             
             std::cout << "  Copying method arg " << (i + 1) << " to scope[" << param.offset << "]" << std::endl;
             
-            if (arg->type == AstNodeType::IDENTIFIER) {
-                // Load from caller's scope (r14) 
-                loadVariableFromScope(static_cast<IdentifierNode*>(arg), x86::rax, 0, x86::r14);
+            if (arg->nodeType == ASTNodeType::IDENTIFIER_EXPRESSION) {
+                // Load from caller's scope (r14)
+                loadVariableFromScope(static_cast<IdentifierExpressionNode*>(arg), x86::rax, 0, x86::r14);
             } else {
                 loadValue(arg, x86::rax, x86::r14, param.type);
             }
@@ -1340,13 +1336,13 @@ void CodeGenerator::generateFunctionCall(FunctionCallNode* funcCall) {
         // Regular function call - copy all arguments
         for (size_t i = 0; i < funcCall->args.size(); i++) {
             const VariableInfo& param = targetFunc->paramsInfo[i];
-            ASTNode* arg = funcCall->args[i].get();
+            ASTNode* arg = funcCall->args[i];
             
             std::cout << "  Copying regular arg " << i << " (" << param.name << ") to scope[" << param.offset << "]" << std::endl;
             
-            if (arg->type == AstNodeType::IDENTIFIER) {
+            if (arg->nodeType == ASTNodeType::IDENTIFIER_EXPRESSION) {
                 // Load from caller's scope (r14)
-                loadVariableFromScope(static_cast<IdentifierNode*>(arg), x86::rax, 0, x86::r14);
+                loadVariableFromScope(static_cast<IdentifierExpressionNode*>(arg), x86::rax, 0, x86::r14);
             } else {
                 loadValue(arg, x86::rax, x86::r14, param.type);
             }
@@ -1358,7 +1354,7 @@ void CodeGenerator::generateFunctionCall(FunctionCallNode* funcCall) {
     // For method calls, load from object; for regular calls, load from variable
     if (isMethodCall) {
         // Load object pointer into rbx
-        loadValue(methodCall->object.get(), x86::rbx, x86::r14, DataType::OBJECT);
+        loadValue(methodCall->object, x86::rbx, x86::r14, DataType::OBJECT);
         // Add offset to get to the method closure pointer in the object
         int closurePtrOffset = ObjectLayout::HEADER_SIZE + methodCall->methodClosureOffset;
         std::cout << "  Loading method closure pointer from object at offset " << closurePtrOffset << std::endl;
@@ -1366,7 +1362,15 @@ void CodeGenerator::generateFunctionCall(FunctionCallNode* funcCall) {
         cb->mov(x86::rbx, x86::qword_ptr(x86::rbx, closurePtrOffset));
     } else {
         // Load closure address from caller's scope (r14)
-        loadVariableAddress(static_cast<IdentifierNode*>(funcCall), x86::rbx, 0, x86::r14);
+        // For regular function calls, the closure is stored in a variable
+        if (funcCall->varRef) {
+            // Create a temporary identifier to load the closure variable
+            IdentifierExpressionNode tempId(nullptr, funcCall->value);
+            tempId.varRef = funcCall->varRef;
+            loadVariableAddress(&tempId, x86::rbx, 0, x86::r14);
+        } else {
+            throw std::runtime_error("Function call has no variable reference for closure: " + funcCall->value);
+        }
     }
     
     // Copy hidden parameters (parent scope pointers) from closure into child scope
@@ -1400,223 +1404,7 @@ void CodeGenerator::generateFunctionCall(FunctionCallNode* funcCall) {
     std::cout << "Function call complete" << std::endl;
 }
 
-void CodeGenerator::generateGoStmt(GoStmtNode* goStmt) {
-    std::cout << "Generating GO statement for function: " << goStmt->functionCall->value << std::endl;
-    
-    FunctionCallNode* funcCall = goStmt->functionCall.get();
-    
-    // Find the target function
-    if (!funcCall->varRef) {
-        throw std::runtime_error("Function not found in go statement: " + funcCall->value);
-    }
-    
-    if (funcCall->varRef->type != DataType::CLOSURE) {
-        throw std::runtime_error("Go statement target is not a function: " + funcCall->value);
-    }
-    
-    FunctionDeclNode* targetFunc = funcCall->varRef->funcNode;
-    if (!targetFunc) {
-        throw std::runtime_error("Cannot resolve target function for go statement: " + funcCall->value);
-    }
-    
-    std::cout << "Target function has " << targetFunc->paramsInfo.size() << " regular params and " 
-              << targetFunc->hiddenParamsInfo.size() << " hidden params" << std::endl;
-    
-    // Save current r15 (our scope) into r13 temporarily - we'll need it for loading arguments
-    cb->mov(x86::r13, x86::r15);
-    
-    // Allocate scope for the goroutine function (same as regular function call)
-    // This will:
-    // - Push r14 (save grandparent scope)
-    // - Set r14 = r15 (current scope becomes parent of new scope)
-    // - Allocate new scope memory
-    // - Set r15 = new scope
-    allocateScope(targetFunc);
-    
-    // Now r15 points to the new scope, r14 points to our scope (r13 also has our scope)
-    // Copy regular parameters into the goroutine's scope
-    for (size_t i = 0; i < funcCall->args.size(); i++) {
-        const VariableInfo& param = targetFunc->paramsInfo[i];
-        ASTNode* arg = funcCall->args[i].get();
-        
-        std::cout << "  Copying arg " << i << " (" << param.name << ") to scope[" << param.offset << "]" << std::endl;
-        
-        if (arg->type == AstNodeType::IDENTIFIER) {
-            // Load from our scope (r13 has our original scope)
-            loadVariableFromScope(static_cast<IdentifierNode*>(arg), x86::rax, 0, x86::r13);
-        } else {
-            loadValue(arg, x86::rax, x86::r13, param.type);
-        }
-        cb->mov(x86::ptr(x86::r15, param.offset), x86::rax);
-    }
-    
-    // Load the closure address for accessing hidden parameters (parent scope pointers)
-    loadVariableAddress(funcCall, x86::rbx, 0, x86::r13);
-    
-    // Copy hidden parameters (parent scope pointers) from closure into goroutine's scope
-    for (size_t i = 0; i < targetFunc->hiddenParamsInfo.size(); i++) {
-        const ParameterInfo& hiddenParam = targetFunc->hiddenParamsInfo[i];
-        int closureOffset = 16 + (i * 8); // function_address (8) + size (8) + scope_pointers
-        
-        std::cout << "  Copying hidden param " << i << " (depth " << hiddenParam.depth 
-                  << ") to scope[" << hiddenParam.offset << "]" << std::endl;
-        
-        // Load the scope pointer from closure and store in goroutine's scope
-        cb->mov(x86::rax, x86::ptr(x86::rbx, closureOffset));
-        cb->mov(x86::ptr(x86::r15, hiddenParam.offset), x86::rax);
-    }
-    
-    // Load the function address from closure (still in rbx)
-    // Closure layout: [size(8)][func_addr(8)][scope_ptr1(8)]...[scope_ptrN(8)]
-    cb->mov(x86::rax, x86::ptr(x86::rbx, 8)); // Load function address from closure (offset 8, after size)
-    
-    // Now we have:
-    // - rax = function pointer to call
-    // - r15 = pointer to allocated scope with all parameters populated
-    // - r14 = pointer to parent scope (our scope)
-    
-    // We need to pass these to runtime_spawn_goroutine
-    // Signature: void runtime_spawn_goroutine(void* funcPtr, void* scopePtr, void* parentScopePtr)
-    cb->mov(x86::rdi, x86::rax);  // First arg: function pointer
-    cb->mov(x86::rsi, x86::r15);  // Second arg: scope pointer
-    cb->mov(x86::rdx, x86::r14);  // Third arg: parent scope pointer
-    
-    // Save our scope register r13 before calling runtime function
-    cb->push(x86::r13);
-    
-    // Call runtime_spawn_goroutine
-    uint64_t runtimeAddr = reinterpret_cast<uint64_t>(&runtime_spawn_goroutine);
-    cb->mov(x86::rax, runtimeAddr);
-    cb->call(x86::rax);
-    
-    // Restore our scope register
-    cb->pop(x86::r13);
-    
-    // Restore r15 and r14 to their original state (before we allocated the goroutine's scope)
-    // The goroutine now owns the allocated scope, so we need to restore our state
-    cb->mov(x86::r15, x86::r13);  // Restore our scope to r15
-    cb->pop(x86::r14);            // Restore grandparent scope pointer
-    
-    std::cout << "Generated GO statement - scope allocated and ownership transferred to goroutine" << std::endl;
-}
 
-void CodeGenerator::generateSetTimeoutStmt(SetTimeoutStmtNode* setTimeoutStmt) {
-    std::cout << "Generating setTimeout statement for function: " << setTimeoutStmt->functionName->value << std::endl;
-    
-    // Find the target function
-    if (!setTimeoutStmt->functionName->varRef) {
-        throw std::runtime_error("Function not found in setTimeout statement: " + setTimeoutStmt->functionName->value);
-    }
-    
-    if (setTimeoutStmt->functionName->varRef->type != DataType::CLOSURE) {
-        throw std::runtime_error("setTimeout target is not a function: " + setTimeoutStmt->functionName->value);
-    }
-    
-    // Get the function address from the closure
-    // Similar to generateGoStmt but with additional delay parameter
-    x86::Gp funcPtrReg = x86::rdi;  // First argument to runtime_set_timeout
-    loadVariableAddress(setTimeoutStmt->functionName.get(), funcPtrReg, 0); // Load closure address
-    cb->mov(funcPtrReg, x86::qword_ptr(funcPtrReg)); // Dereference to get function pointer
-    
-    // For now, pass NULL for args and 0 for argsSize (no argument support yet)
-    cb->mov(x86::rsi, 0);  // args = NULL  
-    cb->mov(x86::rdx, 0);  // argsSize = 0
-    
-    // Fourth argument: delay in milliseconds (parse from literal)
-    int delayMs = std::stoi(setTimeoutStmt->delay->value);
-    cb->mov(x86::rcx, delayMs);  // delayMs
-    
-    // Save registers before calling runtime function
-    cb->push(x86::rax);
-    cb->push(x86::r8);
-    cb->push(x86::r9);
-    cb->push(x86::r10);
-    cb->push(x86::r11);
-    
-    // Call runtime_set_timeout(func, args, argsSize, delayMs)
-    uint64_t runtimeAddr = reinterpret_cast<uint64_t>(&runtime_set_timeout);
-    cb->mov(x86::rax, runtimeAddr);
-    cb->call(x86::rax);
-    
-    // Restore registers
-    cb->pop(x86::r11);
-    cb->pop(x86::r10);
-    cb->pop(x86::r9);
-    cb->pop(x86::r8);
-    cb->pop(x86::rax);
-    
-    std::cout << "Generated setTimeout statement call to runtime_set_timeout" << std::endl;
-}
-
-void CodeGenerator::generateAwaitExpr(ASTNode* awaitExpr, x86::Gp destReg) {
-    std::cout << "Generating await expression" << std::endl;
-    
-    // The await expression should have a child (sleep call)
-    if (awaitExpr->children.empty()) {
-        throw std::runtime_error("Await expression has no children");
-    }
-    
-    // Generate the async operation (e.g., sleep call)
-    ASTNode* asyncOp = awaitExpr->children[0].get();
-    generateSleepCall(asyncOp, x86::rdi); // Put promise ID directly in rdi (first argument register)
-    
-    
-    // Call runtime_await_promise(promiseId) - promise ID is already in rdi
-    uint64_t runtimeAddr = reinterpret_cast<uint64_t>(&runtime_await_promise);
-    cb->mov(x86::rax, runtimeAddr);
-    cb->call(x86::rax);
-    
-    // Result (resolved value) is in rax, move to destReg if different
-    if (destReg.id() != x86::rax.id()) {
-        cb->mov(destReg, x86::rax);
-    }
-    
-    std::cout << "Generated await expression - promise awaited" << std::endl;
-}
-
-void CodeGenerator::generateSleepCall(ASTNode* sleepCall, x86::Gp destReg) {
-    std::cout << "Generating sleep call" << std::endl;
-    
-    // The sleep call should have a child (the duration literal)
-    if (sleepCall->children.empty()) {
-        throw std::runtime_error("Sleep call has no duration argument");
-    }
-    
-    // Load the sleep duration from the literal
-    ASTNode* durationNode = sleepCall->children[0].get();
-    if (durationNode->type != AstNodeType::LITERAL) {
-        throw std::runtime_error("Sleep duration must be a literal");
-    }
-    
-    int64_t duration = std::stoll(durationNode->value);
-    cb->mov(x86::rdi, duration); // First argument: duration in milliseconds
-    
-    // Save registers before calling runtime function (don't save rax since it will have the return value)
-    cb->push(x86::rcx);
-    cb->push(x86::r8);
-    cb->push(x86::r9);
-    cb->push(x86::r10);
-    cb->push(x86::r11);
-    
-    // Call runtime_sleep(milliseconds)
-    uint64_t runtimeAddr = reinterpret_cast<uint64_t>(&runtime_sleep);
-    cb->mov(x86::rax, runtimeAddr);
-    cb->call(x86::rax);
-    
-    // Restore registers (don't restore rax since it contains the return value)
-    cb->pop(x86::r11);
-    cb->pop(x86::r10);
-    cb->pop(x86::r9);
-    cb->pop(x86::r8);
-    cb->pop(x86::rcx);
-    
-    // Result (promise ID) is in rax, move to destReg if different
-    if (destReg.id() != x86::rax.id()) {
-        cb->mov(destReg, x86::rax);
-    }
-    
-    std::cout << "Generated sleep call - promise ID returned" << std::endl;
-}
 
 void CodeGenerator::generateNewExpr(NewExprNode* newExpr, x86::Gp destReg, x86::Gp sourceScopeReg) {
     std::cout << "Generating new expression for class: " << newExpr->className << std::endl;
@@ -1627,7 +1415,7 @@ void CodeGenerator::generateNewExpr(NewExprNode* newExpr, x86::Gp destReg, x86::
         }
 
         // Load size argument into rsi (second argument for calloc)
-        loadValue(newExpr->args[0].get(), x86::rsi, sourceScopeReg, DataType::INT64);
+        loadValue(newExpr->args[0], x86::rsi, sourceScopeReg, DataType::INT64);
 
         // Set number of elements to 1 (first argument for calloc)
         cb->mov(x86::rdi, 1);
@@ -1651,7 +1439,7 @@ void CodeGenerator::generateNewExpr(NewExprNode* newExpr, x86::Gp destReg, x86::
         throw std::runtime_error("Class reference not set for new expression: " + newExpr->className);
     }
     
-    ClassDeclNode* classDecl = newExpr->classRef;
+    ClassDeclarationNode* classDecl = newExpr->classRef;
     
     // Calculate total object size: header + packed fields (includes closure pointers + regular fields)
     int totalObjectSize = ObjectLayout::HEADER_SIZE + classDecl->totalSize;
@@ -1737,7 +1525,7 @@ void CodeGenerator::generateRawMemoryRelease(MethodCallNode* methodCall) {
     }
 
     // Load the raw memory pointer into rdi (first argument for free)
-    loadValue(methodCall->object.get(), x86::rdi, x86::r15, DataType::RAW_MEMORY);
+    loadValue(methodCall->object, x86::rdi, x86::r15, DataType::RAW_MEMORY);
 
     uint64_t freeAddr = reinterpret_cast<uint64_t>(&free_wrapper);
     cb->mov(x86::rax, freeAddr);
@@ -1760,18 +1548,18 @@ bool CodeGenerator::isRawMemoryReleaseCall(MethodCallNode* methodCall) const {
         return false;
     }
 
-    ASTNode* objectNode = methodCall->object.get();
+    ASTNode* objectNode = methodCall->object;
 
     switch (objectNode->type) {
-        case AstNodeType::IDENTIFIER: {
-            auto identifier = static_cast<IdentifierNode*>(objectNode);
+        case ASTNodeType::IDENTIFIER_EXPRESSION: {
+            auto identifier = static_cast<IdentifierExpressionNode*>(objectNode);
             return identifier->varRef && identifier->varRef->type == DataType::RAW_MEMORY;
         }
-        case AstNodeType::NEW_EXPR: {
+        case ASTNodeType::NEW_EXPR: {
             auto newExpr = static_cast<NewExprNode*>(objectNode);
             return newExpr->isRawMemory;
         }
-        case AstNodeType::MEMBER_ACCESS: {
+        case ASTNodeType::MEMBER_ACCESS: {
             auto memberAccess = static_cast<MemberAccessNode*>(objectNode);
             if (!memberAccess->classRef) {
                 return false;
@@ -1780,10 +1568,9 @@ bool CodeGenerator::isRawMemoryReleaseCall(MethodCallNode* methodCall) const {
             return fieldIt != memberAccess->classRef->fields.end() &&
                    fieldIt->second.type == DataType::RAW_MEMORY;
         }
-        case AstNodeType::FUNCTION_CALL:
-        case AstNodeType::METHOD_CALL: {
-            auto funcCall = static_cast<FunctionCallNode*>(objectNode);
-            return funcCall->varRef && funcCall->varRef->type == DataType::RAW_MEMORY;
+        case ASTNodeType::METHOD_CALL: {
+            auto methodCall = static_cast<MethodCallNode*>(objectNode);
+            return methodCall->varRef && methodCall->varRef->type == DataType::RAW_MEMORY;
         }
         default:
             return false;
@@ -1805,7 +1592,7 @@ void CodeGenerator::generateMemberAccess(MemberAccessNode* memberAccess, x86::Gp
     // Load the object pointer into a temporary register
     // The object could be an identifier (variable) or another expression
     x86::Gp objectPtrReg = x86::r10;
-    loadValue(memberAccess->object.get(), objectPtrReg);
+    loadValue(memberAccess->object, objectPtrReg);
     
     // Use the pre-calculated absolute offset (already includes header)
     int actualOffset = memberAccess->memberOffset;
@@ -1826,7 +1613,7 @@ void CodeGenerator::generateMemberAssign(MemberAssignNode* memberAssign) {
         throw std::runtime_error("Member assignment has no member access node");
     }
     
-    MemberAccessNode* member = memberAssign->member.get();
+    MemberAccessNode* member = memberAssign->member;
     
     // Verify that the class reference and member offset were set during analysis
     if (!member->classRef) {
@@ -1839,36 +1626,38 @@ void CodeGenerator::generateMemberAssign(MemberAssignNode* memberAssign) {
     
     // Load the object pointer into a temporary register
     x86::Gp objectPtrReg = x86::r10;
-    loadValue(member->object.get(), objectPtrReg);
+    loadValue(member->object, objectPtrReg);
     
     DataType fieldType = DataType::INT64;
-    auto fieldIt = member->classRef->fields.find(member->memberName);
-    if (fieldIt != member->classRef->fields.end()) {
-        fieldType = fieldIt->second.type;
+    if (member->classRef) {
+        auto fieldIt = member->classRef->fields.find(member->memberName);
+        if (fieldIt != member->classRef->fields.end()) {
+            fieldType = fieldIt->second.type;
+        }
     }
     
     // Use the pre-calculated absolute offset (already includes header)
     int actualOffset = member->memberOffset;
     
     if (fieldType == DataType::ANY) {
-        loadAnyValue(memberAssign->value.get(), x86::rax, x86::rdx);
+        loadAnyValue(memberAssign->value, x86::rax, x86::rdx);
         cb->mov(x86::qword_ptr(objectPtrReg, actualOffset), x86::rdx);
         cb->mov(x86::qword_ptr(objectPtrReg, actualOffset + 8), x86::rax);
         
-        if (memberAssign->value->type != AstNodeType::NEW_EXPR) {
+        if (memberAssign->value->nodeType != ASTNodeType::NEW_EXPR) {
             Label skipObjectBarrier = cb->newLabel();
             cb->cmp(x86::rdx, static_cast<uint32_t>(DataType::OBJECT));
             cb->jne(skipObjectBarrier);
-            
+
             cb->mov(x86::rcx, x86::qword_ptr(x86::rax, ObjectLayout::FLAGS_OFFSET));
             cb->test(x86::rcx, ObjectFlags::NEEDS_SET_FLAG);
-            
+
             Label skipWriteBarrier = cb->newLabel();
             cb->jz(skipWriteBarrier);
-            
+
             cb->or_(x86::qword_ptr(x86::rax, ObjectLayout::FLAGS_OFFSET), ObjectFlags::SET_FLAG);
             cb->mfence();
-            
+
             cb->bind(skipWriteBarrier);
             cb->bind(skipObjectBarrier);
         }
@@ -1879,7 +1668,7 @@ void CodeGenerator::generateMemberAssign(MemberAssignNode* memberAssign) {
     
     // Load the value to assign into another register
     x86::Gp valueReg = x86::rax;
-    loadValue(memberAssign->value.get(), valueReg, x86::r15, fieldType);
+    loadValue(memberAssign->value, valueReg, x86::r15, fieldType);
     
     std::cout << "DEBUG generateMemberAssign: Storing to object pointer + " << actualOffset 
               << " (absolute offset)" << std::endl;
@@ -1893,7 +1682,7 @@ void CodeGenerator::generateMemberAssign(MemberAssignNode* memberAssign) {
         auto it = member->classRef->fields.find(member->memberName);
         if (it != member->classRef->fields.end() && it->second.type == DataType::OBJECT) {
             // Skip write barrier for NEW expressions - they can't be suspected dead yet
-            if (memberAssign->value->type != AstNodeType::NEW_EXPR) {
+            if (memberAssign->value->nodeType != ASTNodeType::NEW_EXPR) {
                 // Inline GC write barrier - check needs_set_flag and atomically set set_flag if needed
                 // This is much faster than a function call
                 
@@ -1924,7 +1713,7 @@ void CodeGenerator::generateMemberAssign(MemberAssignNode* memberAssign) {
     std::cout << "Generated member assignment - field value stored" << std::endl;
 }
 
-void CodeGenerator::generateClassDecl(ClassDeclNode* classDecl) {
+void CodeGenerator::generateClassDecl(ClassDeclarationNode* classDecl) {
     std::cout << "Generating class declaration (inline closure creation): " << classDecl->className << std::endl;
     
     // Get the runtime metadata for this class

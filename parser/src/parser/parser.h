@@ -39,6 +39,9 @@ inline ASTNode* parse(const std::string& code) {
 
     ParserContext ctx(code, root);
 
+    // Set initial block scope to the root block
+    ctx.currentBlockScope = root;
+
     ctx.index = 0;
     while (ctx.index < code.length()) {
         try {

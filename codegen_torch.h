@@ -6,7 +6,7 @@
 #include <ATen/ATen.h>
 #endif
 
-#include "ast.h"
+#include "parser/src/parser/lib/ast.h"
 
 // make tensor
 #ifdef USE_LIBTORCH

@@ -121,7 +121,7 @@ inline void handleStateTypeAnnotation(ParserContext& ctx, char c) {
         // Add current type to union
         auto* unionType = dynamic_cast<UnionTypeNode*>(varDefNode->typeAnnotation);
         auto* typeNode = new TypeAnnotationNode(unionType);
-        if (currentType == "int64") {
+        if (currentType == "int64" || currentType == "int") {
             typeNode->dataType = DataType::INT64;
         } else {
             throw std::runtime_error("Unknown type annotation: " + currentType);
@@ -170,7 +170,7 @@ inline void handleStateTypeAnnotation(ParserContext& ctx, char c) {
         // Add current type to intersection
         auto* intersectionType = dynamic_cast<IntersectionTypeNode*>(varDefNode->typeAnnotation);
         auto* typeNode = new TypeAnnotationNode(intersectionType);
-        if (currentType == "int64") {
+        if (currentType == "int64" || currentType == "int") {
             typeNode->dataType = DataType::INT64;
         } else {
             throw std::runtime_error("Unknown type annotation: " + currentType);
@@ -207,7 +207,7 @@ inline void handleStateTypeAnnotation(ParserContext& ctx, char c) {
         if (!varDefNode->typeAnnotation) {
             // Simple type annotation
             auto* typeNode = new TypeAnnotationNode(varDefNode);
-            if (typeAnnotation == "int64") {
+            if (typeAnnotation == "int64" || typeAnnotation == "int") {
                 typeNode->dataType = DataType::INT64;
             } else {
                 throw std::runtime_error("Unknown type annotation: " + typeAnnotation);
@@ -217,7 +217,7 @@ inline void handleStateTypeAnnotation(ParserContext& ctx, char c) {
         } else if (auto* unionType = dynamic_cast<UnionTypeNode*>(varDefNode->typeAnnotation)) {
             // Adding the last type to union
             auto* typeNode = new TypeAnnotationNode(unionType);
-            if (typeAnnotation == "int64") {
+            if (typeAnnotation == "int64" || typeAnnotation == "int") {
                 typeNode->dataType = DataType::INT64;
             } else {
                 throw std::runtime_error("Unknown type annotation: " + typeAnnotation);
@@ -226,7 +226,7 @@ inline void handleStateTypeAnnotation(ParserContext& ctx, char c) {
         } else if (auto* intersectionType = dynamic_cast<IntersectionTypeNode*>(varDefNode->typeAnnotation)) {
             // Adding the last type to intersection
             auto* typeNode = new TypeAnnotationNode(intersectionType);
-            if (typeAnnotation == "int64") {
+            if (typeAnnotation == "int64" || typeAnnotation == "int") {
                 typeNode->dataType = DataType::INT64;
             } else {
                 throw std::runtime_error("Unknown type annotation: " + typeAnnotation);
