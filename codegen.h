@@ -27,7 +27,8 @@ namespace ObjectLayout {
 
     constexpr int HEADER_SIZE = 16;    // Metadata + flags
     // After header: method closures are stored (size varies by class)
-    // Then fields start (offset calculated based on method closures size)
+    // Then predefined fields start (offset calculated based on method closures size)
+    // After predefined fields: hashmap pointer (8 bytes) for dynamic properties
 }
 
 // Tensor slice layout constants
@@ -95,6 +96,7 @@ private:
     void generateVarDecl(VariableDefinitionNode* varDecl);
     void generateLetDecl(VariableDefinitionNode* letDecl);
     void generatePrintStmt(ASTNode* printStmt);
+    void generatePrintCall(MethodCallNode* funcCall);
     void generateFunctionCall(MethodCallNode* funcCall);
 
     void generateNewExpr(NewExprNode* newExpr, x86::Gp destReg, x86::Gp sourceScopeReg = x86::r15);

@@ -6,6 +6,13 @@
 // #include "codegen_torch.h"
 #include "codegen_array.h"
 
+// Forward declarations for hashmap functions
+extern "C" {
+    void* hashmap_create();
+    uint64_t hashmap_get(void* mapPtr, const char* key, uint64_t* outType);
+    void hashmap_set(void* mapPtr, const char* key, uint64_t type, uint64_t value);
+}
+
 // External C functions implementation
 extern "C" {
     void* malloc_wrapper(size_t size) {
@@ -89,6 +96,13 @@ void* CodeGenerator::generateCode(ASTNode* root, const std::map<std::string, Cla
         // Copy variables from the root block statement to the main function
         BlockStatement* rootBlock = static_cast<BlockStatement*>(root);
         mainFunc->variables = rootBlock->variables;
+
+        // Copy children from the root block statement to the main function
+        std::cout << "DEBUG: Root block has " << rootBlock->children.size() << " children" << std::endl;
+        for (auto* child : rootBlock->children) {
+            std::cout << "DEBUG: Root block child node type " << static_cast<int>(child->nodeType) << " with value '" << child->value << "'" << std::endl;
+        }
+        mainFunc->children = rootBlock->children;
 
         // Calculate totalSize for the main function based on its variables
         if (!mainFunc->variables.empty()) {
@@ -182,7 +196,9 @@ void CodeGenerator::generateProgram(ASTNode* root) {
         currentScope = mainFunc;
 
         // Generate code for the function body
+        std::cout << "DEBUG: Main function has " << mainFunc->children.size() << " children" << std::endl;
         for (auto* child : mainFunc->children) {
+            std::cout << "DEBUG: Processing child node type " << static_cast<int>(child->nodeType) << " with value '" << child->value << "'" << std::endl;
             if (child->nodeType != ASTNodeType::FUNCTION_DECLARATION && child->nodeType != ASTNodeType::CLASS_DECLARATION) {
                 visitNode(child);
             }
@@ -200,6 +216,8 @@ void CodeGenerator::generateProgram(ASTNode* root) {
 
 void CodeGenerator::visitNode(ASTNode* node) {
     if (!node) return;
+
+    std::cout << "DEBUG visitNode: Processing node type " << static_cast<int>(node->nodeType) << " with value '" << node->value << "'" << std::endl;
 
     // Handle print statements
     if (node->value == "print") {
@@ -220,6 +238,15 @@ void CodeGenerator::visitNode(ASTNode* node) {
         case ASTNodeType::CLASS_DECLARATION:
             generateClassDecl(static_cast<ClassDeclarationNode*>(node));
             break;
+        case ASTNodeType::METHOD_CALL: {
+            auto* methodCall = static_cast<MethodCallNode*>(node);
+            if (methodCall->methodName == "print") {
+                generatePrintCall(methodCall);
+            } else {
+                generateFunctionCall(methodCall);
+            }
+            break;
+        }
         default:
             // For other nodes, just visit children
             for (auto* child : node->children) {
@@ -720,11 +747,11 @@ void CodeGenerator::generatePrintStmt(ASTNode* printStmt) {
     if (arg->nodeType == ASTNodeType::PARENTHESIS_EXPRESSION && !arg->children.empty()) {
         arg = arg->children[0];
     }
-    
+
     DataType detectedType = DataType::INT64;
     if (arg->nodeType == ASTNodeType::LITERAL_EXPRESSION) {
         auto* literal = static_cast<LiteralExpressionNode*>(arg);
-        detectedType = (literal->literal.find('"') != std::string::npos) ? DataType::STRING : DataType::INT64;
+        detectedType = literal->literalType;
     } else if (arg->nodeType == ASTNodeType::IDENTIFIER_EXPRESSION) {
         auto* identifier = static_cast<IdentifierExpressionNode*>(arg);
         if (identifier->varRef) {
@@ -811,6 +838,99 @@ void CodeGenerator::printInt64(IdentifierExpressionNode* identifier) {
     uint64_t printAddr = reinterpret_cast<uint64_t>(&print_int64);
     cb->mov(x86::rax, printAddr);
     cb->call(x86::rax);
+}
+
+void CodeGenerator::generatePrintCall(MethodCallNode* funcCall) {
+    if (funcCall->args.empty()) {
+        throw std::runtime_error("Print call without argument");
+    }
+
+    if (funcCall->args.size() > 1) {
+        throw std::runtime_error("Print call with multiple arguments not supported yet");
+    }
+
+    ASTNode* arg = funcCall->args[0];
+
+    // Determine the type of the argument
+    DataType detectedType = DataType::INT64;
+    if (arg->nodeType == ASTNodeType::LITERAL_EXPRESSION) {
+        auto* literal = static_cast<LiteralExpressionNode*>(arg);
+        detectedType = literal->literalType;
+    } else if (arg->nodeType == ASTNodeType::IDENTIFIER_EXPRESSION) {
+        auto* identifier = static_cast<IdentifierExpressionNode*>(arg);
+        if (identifier->varRef) {
+            detectedType = identifier->varRef->type;
+        }
+    } else if (arg->nodeType == ASTNodeType::MEMBER_ACCESS) {
+        auto* memberAccess = static_cast<MemberAccessNode*>(arg);
+        if (memberAccess->classRef) {
+            auto it = memberAccess->classRef->fields.find(memberAccess->memberName);
+            if (it != memberAccess->classRef->fields.end()) {
+                detectedType = it->second.type;
+            }
+        }
+    }
+
+    // Generate the appropriate print call
+    switch (detectedType) {
+        case DataType::ANY: {
+            if (arg->nodeType == ASTNodeType::IDENTIFIER_EXPRESSION) {
+                auto* identifier = static_cast<IdentifierExpressionNode*>(arg);
+                loadVariableFromScope(identifier, x86::rdi, 0, x86::r15);
+                loadVariableFromScope(identifier, x86::rsi, 8, x86::r15);
+            } else {
+                loadAnyValue(arg, x86::rsi, x86::rdi, x86::r15);
+            }
+            uint64_t printAddr = reinterpret_cast<uint64_t>(&print_any);
+            cb->sub(x86::rsp, 8); // Maintain 16-byte alignment for variadic call
+            cb->mov(x86::rax, printAddr);
+            cb->call(x86::rax);
+            cb->add(x86::rsp, 8);
+            break;
+        }
+        case DataType::FLOAT64: {
+            uint64_t bits = 0;
+            if (arg->nodeType == ASTNodeType::LITERAL_EXPRESSION) {
+                double floatValue = std::stod(static_cast<LiteralExpressionNode*>(arg)->literal);
+                std::memcpy(&bits, &floatValue, sizeof(bits));
+                cb->mov(x86::rax, bits);
+            } else if (arg->nodeType == ASTNodeType::IDENTIFIER_EXPRESSION) {
+                loadVariableFromScope(static_cast<IdentifierExpressionNode*>(arg), x86::rax, 0, x86::r15);
+            } else if (arg->nodeType == ASTNodeType::MEMBER_ACCESS) {
+                generateMemberAccess(static_cast<MemberAccessNode*>(arg), x86::rax);
+            } else {
+                throw std::runtime_error("Unsupported expression for float64 print");
+            }
+            cb->movq(x86::xmm0, x86::rax);
+            uint64_t printAddr = reinterpret_cast<uint64_t>(&print_float64);
+            cb->mov(x86::rax, printAddr);
+            cb->call(x86::rax);
+            break;
+        }
+        case DataType::STRING: {
+            if (arg->nodeType != ASTNodeType::LITERAL_EXPRESSION) {
+                throw std::runtime_error("String print currently supports only literals");
+            }
+            auto* literal = static_cast<LiteralExpressionNode*>(arg);
+            uint64_t strAddr = reinterpret_cast<uint64_t>(literal->literal.c_str());
+            cb->mov(x86::rdi, strAddr);
+            uint64_t printAddr = reinterpret_cast<uint64_t>(&print_string);
+            cb->mov(x86::rax, printAddr);
+            cb->call(x86::rax);
+            break;
+        }
+        default: {
+            if (arg->nodeType == ASTNodeType::IDENTIFIER_EXPRESSION) {
+                loadVariableFromScope(static_cast<IdentifierExpressionNode*>(arg), x86::rdi, 0, x86::r15);
+            } else {
+                loadValue(arg, x86::rdi, x86::r15);
+            }
+            uint64_t printAddr = reinterpret_cast<uint64_t>(&print_int64);
+            cb->mov(x86::rax, printAddr);
+            cb->call(x86::rax);
+            break;
+        }
+    }
 }
 
 void CodeGenerator::patchMetadataClosures(void* codeBase, const std::map<std::string, ClassDeclarationNode*>& classRegistry) {
@@ -1141,24 +1261,31 @@ void CodeGenerator::generateBlockStmt(BlockStatement* blockStmt) {
 
 void CodeGenerator::generateFunctionCall(MethodCallNode* funcCall) {
     std::cout << "Generating function call: " << funcCall->value << std::endl;
-    
+
     // Check if this is actually a method call
     MethodCallNode* methodCall = dynamic_cast<MethodCallNode*>(funcCall);
     bool isMethodCall = (methodCall != nullptr);
-    
+
     if (isMethodCall) {
         std::cout << "  -> This is a method call on object" << std::endl;
     }
-    
+
+    // Special handling for built-in functions
+    if (!isMethodCall && funcCall->value == "print") {
+        std::cout << "  -> This is a built-in print function call" << std::endl;
+        generatePrintCall(funcCall);
+        return;
+    }
+
     // Get target function information
     FunctionDeclarationNode* targetFunc;
-    
+
     if (isMethodCall) {
         targetFunc = methodCall->resolvedMethod;
     } else {
         targetFunc = funcCall->varRef->funcNode;
     }
-    
+
     if (!targetFunc) {
         throw std::runtime_error("Cannot resolve target function for call: " + funcCall->value);
     }
@@ -1309,12 +1436,13 @@ void CodeGenerator::generateNewExpr(NewExprNode* newExpr, x86::Gp destReg, x86::
     
     ClassDeclarationNode* classDecl = newExpr->classRef;
     
-    // Calculate total object size: header + packed fields (includes closure pointers + regular fields)
-    int totalObjectSize = ObjectLayout::HEADER_SIZE + classDecl->totalSize;
-    
-    std::cout << "DEBUG generateNewExpr: Allocating object of size " << totalObjectSize 
-              << " (header=" << ObjectLayout::HEADER_SIZE 
-              << ", packed fields=" << classDecl->totalSize << ")" << std::endl;
+    // Calculate total object size: header + packed fields + hashmap pointer
+    int totalObjectSize = ObjectLayout::HEADER_SIZE + classDecl->totalSize + 8; // +8 for hashmap pointer
+
+    std::cout << "DEBUG generateNewExpr: Allocating object of size " << totalObjectSize
+              << " (header=" << ObjectLayout::HEADER_SIZE
+              << ", packed fields=" << classDecl->totalSize
+              << ", hashmap=8)" << std::endl;
     
     // Call calloc to allocate and zero-initialize object
     // mov rdi, 1 (number of elements)
@@ -1447,138 +1575,246 @@ bool CodeGenerator::isRawMemoryReleaseCall(MethodCallNode* methodCall) const {
 
 void CodeGenerator::generateMemberAccess(MemberAccessNode* memberAccess, x86::Gp destReg) {
     std::cout << "Generating member access for member: " << memberAccess->memberName << std::endl;
-    
-    // Verify that the class reference and member offset were set during analysis
-    if (!memberAccess->classRef) {
-        throw std::runtime_error("Class reference not set for member access: " + memberAccess->memberName);
-    }
-    
-    std::cout << "DEBUG generateMemberAccess: Accessing member '" << memberAccess->memberName 
-              << "' at offset " << memberAccess->memberOffset << " in class '" 
-              << memberAccess->classRef->className << "'" << std::endl;
-    
+
     // Load the object pointer into a temporary register
-    // The object could be an identifier (variable) or another expression
     x86::Gp objectPtrReg = x86::r10;
     loadValue(memberAccess->object, objectPtrReg);
-    
-    // Use the pre-calculated absolute offset (already includes header)
-    int actualOffset = memberAccess->memberOffset;
-    
-    std::cout << "DEBUG generateMemberAccess: Loading from object pointer + " << actualOffset 
-              << " (absolute offset)" << std::endl;
-    
-    // Load the field value from [objectPtrReg + actualOffset] into destReg
-    cb->mov(destReg, x86::qword_ptr(objectPtrReg, actualOffset));
-    
-    std::cout << "Generated member access - field value loaded" << std::endl;
+
+    if (memberAccess->isDynamicProperty) {
+        std::cout << "DEBUG generateMemberAccess: Dynamic property access for '" << memberAccess->memberName << "'" << std::endl;
+
+        // For dynamic properties, we need to:
+        // 1. Check if hashmap exists, create it lazily if not
+        // 2. Call hashmap_get
+
+        // Calculate hashmap offset in object: after header + method closures + predefined fields
+        int hashmapOffset = ObjectLayout::HEADER_SIZE;
+        if (memberAccess->classRef) {
+            // Add method closure space
+            hashmapOffset += memberAccess->classRef->methodLayout.size() * 8;
+            // Add predefined field space
+            hashmapOffset += memberAccess->classRef->totalSize;
+        }
+
+        std::cout << "DEBUG generateMemberAccess: Hashmap offset = " << hashmapOffset << std::endl;
+
+        // Check if hashmap exists (is non-null)
+        cb->mov(x86::r11, x86::qword_ptr(objectPtrReg, hashmapOffset));
+        cb->test(x86::r11, x86::r11);
+
+        // Create label for when hashmap exists
+        Label hashmapExists = cb->newLabel();
+
+        cb->jnz(hashmapExists); // Jump if hashmap exists
+
+        // Hashmap doesn't exist - create it
+        std::cout << "DEBUG generateMemberAccess: Emitting lazy hashmap creation" << std::endl;
+
+        // Call hashmap_create()
+        uint64_t hashmapCreateAddr = reinterpret_cast<uint64_t>(&hashmap_create);
+        cb->mov(x86::rax, hashmapCreateAddr);
+        cb->call(x86::rax); // Returns hashmap pointer in rax
+
+        // Store the new hashmap in the object
+        cb->mov(x86::qword_ptr(objectPtrReg, hashmapOffset), x86::rax);
+        cb->mov(x86::r11, x86::rax); // r11 now holds hashmap pointer
+
+        cb->bind(hashmapExists);
+
+        // Now r11 holds the hashmap pointer
+        // Call hashmap_get(hashmapPtr, key, &outType)
+        cb->mov(x86::rdi, x86::r11); // First arg: hashmap pointer
+        cb->mov(x86::rsi, reinterpret_cast<uint64_t>(memberAccess->memberName.c_str())); // Second arg: key string
+        cb->mov(x86::rdx, x86::rsp); // Third arg: pointer to output type (use stack temporarily)
+
+        uint64_t hashmapGetAddr = reinterpret_cast<uint64_t>(&hashmap_get);
+        cb->mov(x86::rax, hashmapGetAddr);
+        cb->call(x86::rax); // Returns value in rax, type in [rdx]
+
+        // For now, assume all dynamic properties return int64 (we can extend this later)
+        // The hashmap_get returns the value in rax
+        if (destReg.id() != x86::rax.id()) {
+            cb->mov(destReg, x86::rax);
+        }
+
+        std::cout << "Generated dynamic member access - hashmap lookup completed" << std::endl;
+    } else {
+        // Predefined property - use direct field access
+        if (!memberAccess->classRef) {
+            throw std::runtime_error("Class reference not set for predefined member access: " + memberAccess->memberName);
+        }
+
+        std::cout << "DEBUG generateMemberAccess: Predefined property access for '" << memberAccess->memberName
+                  << "' at offset " << memberAccess->memberOffset << " in class '"
+                  << memberAccess->classRef->className << "'" << std::endl;
+
+        // Use the pre-calculated absolute offset (already includes header)
+        int actualOffset = memberAccess->memberOffset;
+
+        std::cout << "DEBUG generateMemberAccess: Loading from object pointer + " << actualOffset
+                  << " (absolute offset)" << std::endl;
+
+        // Load the field value from [objectPtrReg + actualOffset] into destReg
+        cb->mov(destReg, x86::qword_ptr(objectPtrReg, actualOffset));
+
+        std::cout << "Generated predefined member access - field value loaded" << std::endl;
+    }
 }
 
 void CodeGenerator::generateMemberAssign(MemberAssignNode* memberAssign) {
     std::cout << "Generating member assignment" << std::endl;
-    
+
     if (!memberAssign->member) {
         throw std::runtime_error("Member assignment has no member access node");
     }
-    
+
     MemberAccessNode* member = memberAssign->member;
-    
-    // Verify that the class reference and member offset were set during analysis
-    if (!member->classRef) {
-        throw std::runtime_error("Class reference not set for member assignment: " + member->memberName);
-    }
-    
-    std::cout << "DEBUG generateMemberAssign: Assigning to member '" << member->memberName 
-              << "' at offset " << member->memberOffset << " in class '" 
-              << member->classRef->className << "'" << std::endl;
-    
+
     // Load the object pointer into a temporary register
     x86::Gp objectPtrReg = x86::r10;
     loadValue(member->object, objectPtrReg);
-    
-    DataType fieldType = DataType::INT64;
-    if (member->classRef) {
+
+    if (member->isDynamicProperty) {
+        std::cout << "DEBUG generateMemberAssign: Dynamic property assignment for '" << member->memberName << "'" << std::endl;
+
+        // For dynamic properties, we need to:
+        // 1. Check if hashmap exists, create it lazily if not
+        // 2. Call hashmap_set
+
+        // Calculate hashmap offset in object: after header + method closures + predefined fields
+        int hashmapOffset = ObjectLayout::HEADER_SIZE;
+        if (member->classRef) {
+            // Add method closure space
+            hashmapOffset += member->classRef->methodLayout.size() * 8;
+            // Add predefined field space
+            hashmapOffset += member->classRef->totalSize;
+        }
+
+        std::cout << "DEBUG generateMemberAssign: Hashmap offset = " << hashmapOffset << std::endl;
+
+        // Check if hashmap exists (is non-null)
+        cb->mov(x86::r11, x86::qword_ptr(objectPtrReg, hashmapOffset));
+        cb->test(x86::r11, x86::r11);
+
+        // Create label for when hashmap exists
+        Label hashmapExists = cb->newLabel();
+
+        cb->jnz(hashmapExists); // Jump if hashmap exists
+
+        // Hashmap doesn't exist - create it
+        std::cout << "DEBUG generateMemberAssign: Emitting lazy hashmap creation" << std::endl;
+
+        // Call hashmap_create()
+        uint64_t hashmapCreateAddr = reinterpret_cast<uint64_t>(&hashmap_create);
+        cb->mov(x86::rax, hashmapCreateAddr);
+        cb->call(x86::rax); // Returns hashmap pointer in rax
+
+        // Store the new hashmap in the object
+        cb->mov(x86::qword_ptr(objectPtrReg, hashmapOffset), x86::rax);
+        cb->mov(x86::r11, x86::rax); // r11 now holds hashmap pointer
+
+        cb->bind(hashmapExists);
+
+        // Now r11 holds the hashmap pointer
+        // Load the value to assign
+        loadValue(memberAssign->value, x86::rcx, x86::r15, DataType::INT64); // For now, assume int64
+
+        // Call hashmap_set(hashmapPtr, key, type, value)
+        cb->mov(x86::rdi, x86::r11); // First arg: hashmap pointer
+        cb->mov(x86::rsi, reinterpret_cast<uint64_t>(member->memberName.c_str())); // Second arg: key string
+        cb->mov(x86::rdx, static_cast<uint64_t>(DataType::INT64)); // Third arg: type (assume int64 for now)
+        cb->mov(x86::rcx, x86::rcx); // Fourth arg: value
+
+        uint64_t hashmapSetAddr = reinterpret_cast<uint64_t>(&hashmap_set);
+        cb->mov(x86::rax, hashmapSetAddr);
+        cb->call(x86::rax);
+
+        std::cout << "Generated dynamic member assignment - hashmap set completed" << std::endl;
+    } else {
+        // Predefined property - use direct field access
+        if (!member->classRef) {
+            throw std::runtime_error("Class reference not set for predefined member assignment: " + member->memberName);
+        }
+
+        std::cout << "DEBUG generateMemberAssign: Predefined property assignment for '" << member->memberName
+                  << "' at offset " << member->memberOffset << " in class '"
+                  << member->classRef->className << "'" << std::endl;
+
+        DataType fieldType = DataType::INT64;
         auto fieldIt = member->classRef->fields.find(member->memberName);
         if (fieldIt != member->classRef->fields.end()) {
             fieldType = fieldIt->second.type;
         }
-    }
-    
-    // Use the pre-calculated absolute offset (already includes header)
-    int actualOffset = member->memberOffset;
-    
-    if (fieldType == DataType::ANY) {
-        loadAnyValue(memberAssign->value, x86::rax, x86::rdx);
-        cb->mov(x86::qword_ptr(objectPtrReg, actualOffset), x86::rdx);
-        cb->mov(x86::qword_ptr(objectPtrReg, actualOffset + 8), x86::rax);
-        
-        if (memberAssign->value->nodeType != ASTNodeType::NEW_EXPR) {
-            Label skipObjectBarrier = cb->newLabel();
-            cb->cmp(x86::rdx, static_cast<uint32_t>(DataType::OBJECT));
-            cb->jne(skipObjectBarrier);
 
-            cb->mov(x86::rcx, x86::qword_ptr(x86::rax, ObjectLayout::FLAGS_OFFSET));
-            cb->test(x86::rcx, ObjectFlags::NEEDS_SET_FLAG);
+        // Use the pre-calculated absolute offset (already includes header)
+        int actualOffset = member->memberOffset;
 
-            Label skipWriteBarrier = cb->newLabel();
-            cb->jz(skipWriteBarrier);
+        if (fieldType == DataType::ANY) {
+            loadAnyValue(memberAssign->value, x86::rax, x86::rdx);
+            cb->mov(x86::qword_ptr(objectPtrReg, actualOffset), x86::rdx);
+            cb->mov(x86::qword_ptr(objectPtrReg, actualOffset + 8), x86::rax);
 
-            cb->or_(x86::qword_ptr(x86::rax, ObjectLayout::FLAGS_OFFSET), ObjectFlags::SET_FLAG);
-            cb->mfence();
+            if (memberAssign->value->nodeType != ASTNodeType::NEW_EXPR) {
+                Label skipObjectBarrier = cb->newLabel();
+                cb->cmp(x86::rdx, static_cast<uint32_t>(DataType::OBJECT));
+                cb->jne(skipObjectBarrier);
 
-            cb->bind(skipWriteBarrier);
-            cb->bind(skipObjectBarrier);
+                cb->mov(x86::rcx, x86::qword_ptr(x86::rax, ObjectLayout::FLAGS_OFFSET));
+                cb->test(x86::rcx, ObjectFlags::NEEDS_SET_FLAG);
+
+                Label skipWriteBarrier = cb->newLabel();
+                cb->jz(skipWriteBarrier);
+
+                cb->or_(x86::qword_ptr(x86::rax, ObjectLayout::FLAGS_OFFSET), ObjectFlags::SET_FLAG);
+                cb->mfence();
+
+                cb->bind(skipWriteBarrier);
+                cb->bind(skipObjectBarrier);
+            }
+
+            std::cout << "Generated member assignment for ANY field" << std::endl;
+            return;
         }
-        
-        std::cout << "Generated member assignment for ANY field" << std::endl;
-        return;
-    }
-    
-    // Load the value to assign into another register
-    x86::Gp valueReg = x86::rax;
-    loadValue(memberAssign->value, valueReg, x86::r15, fieldType);
-    
-    std::cout << "DEBUG generateMemberAssign: Storing to object pointer + " << actualOffset 
-              << " (absolute offset)" << std::endl;
-    
-    // Store the value to [objectPtrReg + actualOffset]
-    cb->mov(x86::qword_ptr(objectPtrReg, actualOffset), valueReg);
-    
-    // Check if we're assigning an object reference
-    // We need to check the field type in the class definition
-    if (member->classRef) {
-        auto it = member->classRef->fields.find(member->memberName);
-        if (it != member->classRef->fields.end() && it->second.type == DataType::OBJECT) {
+
+        // Load the value to assign into another register
+        x86::Gp valueReg = x86::rax;
+        loadValue(memberAssign->value, valueReg, x86::r15, fieldType);
+
+        std::cout << "DEBUG generateMemberAssign: Storing to object pointer + " << actualOffset
+                  << " (absolute offset)" << std::endl;
+
+        // Store the value to [objectPtrReg + actualOffset]
+        cb->mov(x86::qword_ptr(objectPtrReg, actualOffset), valueReg);
+
+        // Check if we're assigning an object reference
+        if (fieldIt != member->classRef->fields.end() && fieldIt->second.type == DataType::OBJECT) {
             // Skip write barrier for NEW expressions - they can't be suspected dead yet
             if (memberAssign->value->nodeType != ASTNodeType::NEW_EXPR) {
                 // Inline GC write barrier - check needs_set_flag and atomically set set_flag if needed
                 // This is much faster than a function call
-                
+
                 // Load flags from object header (at offset 8)
-                // flags is at [valueReg + 8]
                 cb->mov(x86::rcx, x86::qword_ptr(valueReg, ObjectLayout::FLAGS_OFFSET));  // Load flags
-                
+
                 // Test if NEEDS_SET_FLAG (bit 0) is set
                 cb->test(x86::rcx, ObjectFlags::NEEDS_SET_FLAG);
-                
+
                 // Create a label for skipping if not needed
                 Label skipWriteBarrier = cb->newLabel();
                 cb->jz(skipWriteBarrier);  // Jump if zero (NEEDS_SET_FLAG not set)
-                
+
                 // NEEDS_SET_FLAG is set, so OR the SET_FLAG bit (no LOCK needed - idempotent)
-                // Using non-locked OR is safe because we're only setting a bit to 1
                 cb->or_(x86::qword_ptr(valueReg, ObjectLayout::FLAGS_OFFSET), ObjectFlags::SET_FLAG);
-                
+
                 // Memory fence to ensure write visibility to GC thread
-                // This guarantees the set_flag write is visible before GC reads it in phase 3
                 cb->mfence();
-                
+
                 cb->bind(skipWriteBarrier);
             }
         }
+
+        std::cout << "Generated predefined member assignment - field value stored" << std::endl;
     }
-    
-    std::cout << "Generated member assignment - field value stored" << std::endl;
 }
 
 void CodeGenerator::generateClassDecl(ClassDeclarationNode* classDecl) {

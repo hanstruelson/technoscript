@@ -2,7 +2,7 @@ CXX = g++
 CXXFLAGS = -std=c++17 -Wall -Wextra -Wno-unused-parameter -O0 -g -I.
 LDFLAGS = -lcapstone -lasmjit
 # Updated sources after moving emitter functionality into codegen.cpp
-SOURCES = main.cpp ast_printer.cpp codegen.cpp codegen_array.cpp library.cpp goroutine.cpp gc.cpp asm_library.cpp data_structures/safe_unordered_list.cpp parser/src/parser/parser.cpp
+SOURCES = main.cpp codegen.cpp codegen_array.cpp library.cpp goroutine.cpp gc.cpp asm_library.cpp data_structures/safe_unordered_list.cpp
 OBJECTS = $(SOURCES:.cpp=.o)
 TARGET = technoscript
 TEST_TARGET = test_safe_unordered_list

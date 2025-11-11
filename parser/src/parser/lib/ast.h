@@ -310,6 +310,19 @@ public:
 
     ~VariableDefinitionNode() override = default;
 
+    virtual void walk() override {
+        std::cout << "walkVariableDefinition" << std::endl;
+        if (typeAnnotation) typeAnnotation->walk();
+        if (initializer) initializer->walk();
+        if (pattern) pattern->walk();
+        // Walk other children if any
+        for (auto child : children) {
+            if (child != typeAnnotation && child != initializer && child != pattern) {
+                child->walk();
+            }
+        }
+    }
+
     void print(std::ostream& os, int indent) const override {
         static const char* varMap[] = {"const","var","let"};
         auto pad = [indent]() { return string(indent * 2, ' '); };
@@ -365,16 +378,19 @@ public:
 class LiteralExpressionNode : public ExpressionNode {
 public:
     std::string literal;
+    DataType literalType;
 
-    LiteralExpressionNode(ASTNode* parent, const std::string& value)
-        : ExpressionNode(parent), literal(value) {
+    LiteralExpressionNode(ASTNode* parent, const std::string& value, DataType type = DataType::INT64)
+        : ExpressionNode(parent), literal(value), literalType(type) {
         this->value = value;
        nodeType = ASTNodeType::LITERAL_EXPRESSION;
     }
 
     void print(std::ostream& os, int indent) const override {
         auto pad=[indent](){return string(indent*2,' ');};
-        os<<pad()<<"Literal"<<literal<<"\n";
+        os<<pad()<<"Literal("<<literal<<", ";
+        static const char* typeMap[] = {"int64","float64","string","raw_memory","object","closure","any"};
+        os<<typeMap[static_cast<int>(literalType)]<<")\n";
     }
 };
 
@@ -2224,6 +2240,7 @@ public:
     std::string memberName;
     ClassDeclarationNode* classRef = nullptr; // Analysis: resolved class reference
     int memberOffset = 0; // Analysis: byte offset of the field in the object
+    bool isDynamicProperty = false; // Analysis: true if property is not predefined in class
 
     MemberAccessNode(ASTNode* parent, const std::string& member)
         : ExpressionNode(parent), object(nullptr), memberName(member) {
@@ -2231,8 +2248,8 @@ public:
     }
 
     void print(std::ostream& os, int indent) const override {
-        auto pad = [indent]() { return string(indent * 2, ' '); };
-        os << pad() << "MemberAccess(" << memberName << ")\n";
+        auto pad=[indent](){return string(indent*2,' ');};
+        os<<pad()<<"MemberAccess("<<memberName<<(isDynamicProperty ? " [dynamic]" : "")<<")\n";
         if (object) object->print(os, indent + 1);
     }
 };

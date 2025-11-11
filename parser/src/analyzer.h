@@ -233,6 +233,8 @@ private:
             case ASTNodeType::FUNCTION_DECLARATION: {
                 auto* funcNode = static_cast<FunctionDeclarationNode*>(node);
 
+                context.pushScope(funcNode);
+
                 // Define function name in parent scope
                 if (!funcNode->name.empty() && parentScope) {
                     VariableInfo funcInfo;
@@ -247,6 +249,8 @@ private:
                 if (funcNode->body) {
                     analyzeNodeSinglePass(funcNode->body, funcNode, depth + 1);
                 }
+
+                context.popScope();
 
                 // Calculate parameter layout
                 if (funcNode->parameters) {
@@ -277,10 +281,14 @@ private:
             case ASTNodeType::BLOCK_STATEMENT: {
                 auto* blockNode = static_cast<BlockStatement*>(node);
 
+                context.pushScope(blockNode);
+
                 // Analyze children with block as parent scope
                 for (auto* child : node->children) {
                     analyzeNodeSinglePass(child, blockNode, depth + 1);
                 }
+
+                context.popScope();
 
                 // Pack block scope variables
                 std::vector<VariableInfo*> blockVars;
@@ -296,6 +304,8 @@ private:
                 auto* varDef = static_cast<VariableDefinitionNode*>(node);
 
                 if (!varDef->name.empty() && parentScope) {
+                    context.defineVariable(varDef->name, varDef->varType, parentScope);
+
                     VariableInfo varInfo;
                     varInfo.name = varDef->name;
                     varInfo.varType = varDef->varType;
@@ -333,7 +343,7 @@ private:
                 auto* identNode = static_cast<IdentifierExpressionNode*>(node);
 
                 // Resolve variable reference
-                VariableInfo* varInfo = findVariable(identNode->name, parentScope);
+                VariableInfo* varInfo = context.findVariable(identNode->name);
                 if (varInfo) {
                     identNode->varRef = varInfo;
                     identNode->accessedIn = parentScope;
@@ -370,8 +380,17 @@ private:
                         auto it = ident->varRef->classNode->fields.find(memberAccess->memberName);
                         if (it != ident->varRef->classNode->fields.end()) {
                             memberAccess->memberOffset = it->second.offset;
+                            memberAccess->isDynamicProperty = false; // Predefined property
+                        } else {
+                            memberAccess->isDynamicProperty = true; // Dynamic property
                         }
+                    } else {
+                        // Object type not known at compile time - assume dynamic
+                        memberAccess->isDynamicProperty = true;
                     }
+                } else {
+                    // Complex object expression - assume dynamic for now
+                    memberAccess->isDynamicProperty = true;
                 }
 
                 break;

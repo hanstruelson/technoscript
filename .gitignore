@@ -1,3 +1,5 @@
 node/
 libtorch/
 *.o
+node_modules/
+technoscript

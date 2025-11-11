@@ -1,35 +1,36 @@
 #include "parser/src/parser/parser.h"
 #include "parser/src/analyzer.h"
-#include "ast_printer.h"
 #include "goroutine.h"
 #include "gc.h"
 #include <iostream>
+#include <fstream>
+#include <sstream>
 #include "codegen.h"
 
 int main(int argc, char* argv[]) {
     std::cout << "DEBUG: Program started" << std::endl;
     std::cout.flush();
 
-    std::cout << "DEBUG: Using built-in test program" << std::endl;
-        std::string code = R"(
+    std::string code;
+    if (argc > 1) {
+        // Read code from file
+        std::ifstream file(argv[1]);
+        if (!file.is_open()) {
+            std::cerr << "Error: Cannot open file " << argv[1] << std::endl;
+            return 1;
+        }
+        std::stringstream buffer;
+        buffer << file.rdbuf();
+        code = buffer.str();
+        file.close();
+        std::cout << "DEBUG: Loaded code from file: " << argv[1] << std::endl;
+    } else {
+        std::cout << "DEBUG: Using built-in test program" << std::endl;
+        code = R"(
 var x: int64=42;
 print(x)
 )";
-// class Dog {
-//     age: int64
-//     printAge() {
-//         print(this.age);
-//     }
-//     operator [](slice: TensorAccess): int64 {
-//         print(slice[0].start);
-//         print(slice[0].stop);
-//         print(slice[0].step);
-//     }
-// }
-// var d: Dog = new Dog();
-// var x: int64 = 5;
-// d[0:10:2];
-// )";
+    }
     std::cout << "=== Testing safe unordered list ===\n";
 
 
@@ -40,6 +41,11 @@ print(x)
     ASTNode* ast = parse(code);
     std::cout << "DEBUG: Parsing completed successfully" << std::endl;
     std::cout << "DEBUG: Root node type: " << static_cast<int>(ast->nodeType) << std::endl;
+
+    // Print AST for debugging
+    std::cout << "\n=== AST ===" << std::endl;
+    ast->print(std::cout, 0);
+    std::cout << "=== END AST ===\n" << std::endl;
 
     std::cout << "DEBUG: Starting analysis..." << std::endl;
     analyzer.analyze(ast);

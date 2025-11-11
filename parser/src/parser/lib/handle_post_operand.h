@@ -36,6 +36,10 @@ inline bool handlePostOperand(ParserContext& ctx, char c) {
         // Check if we just closed a print statement
         if (ctx.currentNode && ctx.currentNode->value == "print") {
             ctx.state = STATE::BLOCK;
+            // Pop to block after print statement
+            if (ctx.currentNode && ctx.currentNode->parent && ctx.currentNode->parent->nodeType == ASTNodeType::BLOCK_STATEMENT) {
+                ctx.currentNode = ctx.currentNode->parent;
+            }
         }
     } else if (c == '+') {
         // Check if this is postfix increment (++ after operand)
@@ -185,6 +189,10 @@ inline bool handlePostOperand(ParserContext& ctx, char c) {
         }
 
         ctx.state = STATE::BLOCK;
+        // Pop to block after statement completion
+        if (ctx.currentNode && ctx.currentNode->parent && ctx.currentNode->parent->nodeType == ASTNodeType::BLOCK_STATEMENT) {
+            ctx.currentNode = ctx.currentNode->parent;
+        }
     } else {
         return true;
     }

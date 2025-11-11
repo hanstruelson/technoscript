@@ -262,6 +262,8 @@ inline void handleStateExpressionIdentifier(ParserContext& ctx, char c) {
     }
 
     std::string text = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
+    // Trim trailing whitespace
+    text.erase(text.find_last_not_of(" \t\n\r\f\v") + 1);
     if (text.empty()) {
         throw std::runtime_error("Empty identifier");
     }
@@ -278,8 +280,8 @@ inline void handleStateExpressionSingleQuote(ParserContext& ctx, char c) {
         if (ctx.index <= ctx.stringStart) {
             throw std::runtime_error("Invalid single-quoted literal bounds");
         }
-        std::string value = ctx.code.substr(ctx.stringStart + 1, ctx.index - ctx.stringStart - 1);
-        auto* literal = new LiteralExpressionNode(nullptr, value);
+        std::string value = ctx.code.substr(ctx.stringStart + 1, ctx.index - ctx.stringStart - 2);
+        auto* literal = new LiteralExpressionNode(nullptr, value, DataType::STRING);
         addExpressionOperand(ctx, literal);
         ctx.state = STATE::EXPRESSION_AFTER_OPERAND;
     }
@@ -300,8 +302,8 @@ inline void handleStateExpressionDoubleQuote(ParserContext& ctx, char c) {
         if (ctx.index <= ctx.stringStart) {
             throw std::runtime_error("Invalid double-quoted literal bounds");
         }
-        std::string value = ctx.code.substr(ctx.stringStart + 1, ctx.index - ctx.stringStart - 1);
-        auto* literal = new LiteralExpressionNode(nullptr, value);
+        std::string value = ctx.code.substr(ctx.stringStart + 1, ctx.index - ctx.stringStart - 2);
+        auto* literal = new LiteralExpressionNode(nullptr, value, DataType::STRING);
         addExpressionOperand(ctx, literal);
         ctx.state = STATE::EXPRESSION_AFTER_OPERAND;
     }
