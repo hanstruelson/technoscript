@@ -8,7 +8,7 @@
 #include "../lib/ast.h"
 
 // Root state handler - entry point for parsing
-inline void handleStateNone(ParserContext& ctx, char c) {
+inline void handleStateBlock(ParserContext& ctx, char c) {
     // Check if we need to exit a completed single-statement block
     if (ctx.currentNode && ctx.currentNode->nodeType == ASTNodeType::BLOCK_STATEMENT) {
         auto* block = static_cast<BlockStatement*>(ctx.currentNode);
@@ -25,9 +25,34 @@ inline void handleStateNone(ParserContext& ctx, char c) {
         }
     }
 
+    // Check if we're expecting a body for a control statement
+    if (ctx.currentNode && (ctx.currentNode->nodeType == ASTNodeType::IF_STATEMENT ||
+                            ctx.currentNode->nodeType == ASTNodeType::WHILE_STATEMENT ||
+                            ctx.currentNode->nodeType == ASTNodeType::FOR_STATEMENT ||
+                            ctx.currentNode->nodeType == ASTNodeType::DO_WHILE_STATEMENT)) {
+        if (c == '{') {
+            // Block statement for body
+            auto* block = new BlockStatement(ctx.currentNode, false); // noBraces = false
+            ctx.currentNode->addChild(block);
+            ctx.currentNode = block;
+            ctx.state = STATE::BLOCK;
+        } else if (std::isspace(static_cast<unsigned char>(c))) {
+            // Skip whitespace
+            return;
+        } else {
+            // Single statement - create noBraces block
+            auto* block = new BlockStatement(ctx.currentNode, true); // noBraces = true
+            ctx.currentNode->addChild(block);
+            ctx.currentNode = block;
+            ctx.state = STATE::BLOCK;
+            ctx.index--; // Re-process this character
+        }
+        return;
+    }
+
     // Check for 'e' keywords (else or export)
     if (c == 'e') {
-        ctx.state = STATE::NONE_E;
+        ctx.state = STATE::BLOCK_E;
     } else if (c == '}') {
         // End of block - pop back to parent
         if (ctx.currentNode && ctx.currentNode->nodeType == ASTNodeType::BLOCK_STATEMENT) {
@@ -36,11 +61,9 @@ inline void handleStateNone(ParserContext& ctx, char c) {
             if (ctx.currentBlockScope && ctx.currentBlockScope->parent) {
                 ctx.currentBlockScope = dynamic_cast<LexicalScopeNode*>(ctx.currentBlockScope->parent);
             }
-            // Check if this is the end of an if statement
-            if (ctx.currentNode && ctx.currentNode->nodeType == ASTNodeType::IF_STATEMENT) {
-                ctx.state = STATE::IF_ALTERNATE_START;
-            } else {
-                ctx.state = STATE::NONE;
+            // Call onBlockComplete if the parent has it
+            if (ctx.currentNode) {
+                ctx.currentNode->onBlockComplete(ctx);
             }
         }
         return;
@@ -54,49 +77,45 @@ inline void handleStateNone(ParserContext& ctx, char c) {
                  ctx.currentNode->parent->nodeType == ASTNodeType::FOR_STATEMENT)) {
                 // Exit the block
                 ctx.currentNode = ctx.currentNode->parent;
-                // Check if this is the end of an if statement
-                if (ctx.currentNode->nodeType == ASTNodeType::IF_STATEMENT) {
-                    ctx.state = STATE::IF_ALTERNATE_START;
-                } else {
-                    ctx.state = STATE::NONE;
-                }
+                // Call onBlockComplete
+                ctx.currentNode->onBlockComplete(ctx);
                 return;
             }
         }
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace
     } else if (c == 'v') {
-        ctx.state = STATE::NONE_V;
+        ctx.state = STATE::BLOCK_V;
     } else if (c == 'c') {
-        ctx.state = STATE::NONE_C;
+        ctx.state = STATE::BLOCK_C;
     } else if (c == 'l') {
-        ctx.state = STATE::NONE_L;
+        ctx.state = STATE::BLOCK_L;
     } else if (c == 'f') {
-        ctx.state = STATE::NONE_F;
+        ctx.state = STATE::BLOCK_F;
     } else if (c == 'i') {
-        ctx.state = STATE::NONE_I;
+        ctx.state = STATE::BLOCK_I;
     } else if (c == 'w') {
-        ctx.state = STATE::NONE_W;
+        ctx.state = STATE::BLOCK_W;
     } else if (c == 'd') {
-        ctx.state = STATE::NONE_D;
+        ctx.state = STATE::BLOCK_D;
     } else if (c == 's') {
-        ctx.state = STATE::NONE_S;
+        ctx.state = STATE::BLOCK_S;
     } else if (c == 't') {
-        ctx.state = STATE::NONE_T;
+        ctx.state = STATE::BLOCK_T;
     } else if (c == 'p') {
-        ctx.state = STATE::NONE_P;
+        ctx.state = STATE::BLOCK_P;
     } else if (c == 'g') {
-        ctx.state = STATE::NONE_G;
+        ctx.state = STATE::BLOCK_G;
     } else if (c == 'r') {
-        ctx.state = STATE::NONE_R;
+        ctx.state = STATE::BLOCK_R;
     } else if (c == 'n') {
-        ctx.state = STATE::NONE_N;
+        ctx.state = STATE::BLOCK_N;
     } else if (c == '/' && ctx.index < ctx.code.length() && ctx.code[ctx.index] == '/') {
         // Single-line comment: skip to end of line
         while (ctx.index < ctx.code.length() && ctx.code[ctx.index] != '\n') {
             ctx.index++;
         }
-        // Stay in NONE state
+        // Stay in BLOCK state
     } else {
         // Handle expression starts at top level
         auto* expr = new ExpressionNode(ctx.currentNode);
@@ -107,13 +126,13 @@ inline void handleStateNone(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateNoneE(ParserContext& ctx, char c) {
+inline void handleStateBlockE(ParserContext& ctx, char c) {
     if (c == 'l') {
-        ctx.state = STATE::NONE_EL;
+        ctx.state = STATE::BLOCK_EL;
     } else if (c == 'x') {
-        ctx.state = STATE::NONE_EX;
+        ctx.state = STATE::BLOCK_EX;
     } else if (c == 'n') {
-        ctx.state = STATE::NONE_ENUM_E;
+        ctx.state = STATE::BLOCK_ENUM_E;
     } else {
         // Not 'else', 'export', or 'enum', treat as identifier starting with 'e'
         ctx.stringStart = ctx.index - 1; // 'e' is at index-1
@@ -122,9 +141,9 @@ inline void handleStateNoneE(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateNoneEL(ParserContext& ctx, char c) {
+inline void handleStateBlockEL(ParserContext& ctx, char c) {
     if (c == 's') {
-        ctx.state = STATE::NONE_ELS;
+        ctx.state = STATE::BLOCK_ELS;
     } else {
         // Not 'else', treat as identifier starting with 'el'
         ctx.stringStart = ctx.index - 2; // 'e' is at index-2, 'l' is at index-1
@@ -133,9 +152,9 @@ inline void handleStateNoneEL(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateNoneELS(ParserContext& ctx, char c) {
+inline void handleStateBlockELS(ParserContext& ctx, char c) {
     if (c == 'e') {
-        ctx.state = STATE::NONE_ELSE;
+        ctx.state = STATE::BLOCK_ELSE;
     } else {
         // Not 'else', treat as identifier starting with 'els'
         ctx.stringStart = ctx.index - 3; // 'e' is at index-3, 'l' at index-2, 's' at index-1
@@ -144,7 +163,7 @@ inline void handleStateNoneELS(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateNoneELSE(ParserContext& ctx, char c) {
+inline void handleStateBlockELSE(ParserContext& ctx, char c) {
     if (std::isspace(static_cast<unsigned char>(c))) {
         
     } else if (c == '{') {
@@ -154,7 +173,7 @@ inline void handleStateNoneELSE(ParserContext& ctx, char c) {
         elseClause->children.push_back(block);
         ctx.currentNode->children.push_back(elseClause);
         ctx.currentNode = block;
-        ctx.state = STATE::NONE;
+        ctx.state = STATE::BLOCK;
     } else if (c == 'i') {
         // Else if - create ElseIfClause
         auto* elseIfClause = new ElseIfClause(ctx.currentNode);
@@ -168,7 +187,7 @@ inline void handleStateNoneELSE(ParserContext& ctx, char c) {
         auto* elseClause = new ElseClause(ctx.currentNode);
         ctx.currentNode->children.push_back(elseClause);
         ctx.currentNode = elseClause;
-        ctx.state = STATE::NONE;
+        ctx.state = STATE::BLOCK;
         ctx.index--; // Re-process this character
     }
 }

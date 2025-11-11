@@ -27,9 +27,9 @@
 #include "async_states.h"
 
 // Enum state handlers
-inline void handleStateNoneEnumE(ParserContext& ctx, char c) {
+inline void handleStateBlockEnumE(ParserContext& ctx, char c) {
     if (c == 'u') {
-        ctx.state = STATE::NONE_ENUM_EN;
+        ctx.state = STATE::BLOCK_ENUM_EN;
     } else {
         // Not "enum", treat as identifier
         ctx.stringStart = ctx.index - 2;  // Include 'e' and 'n'
@@ -38,9 +38,9 @@ inline void handleStateNoneEnumE(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateNoneEnumEN(ParserContext& ctx, char c) {
+inline void handleStateBlockEnumEN(ParserContext& ctx, char c) {
     if (c == 'm') {
-        ctx.state = STATE::NONE_ENUM_ENU;
+        ctx.state = STATE::BLOCK_ENUM_ENU;
     } else {
         // Not "enum", treat as identifier
         ctx.stringStart = ctx.index - 3;  // Include 'e', 'n', 'u'
@@ -49,7 +49,7 @@ inline void handleStateNoneEnumEN(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateNoneEnumENU(ParserContext& ctx, char c) {
+inline void handleStateBlockEnumENU(ParserContext& ctx, char c) {
     if (c == ' ') {
         ctx.stringStart = 0;  // Reset for name parsing
         ctx.state = STATE::ENUM_DECLARATION_NAME;
@@ -66,7 +66,7 @@ inline void handleStateNoneEnumENU(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateNoneEnumENUM(ParserContext& ctx, char c) {
+inline void handleStateBlockEnumENUM(ParserContext& ctx, char c) {
     if (std::isspace(static_cast<unsigned char>(c))) {
         // Check if next non-space character is 'c' for const enum
         std::size_t tempIndex = ctx.index;
@@ -75,7 +75,7 @@ inline void handleStateNoneEnumENUM(ParserContext& ctx, char c) {
         }
         if (tempIndex < ctx.code.length() && ctx.code[tempIndex] == 'c') {
             // This is a const enum
-            ctx.state = STATE::NONE_CONS;  // Let const handler take over
+            ctx.state = STATE::BLOCK_CONS;  // Let const handler take over
             return;
         }
         ctx.stringStart = 0;  // Reset for name parsing
@@ -221,7 +221,7 @@ inline void handleStateEnumMemberSeparator(ParserContext& ctx, char c) {
     } else if (c == '}') {
         // End of enum
         ctx.currentNode = ctx.currentNode->parent;  // Go back to enum declaration
-        ctx.state = STATE::NONE;
+        ctx.state = STATE::BLOCK;
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         return;  // Skip whitespace
     } else {
@@ -237,7 +237,7 @@ inline void handleStateEnumBody(ParserContext& ctx, char c) {
     if (c == '}') {
         // End of enum
         ctx.currentNode = ctx.currentNode->parent;  // Go back to enum declaration
-        ctx.state = STATE::NONE;
+        ctx.state = STATE::BLOCK;
     } else if (std::isalnum(static_cast<unsigned char>(c)) != 0 || c == '_') {
         // Next enum member
         ctx.stringStart = ctx.index - 1;
@@ -1180,9 +1180,9 @@ inline void handleStateExportIdentifier(ParserContext& ctx, char c) {
 // TechnoScript specific handlers
 
 // Print statement handlers
-inline void handleStateNoneP(ParserContext& ctx, char c) {
+inline void handleStateBlockP(ParserContext& ctx, char c) {
     if (c == 'r') {
-        ctx.state = STATE::NONE_PR;
+        ctx.state = STATE::BLOCK_PR;
     } else {
         // Not "print", treat as identifier
         ctx.stringStart = ctx.index - 1;
@@ -1191,9 +1191,9 @@ inline void handleStateNoneP(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateNonePR(ParserContext& ctx, char c) {
+inline void handleStateBlockPR(ParserContext& ctx, char c) {
     if (c == 'i') {
-        ctx.state = STATE::NONE_PRI;
+        ctx.state = STATE::BLOCK_PRI;
     } else {
         // Not "print", treat as identifier
         ctx.stringStart = ctx.index - 2;
@@ -1202,9 +1202,9 @@ inline void handleStateNonePR(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateNonePRI(ParserContext& ctx, char c) {
+inline void handleStateBlockPRI(ParserContext& ctx, char c) {
     if (c == 'n') {
-        ctx.state = STATE::NONE_PRIN;
+        ctx.state = STATE::BLOCK_PRIN;
     } else {
         // Not "print", treat as identifier
         ctx.stringStart = ctx.index - 3;
@@ -1213,9 +1213,9 @@ inline void handleStateNonePRI(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateNonePRIN(ParserContext& ctx, char c) {
+inline void handleStateBlockPRIN(ParserContext& ctx, char c) {
     if (c == 't') {
-        ctx.state = STATE::NONE_PRINT;
+        ctx.state = STATE::BLOCK_PRINT;
     } else {
         // Not "print", treat as identifier
         ctx.stringStart = ctx.index - 4;
@@ -1224,7 +1224,7 @@ inline void handleStateNonePRIN(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateNonePRINT(ParserContext& ctx, char c) {
+inline void handleStateBlockPRINT(ParserContext& ctx, char c) {
     if (std::isspace(static_cast<unsigned char>(c)) || c == '(') {
         // Print statement
         auto* printStmt = new ASTNode(ctx.currentNode);
@@ -1259,9 +1259,9 @@ inline void handleStateStatementPrint(ParserContext& ctx, char c) {
 }
 
 // Go statement handlers
-inline void handleStateNoneG(ParserContext& ctx, char c) {
+inline void handleStateBlockG(ParserContext& ctx, char c) {
     if (c == 'o') {
-        ctx.state = STATE::NONE_GO;
+        ctx.state = STATE::BLOCK_GO;
     } else {
         // Not "go", treat as identifier
         ctx.stringStart = ctx.index - 1;
@@ -1270,7 +1270,7 @@ inline void handleStateNoneG(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateNoneGO(ParserContext& ctx, char c) {
+inline void handleStateBlockGO(ParserContext& ctx, char c) {
     if (std::isspace(static_cast<unsigned char>(c))) {
         // Go statement
         auto* goStmt = new ASTNode(ctx.currentNode);
@@ -1298,9 +1298,9 @@ inline void handleStateStatementGo(ParserContext& ctx, char c) {
 }
 
 // SetTimeout handlers
-inline void handleStateNoneSE(ParserContext& ctx, char c) {
+inline void handleStateBlockSE(ParserContext& ctx, char c) {
     if (c == 't') {
-        ctx.state = STATE::NONE_SET;
+        ctx.state = STATE::BLOCK_SET;
     } else {
         // Not "setTimeout", treat as identifier
         ctx.stringStart = ctx.index - 1;
@@ -1309,9 +1309,9 @@ inline void handleStateNoneSE(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateNoneSET(ParserContext& ctx, char c) {
+inline void handleStateBlockSET(ParserContext& ctx, char c) {
     if (c == 'T') {
-        ctx.state = STATE::NONE_SETT;
+        ctx.state = STATE::BLOCK_SETT;
     } else {
         // Not "setTimeout", treat as identifier
         ctx.stringStart = ctx.index - 2;
@@ -1320,9 +1320,9 @@ inline void handleStateNoneSET(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateNoneSETT(ParserContext& ctx, char c) {
+inline void handleStateBlockSETT(ParserContext& ctx, char c) {
     if (c == 'i') {
-        ctx.state = STATE::NONE_SETTI;
+        ctx.state = STATE::BLOCK_SETTI;
     } else {
         // Not "setTimeout", treat as identifier
         ctx.stringStart = ctx.index - 3;
@@ -1331,9 +1331,9 @@ inline void handleStateNoneSETT(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateNoneSETTI(ParserContext& ctx, char c) {
+inline void handleStateBlockSETTI(ParserContext& ctx, char c) {
     if (c == 'm') {
-        ctx.state = STATE::NONE_SETTIM;
+        ctx.state = STATE::BLOCK_SETTIM;
     } else {
         // Not "setTimeout", treat as identifier
         ctx.stringStart = ctx.index - 4;
@@ -1342,9 +1342,9 @@ inline void handleStateNoneSETTI(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateNoneSETTIM(ParserContext& ctx, char c) {
+inline void handleStateBlockSETTIM(ParserContext& ctx, char c) {
     if (c == 'e') {
-        ctx.state = STATE::NONE_SETTIMEO;
+        ctx.state = STATE::BLOCK_SETTIMEO;
     } else {
         // Not "setTimeout", treat as identifier
         ctx.stringStart = ctx.index - 5;
@@ -1353,9 +1353,9 @@ inline void handleStateNoneSETTIM(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateNoneSETTIMEO(ParserContext& ctx, char c) {
+inline void handleStateBlockSETTIMEO(ParserContext& ctx, char c) {
     if (c == 'o') {
-        ctx.state = STATE::NONE_SETTIMEOU;
+        ctx.state = STATE::BLOCK_SETTIMEOU;
     } else {
         // Not "setTimeout", treat as identifier
         ctx.stringStart = ctx.index - 6;
@@ -1364,9 +1364,9 @@ inline void handleStateNoneSETTIMEO(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateNoneSETTIMEOU(ParserContext& ctx, char c) {
+inline void handleStateBlockSETTIMEOU(ParserContext& ctx, char c) {
     if (c == 'u') {
-        ctx.state = STATE::NONE_SETTIMEOUT;
+        ctx.state = STATE::BLOCK_SETTIMEOUT;
     } else {
         // Not "setTimeout", treat as identifier
         ctx.stringStart = ctx.index - 7;
@@ -1375,7 +1375,7 @@ inline void handleStateNoneSETTIMEOU(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateNoneSETTIMEOUT(ParserContext& ctx, char c) {
+inline void handleStateBlockSETTIMEOUT(ParserContext& ctx, char c) {
     if (c == '(') {
         // SetTimeout statement
         auto* setTimeoutStmt = new ASTNode(ctx.currentNode);
@@ -1405,9 +1405,9 @@ inline void handleStateStatementSetTimeout(ParserContext& ctx, char c) {
 }
 
 // Sleep handlers
-inline void handleStateNoneSL(ParserContext& ctx, char c) {
+inline void handleStateBlockSL(ParserContext& ctx, char c) {
     if (c == 'e') {
-        ctx.state = STATE::NONE_SLE;
+        ctx.state = STATE::BLOCK_SLE;
     } else {
         // Not "sleep", treat as identifier
         ctx.stringStart = ctx.index - 1;
@@ -1416,9 +1416,9 @@ inline void handleStateNoneSL(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateNoneSLE(ParserContext& ctx, char c) {
+inline void handleStateBlockSLE(ParserContext& ctx, char c) {
     if (c == 'e') {
-        ctx.state = STATE::NONE_SLEE;
+        ctx.state = STATE::BLOCK_SLEE;
     } else {
         // Not "sleep", treat as identifier
         ctx.stringStart = ctx.index - 2;
@@ -1427,9 +1427,9 @@ inline void handleStateNoneSLE(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateNoneSLEE(ParserContext& ctx, char c) {
+inline void handleStateBlockSLEE(ParserContext& ctx, char c) {
     if (c == 'p') {
-        ctx.state = STATE::NONE_SLEEP;
+        ctx.state = STATE::BLOCK_SLEEP;
     } else {
         // Not "sleep", treat as identifier
         ctx.stringStart = ctx.index - 3;
@@ -1438,7 +1438,7 @@ inline void handleStateNoneSLEE(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateNoneSLEEP(ParserContext& ctx, char c) {
+inline void handleStateBlockSLEEP(ParserContext& ctx, char c) {
     if (c == '(') {
         // Sleep statement
         auto* sleepStmt = new ASTNode(ctx.currentNode);
@@ -1468,9 +1468,9 @@ inline void handleStateStatementSleep(ParserContext& ctx, char c) {
 }
 
 // RawMemory handlers
-inline void handleStateNoneR(ParserContext& ctx, char c) {
+inline void handleStateBlockR(ParserContext& ctx, char c) {
     if (c == 'a') {
-        ctx.state = STATE::NONE_RA;
+        ctx.state = STATE::BLOCK_RA;
     } else {
         // Not "RawMemory", treat as identifier
         ctx.stringStart = ctx.index - 1;
@@ -1479,9 +1479,9 @@ inline void handleStateNoneR(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateNoneRA(ParserContext& ctx, char c) {
+inline void handleStateBlockRA(ParserContext& ctx, char c) {
     if (c == 'w') {
-        ctx.state = STATE::NONE_RAW;
+        ctx.state = STATE::BLOCK_RAW;
     } else {
         // Not "RawMemory", treat as identifier
         ctx.stringStart = ctx.index - 2;
@@ -1490,9 +1490,9 @@ inline void handleStateNoneRA(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateNoneRAW(ParserContext& ctx, char c) {
+inline void handleStateBlockRAW(ParserContext& ctx, char c) {
     if (c == 'M') {
-        ctx.state = STATE::NONE_RAWM;
+        ctx.state = STATE::BLOCK_RAWM;
     } else {
         // Not "RawMemory", treat as identifier
         ctx.stringStart = ctx.index - 3;
@@ -1501,9 +1501,9 @@ inline void handleStateNoneRAW(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateNoneRAWM(ParserContext& ctx, char c) {
+inline void handleStateBlockRAWM(ParserContext& ctx, char c) {
     if (c == 'e') {
-        ctx.state = STATE::NONE_RAWME;
+        ctx.state = STATE::BLOCK_RAWME;
     } else {
         // Not "RawMemory", treat as identifier
         ctx.stringStart = ctx.index - 4;
@@ -1512,9 +1512,9 @@ inline void handleStateNoneRAWM(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateNoneRAWME(ParserContext& ctx, char c) {
+inline void handleStateBlockRAWME(ParserContext& ctx, char c) {
     if (c == 'm') {
-        ctx.state = STATE::NONE_RAWMEM;
+        ctx.state = STATE::BLOCK_RAWMEM;
     } else {
         // Not "RawMemory", treat as identifier
         ctx.stringStart = ctx.index - 5;
@@ -1523,9 +1523,9 @@ inline void handleStateNoneRAWME(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateNoneRAWMEM(ParserContext& ctx, char c) {
+inline void handleStateBlockRAWMEM(ParserContext& ctx, char c) {
     if (c == 'o') {
-        ctx.state = STATE::NONE_RAWMEMO;
+        ctx.state = STATE::BLOCK_RAWMEMO;
     } else {
         // Not "RawMemory", treat as identifier
         ctx.stringStart = ctx.index - 6;
@@ -1534,9 +1534,9 @@ inline void handleStateNoneRAWMEM(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateNoneRAWMEMO(ParserContext& ctx, char c) {
+inline void handleStateBlockRAWMEMO(ParserContext& ctx, char c) {
     if (c == 'r') {
-        ctx.state = STATE::NONE_RAWMEMOR;
+        ctx.state = STATE::BLOCK_RAWMEMOR;
     } else {
         // Not "RawMemory", treat as identifier
         ctx.stringStart = ctx.index - 7;
@@ -1545,9 +1545,9 @@ inline void handleStateNoneRAWMEMO(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateNoneRAWMEMOR(ParserContext& ctx, char c) {
+inline void handleStateBlockRAWMEMOR(ParserContext& ctx, char c) {
     if (c == 'y') {
-        ctx.state = STATE::NONE_RAWMEMORY;
+        ctx.state = STATE::BLOCK_RAWMEMORY;
     } else {
         // Not "RawMemory", treat as identifier
         ctx.stringStart = ctx.index - 8;
@@ -1556,7 +1556,7 @@ inline void handleStateNoneRAWMEMOR(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateNoneRAWMEMORY(ParserContext& ctx, char c) {
+inline void handleStateBlockRAWMEMORY(ParserContext& ctx, char c) {
     if (std::isspace(static_cast<unsigned char>(c))) {
         // RawMemory type
         ctx.state = STATE::TYPE_ANNOTATION;
@@ -1571,9 +1571,9 @@ inline void handleStateNoneRAWMEMORY(ParserContext& ctx, char c) {
 }
 
 // This handlers
-inline void handleStateNoneTH(ParserContext& ctx, char c) {
+inline void handleStateBlockTH(ParserContext& ctx, char c) {
     if (c == 'i') {
-        ctx.state = STATE::NONE_THI;
+        ctx.state = STATE::BLOCK_THI;
     } else {
         // Not "this", treat as identifier
         ctx.stringStart = ctx.index - 1;
@@ -1582,9 +1582,9 @@ inline void handleStateNoneTH(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateNoneTHI(ParserContext& ctx, char c) {
+inline void handleStateBlockTHI(ParserContext& ctx, char c) {
     if (c == 's') {
-        ctx.state = STATE::NONE_THIS;
+        ctx.state = STATE::BLOCK_THIS;
     } else {
         // Not "this", treat as identifier
         ctx.stringStart = ctx.index - 2;
@@ -1593,7 +1593,7 @@ inline void handleStateNoneTHI(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateNoneTHIS(ParserContext& ctx, char c) {
+inline void handleStateBlockTHIS(ParserContext& ctx, char c) {
     if (std::isspace(static_cast<unsigned char>(c)) || c == '.' || c == '[' || c == '(') {
         // This expression
         auto* thisExpr = new ASTNode(ctx.currentNode);
@@ -1621,16 +1621,16 @@ inline void handleStateExpressionThis(ParserContext& ctx, char c) {
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         // End of this expression
         ctx.currentNode = ctx.currentNode->parent;
-        ctx.state = STATE::NONE;
+        ctx.state = STATE::BLOCK;
     } else {
         throw std::runtime_error("Unexpected character after 'this'");
     }
 }
 
 // New handlers
-inline void handleStateNoneN(ParserContext& ctx, char c) {
+inline void handleStateBlockN(ParserContext& ctx, char c) {
     if (c == 'e') {
-        ctx.state = STATE::NONE_NE;
+        ctx.state = STATE::BLOCK_NE;
     } else {
         // Not "new", treat as identifier
         ctx.stringStart = ctx.index - 1;
@@ -1639,9 +1639,9 @@ inline void handleStateNoneN(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateNoneNE(ParserContext& ctx, char c) {
+inline void handleStateBlockNE(ParserContext& ctx, char c) {
     if (c == 'w') {
-        ctx.state = STATE::NONE_NEW;
+        ctx.state = STATE::BLOCK_NEW;
     } else {
         // Not "new", treat as identifier
         ctx.stringStart = ctx.index - 2;
@@ -1650,7 +1650,7 @@ inline void handleStateNoneNE(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateNoneNEW(ParserContext& ctx, char c) {
+inline void handleStateBlockNEW(ParserContext& ctx, char c) {
     if (std::isspace(static_cast<unsigned char>(c))) {
         // New expression
         auto* newExpr = new ASTNode(ctx.currentNode);

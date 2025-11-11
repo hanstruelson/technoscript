@@ -24,7 +24,7 @@ struct ExpressionFrame {
 // you may NOT add any properties to this state!
 // instead add them to the correct AST node and use that.
 struct ParserContext {
-    STATE state = STATE::NONE;
+    STATE state = STATE::BLOCK;
     ASTNode* root = nullptr;
     ASTNode* currentNode = nullptr;
     const std::string& code;

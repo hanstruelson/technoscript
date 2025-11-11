@@ -13,35 +13,35 @@
 inline void reportParseError(const std::string& code, std::size_t index, const std::string& message, STATE state);
 
 // Class declaration state handlers
-inline void handleStateNoneCL(ParserContext& ctx, char c) {
+inline void handleStateBlockCL(ParserContext& ctx, char c) {
     if (c == 'a') {
-        ctx.state = STATE::NONE_CLA;
+        ctx.state = STATE::BLOCK_CLA;
     } else {
-        ctx.state = STATE::NONE;
-        // Would need to include common_states.h for handleStateNone
+        ctx.state = STATE::BLOCK;
+        // Would need to include common_states.h for handleStateBlock
         throw std::runtime_error("Unexpected character in 'cl' sequence: " + std::string(1, c));
     }
 }
 
-inline void handleStateNoneCLA(ParserContext& ctx, char c) {
+inline void handleStateBlockCLA(ParserContext& ctx, char c) {
     if (c == 's') {
-        ctx.state = STATE::NONE_CLAS;
+        ctx.state = STATE::BLOCK_CLAS;
     } else {
-        ctx.state = STATE::NONE;
+        ctx.state = STATE::BLOCK;
         throw std::runtime_error("Unexpected character in 'cla' sequence: " + std::string(1, c));
     }
 }
 
-inline void handleStateNoneCLAS(ParserContext& ctx, char c) {
+inline void handleStateBlockCLAS(ParserContext& ctx, char c) {
     if (c == 's') {
-        ctx.state = STATE::NONE_CLASS;
+        ctx.state = STATE::BLOCK_CLASS;
     } else {
-        ctx.state = STATE::NONE;
+        ctx.state = STATE::BLOCK;
         throw std::runtime_error("Unexpected character in 'clas' sequence: " + std::string(1, c));
     }
 }
 
-inline void handleStateNoneCLASS(ParserContext& ctx, char c) {
+inline void handleStateBlockCLASS(ParserContext& ctx, char c) {
     if (std::isspace(static_cast<unsigned char>(c))) {
         // Create class declaration node
         auto* classNode = new ClassDeclarationNode(ctx.currentNode);
@@ -49,7 +49,7 @@ inline void handleStateNoneCLASS(ParserContext& ctx, char c) {
         ctx.currentNode = classNode;
         ctx.state = STATE::CLASS_DECLARATION_NAME;
     } else {
-        ctx.state = STATE::NONE;
+        ctx.state = STATE::BLOCK;
         throw std::runtime_error("Expected space after 'class': " + std::string(1, c));
     }
 }
@@ -222,7 +222,7 @@ inline void handleStateClassBody(ParserContext& ctx, char c) {
     if (c == '}') {
         // End of class body
         ctx.currentNode = ctx.currentNode->parent;
-        ctx.state = STATE::NONE;
+        ctx.state = STATE::BLOCK;
     } else if (c == 's') {
         // Check for 'static'
         ctx.state = STATE::CLASS_STATIC_START;

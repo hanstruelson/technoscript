@@ -10,7 +10,7 @@
 inline void handleStateExpectIdentifier(ParserContext& ctx, char c);
 
 // var keyword parsing - define in order of dependency
-inline void handleStateNoneVAR(ParserContext& ctx, char c) {
+inline void handleStateBlockVAR(ParserContext& ctx, char c) {
     if (c == ' ') {
         auto* parent = ctx.currentNode;
         auto* variable = new VariableDefinitionNode(parent, VariableDefinitionType::VAR);
@@ -24,9 +24,9 @@ inline void handleStateNoneVAR(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateNoneVA(ParserContext& ctx, char c) {
+inline void handleStateBlockVA(ParserContext& ctx, char c) {
     if (c == 'r') {
-        ctx.state = STATE::NONE_VAR;
+        ctx.state = STATE::BLOCK_VAR;
     } else {
         ctx.stringStart = ctx.index - 2;
         ctx.state = STATE::IDENTIFIER_NAME;
@@ -34,9 +34,9 @@ inline void handleStateNoneVA(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateNoneV(ParserContext& ctx, char c) {
+inline void handleStateBlockV(ParserContext& ctx, char c) {
     if (c == 'a') {
-        ctx.state = STATE::NONE_VA;
+        ctx.state = STATE::BLOCK_VA;
     } else {
         ctx.stringStart = ctx.index - 2;
         ctx.state = STATE::IDENTIFIER_NAME;
@@ -45,7 +45,7 @@ inline void handleStateNoneV(ParserContext& ctx, char c) {
 }
 
 // const keyword parsing
-inline void handleStateNoneCONST(ParserContext& ctx, char c) {
+inline void handleStateBlockCONST(ParserContext& ctx, char c) {
     if (c == ' ') {
         // Check if this is "const enum"
         std::size_t tempIndex = ctx.index;
@@ -83,9 +83,9 @@ inline void handleStateNoneCONST(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateNoneCONS(ParserContext& ctx, char c) {
+inline void handleStateBlockCONS(ParserContext& ctx, char c) {
     if (c == 't') {
-        ctx.state = STATE::NONE_CONST;
+        ctx.state = STATE::BLOCK_CONST;
     } else {
         ctx.stringStart = ctx.index - 2;
         ctx.state = STATE::IDENTIFIER_NAME;
@@ -93,9 +93,9 @@ inline void handleStateNoneCONS(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateNoneCON(ParserContext& ctx, char c) {
+inline void handleStateBlockCON(ParserContext& ctx, char c) {
     if (c == 's') {
-        ctx.state = STATE::NONE_CONS;
+        ctx.state = STATE::BLOCK_CONS;
     } else {
         ctx.stringStart = ctx.index - 2;
         ctx.state = STATE::IDENTIFIER_NAME;
@@ -103,9 +103,9 @@ inline void handleStateNoneCON(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateNoneCO(ParserContext& ctx, char c) {
+inline void handleStateBlockCO(ParserContext& ctx, char c) {
     if (c == 'n') {
-        ctx.state = STATE::NONE_CON;
+        ctx.state = STATE::BLOCK_CON;
     } else {
         ctx.stringStart = ctx.index - 2;
         ctx.state = STATE::IDENTIFIER_NAME;
@@ -113,11 +113,11 @@ inline void handleStateNoneCO(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateNoneC(ParserContext& ctx, char c) {
+inline void handleStateBlockC(ParserContext& ctx, char c) {
     if (c == 'o') {
-        ctx.state = STATE::NONE_CO;
+        ctx.state = STATE::BLOCK_CO;
     } else if (c == 'l') {
-        ctx.state = STATE::NONE_CL;
+        ctx.state = STATE::BLOCK_CL;
     } else {
         ctx.stringStart = ctx.index - 2;
         ctx.state = STATE::IDENTIFIER_NAME;
@@ -126,7 +126,7 @@ inline void handleStateNoneC(ParserContext& ctx, char c) {
 }
 
 // let keyword parsing
-inline void handleStateNoneLET(ParserContext& ctx, char c) {
+inline void handleStateBlockLET(ParserContext& ctx, char c) {
     if (c == ' ') {
         auto* parent = ctx.currentNode;
         auto* variable = new VariableDefinitionNode(parent, VariableDefinitionType::LET);
@@ -140,9 +140,9 @@ inline void handleStateNoneLET(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateNoneLE(ParserContext& ctx, char c) {
+inline void handleStateBlockLE(ParserContext& ctx, char c) {
     if (c == 't') {
-        ctx.state = STATE::NONE_LET;
+        ctx.state = STATE::BLOCK_LET;
     } else {
         ctx.stringStart = ctx.index - 2;
         ctx.state = STATE::IDENTIFIER_NAME;
@@ -150,9 +150,9 @@ inline void handleStateNoneLE(ParserContext& ctx, char c) {
     }
 }
 
-inline void handleStateNoneL(ParserContext& ctx, char c) {
+inline void handleStateBlockL(ParserContext& ctx, char c) {
     if (c == 'e') {
-        ctx.state = STATE::NONE_LE;
+        ctx.state = STATE::BLOCK_LE;
     } else {
         ctx.stringStart = ctx.index - 2;
         ctx.state = STATE::IDENTIFIER_NAME;

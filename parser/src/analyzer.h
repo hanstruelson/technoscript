@@ -678,11 +678,7 @@ public:
         return context.classRegistry;
     }
 
-    std::vector<FunctionDeclarationNode*> getFunctionRegistry() {
-        std::vector<FunctionDeclarationNode*> functions;
-        collectFunctionsFromAST(root, functions);
-        return functions;
-    }
+
 
 private:
     // First pass: collect classes and resolve inheritance
@@ -709,19 +705,7 @@ private:
     }
 
 private:
-    ASTNode* root; // Store the root for function collection
-
-    void collectFunctionsFromAST(ASTNode* node, std::vector<FunctionDeclarationNode*>& functions) {
-        if (!node) return;
-
-        if (node->nodeType == ASTNodeType::FUNCTION_DECLARATION) {
-            functions.push_back(static_cast<FunctionDeclarationNode*>(node));
-        }
-
-        for (auto* child : node->children) {
-            collectFunctionsFromAST(child, functions);
-        }
-    }
+    ASTNode* root; // Store the root for analysis
 };
 
 // Test function to demonstrate analyzer

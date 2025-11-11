@@ -31,70 +31,70 @@ inline bool isInterfaceMemberStart(char c, const ParserContext& ctx) {
 }
 
 // Interface declaration state handlers
-inline void handleStateNoneIN(ParserContext& ctx, char c) {
+inline void handleStateBlockIN(ParserContext& ctx, char c) {
     if (c == 't') {
-        ctx.state = STATE::NONE_INT;
+        ctx.state = STATE::BLOCK_INT;
     } else {
-        ctx.state = STATE::NONE;
+        ctx.state = STATE::BLOCK;
         throw std::runtime_error("Unexpected character in 'in' sequence: " + std::string(1, c));
     }
 }
 
-inline void handleStateNoneINT(ParserContext& ctx, char c) {
+inline void handleStateBlockINT(ParserContext& ctx, char c) {
     if (c == 'e') {
-        ctx.state = STATE::NONE_INTE;
+        ctx.state = STATE::BLOCK_INTE;
     } else {
-        ctx.state = STATE::NONE;
+        ctx.state = STATE::BLOCK;
         throw std::runtime_error("Unexpected character in 'int' sequence: " + std::string(1, c));
     }
 }
 
-inline void handleStateNoneINTE(ParserContext& ctx, char c) {
+inline void handleStateBlockINTE(ParserContext& ctx, char c) {
     if (c == 'r') {
-        ctx.state = STATE::NONE_INTER;
+        ctx.state = STATE::BLOCK_INTER;
     } else {
-        ctx.state = STATE::NONE;
+        ctx.state = STATE::BLOCK;
         throw std::runtime_error("Unexpected character in 'inte' sequence: " + std::string(1, c));
     }
 }
 
-inline void handleStateNoneINTER(ParserContext& ctx, char c) {
+inline void handleStateBlockINTER(ParserContext& ctx, char c) {
     if (c == 'f') {
-        ctx.state = STATE::NONE_INTERF;
+        ctx.state = STATE::BLOCK_INTERF;
     } else {
-        ctx.state = STATE::NONE;
+        ctx.state = STATE::BLOCK;
         throw std::runtime_error("Unexpected character in 'inter' sequence: " + std::string(1, c));
     }
 }
 
-inline void handleStateNoneINTERF(ParserContext& ctx, char c) {
+inline void handleStateBlockINTERF(ParserContext& ctx, char c) {
     if (c == 'a') {
-        ctx.state = STATE::NONE_INTERFA;
+        ctx.state = STATE::BLOCK_INTERFA;
     } else {
-        ctx.state = STATE::NONE;
+        ctx.state = STATE::BLOCK;
         throw std::runtime_error("Unexpected character in 'interf' sequence: " + std::string(1, c));
     }
 }
 
-inline void handleStateNoneINTERFA(ParserContext& ctx, char c) {
+inline void handleStateBlockINTERFA(ParserContext& ctx, char c) {
     if (c == 'c') {
-        ctx.state = STATE::NONE_INTERFAC;
+        ctx.state = STATE::BLOCK_INTERFAC;
     } else {
-        ctx.state = STATE::NONE;
+        ctx.state = STATE::BLOCK;
         throw std::runtime_error("Unexpected character in 'interfa' sequence: " + std::string(1, c));
     }
 }
 
-inline void handleStateNoneINTERFAC(ParserContext& ctx, char c) {
+inline void handleStateBlockINTERFAC(ParserContext& ctx, char c) {
     if (c == 'e') {
-        ctx.state = STATE::NONE_INTERFACE;
+        ctx.state = STATE::BLOCK_INTERFACE;
     } else {
-        ctx.state = STATE::NONE;
+        ctx.state = STATE::BLOCK;
         throw std::runtime_error("Unexpected character in 'interfac' sequence: " + std::string(1, c));
     }
 }
 
-inline void handleStateNoneINTERFACE(ParserContext& ctx, char c) {
+inline void handleStateBlockINTERFACE(ParserContext& ctx, char c) {
     if (std::isspace(static_cast<unsigned char>(c))) {
         // Create interface declaration node
         auto* interfaceNode = new InterfaceDeclarationNode(ctx.currentNode);
@@ -103,7 +103,7 @@ inline void handleStateNoneINTERFACE(ParserContext& ctx, char c) {
         ctx.stringStart = 0; // Reset for name parsing
         ctx.state = STATE::INTERFACE_DECLARATION_NAME;
     } else {
-        ctx.state = STATE::NONE;
+        ctx.state = STATE::BLOCK;
         throw std::runtime_error("Expected space after 'interface': " + std::string(1, c));
     }
 }
@@ -239,7 +239,7 @@ inline void handleStateInterfaceBody(ParserContext& ctx, char c) {
     if (c == '}') {
         // End of interface body
         ctx.currentNode = ctx.currentNode->parent;
-        ctx.state = STATE::NONE;
+        ctx.state = STATE::BLOCK;
     } else if (c == '[') {
         // Index signature start
         ctx.state = STATE::INTERFACE_INDEX_SIGNATURE_START;

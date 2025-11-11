@@ -9,8 +9,8 @@
 #include "../lib/expression_builder.h"
 #include "../lib/handle_post_operand.h"
 
-// Define in order of dependency - handleStateNone and handleStateExpressionAfterOperand first
-inline void handleStateNone(ParserContext& ctx, char c);
+// Define in order of dependency - handleStateBlock and handleStateExpressionAfterOperand first
+inline void handleStateBlock(ParserContext& ctx, char c);
 inline void handleStateExpressionAfterOperand(ParserContext& ctx, char c);
 
 inline void ParenthesisExpressionNode::closeParenthesis(ParserContext& ctx) {
@@ -53,7 +53,7 @@ inline void handleStateExpressionAfterOperand(ParserContext& ctx, char c) {
             ctx.state = STATE::ENUM_MEMBER_SEPARATOR;
         } else {
             // End of enum
-            ctx.state = STATE::NONE;
+            ctx.state = STATE::BLOCK;
         }
         // Re-process this character in the new state
         ctx.index--;
@@ -152,7 +152,7 @@ inline void handleStateExpressionAfterOperandNewLine(ParserContext& ctx, char c)
     if (handlePostOperand(ctx, c)) {
         return;
     }
-    ctx.state = STATE::NONE;
+    ctx.state = STATE::BLOCK;
     ctx.index--;
 }
 

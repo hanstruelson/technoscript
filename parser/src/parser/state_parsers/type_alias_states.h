@@ -11,23 +11,23 @@
 #include "../state.h"
 
 // Type alias parsing states
-inline void handleStateNoneTY(ParserContext& ctx, char c) {
+inline void handleStateBlockTY(ParserContext& ctx, char c) {
     if (c == 'p') {
-        ctx.state = STATE::NONE_TYP;
+        ctx.state = STATE::BLOCK_TYP;
     } else {
         throw std::runtime_error("Expected 'p' after 'ty': " + std::string(1, c));
     }
 }
 
-inline void handleStateNoneTYP(ParserContext& ctx, char c) {
+inline void handleStateBlockTYP(ParserContext& ctx, char c) {
     if (c == 'e') {
-        ctx.state = STATE::NONE_TYPE;
+        ctx.state = STATE::BLOCK_TYPE;
     } else {
         throw std::runtime_error("Expected 'e' after 'typ': " + std::string(1, c));
     }
 }
 
-inline void handleStateNoneTYPE(ParserContext& ctx, char c) {
+inline void handleStateBlockTYPE(ParserContext& ctx, char c) {
     if (std::isspace(static_cast<unsigned char>(c))) {
         // Create type alias node
         auto* typeAliasNode = new TypeAliasNode(ctx.currentNode);
@@ -177,7 +177,7 @@ inline void handleStateTypeAliasType(ParserContext& ctx, char c) {
     if (c == ';') {
         // End of type alias
         ctx.currentNode = ctx.currentNode->parent;
-        ctx.state = STATE::NONE;
+        ctx.state = STATE::BLOCK;
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace
         return;

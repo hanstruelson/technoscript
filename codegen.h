@@ -62,7 +62,7 @@ public:
     ~CodeGenerator();
     
     // Main code generation entry point
-    void* generateCode(ASTNode* root, const std::map<std::string, ClassDeclarationNode*>& classRegistry, std::vector<FunctionDeclarationNode*>& functionRegistry);
+    void* generateCode(ASTNode* root, const std::map<std::string, ClassDeclarationNode*>& classRegistry);
     
     // Core codegen methods for the basic functionality
     void allocateScope(LexicalScopeNode* scope);
@@ -90,7 +90,7 @@ private:
     
     // Helper methods
     void visitNode(ASTNode* node);
-    void generateProgram(ASTNode* root, std::vector<FunctionDeclarationNode*>& functionRegistry);
+    void generateProgram(ASTNode* root);
     void generateAllFunctions(const std::vector<FunctionDeclarationNode*>& functionRegistry);
     void generateVarDecl(VariableDefinitionNode* varDecl);
     void generateLetDecl(VariableDefinitionNode* letDecl);
@@ -160,7 +160,7 @@ public:
     Codegen();
     ~Codegen();
     
-    void generateProgram(ASTNode& root, const std::map<std::string, ClassDeclarationNode*>& classRegistry, std::vector<FunctionDeclarationNode*>& functionRegistry);
+    void generateProgram(ASTNode& root, const std::map<std::string, ClassDeclarationNode*>& classRegistry);
     void run();
     
 private:

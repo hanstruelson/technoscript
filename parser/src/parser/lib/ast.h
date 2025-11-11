@@ -11,6 +11,8 @@
 // Include asmjit for compatibility
 #include <asmjit/asmjit.h>
 
+#include "parser_context.h"
+
 using namespace std;
 
 
@@ -35,7 +37,7 @@ enum class AccessModifier {
     PUBLIC,
     PRIVATE,
     PROTECTED,
-    NONE
+    BLOCK
 };
 
 // Forward declarations for analysis structures
@@ -188,6 +190,10 @@ public:
     ASTNodeType type; // Alias for nodeType
 
     ASTNode(ASTNode* parent) : nodeType(ASTNodeType::AST_NODE), value(""), parent(parent), type(ASTNodeType::AST_NODE) {}
+
+    virtual void onBlockComplete(ParserContext& ctx) {
+        // Default: do nothing
+    }
 
     void addChild(ASTNode* child) {
         child->parent = this;
@@ -855,6 +861,10 @@ public:
     IfStatement(ASTNode* parent) : ControlStatement(parent, ASTNodeType::IF_STATEMENT), condition(nullptr) {
     }
 
+    void onBlockComplete(ParserContext& ctx) override {
+        ctx.state = STATE::IF_ALTERNATE_START;
+    }
+
     void print(std::ostream& os, int indent) const override {
         auto pad = [indent]() { return string(indent * 2, ' '); };
         os << pad() << "IfStatement\n";
@@ -1117,14 +1127,14 @@ public:
     bool isStatic;
     bool isReadonly;
 
-    ClassPropertyNode(ASTNode* parent) : ASTNode(parent), typeAnnotation(nullptr), initializer(nullptr), accessModifier(AccessModifier::NONE), isStatic(false), isReadonly(false) {
+    ClassPropertyNode(ASTNode* parent) : ASTNode(parent), typeAnnotation(nullptr), initializer(nullptr), accessModifier(AccessModifier::BLOCK), isStatic(false), isReadonly(false) {
         nodeType = ASTNodeType::CLASS_PROPERTY;
     }
 
     void print(std::ostream& os, int indent) const override {
         auto pad = [indent]() { return string(indent * 2, ' '); };
         os << pad() << "ClassProperty(" << name;
-        if (accessModifier != AccessModifier::NONE) {
+        if (accessModifier != AccessModifier::BLOCK) {
             static const char* accessMap[] = {"public", "private", "protected", ""};
             os << ", " << accessMap[static_cast<int>(accessModifier)];
         }
@@ -1146,14 +1156,14 @@ public:
     bool isStatic;
     bool isAbstract;
 
-    ClassMethodNode(ASTNode* parent) : ASTNode(parent), parameters(nullptr), returnType(nullptr), body(nullptr), accessModifier(AccessModifier::NONE), isStatic(false), isAbstract(false) {
+    ClassMethodNode(ASTNode* parent) : ASTNode(parent), parameters(nullptr), returnType(nullptr), body(nullptr), accessModifier(AccessModifier::BLOCK), isStatic(false), isAbstract(false) {
         nodeType = ASTNodeType::CLASS_METHOD;
     }
 
     void print(std::ostream& os, int indent) const override {
         auto pad = [indent]() { return string(indent * 2, ' '); };
         os << pad() << "ClassMethod(" << name;
-        if (accessModifier != AccessModifier::NONE) {
+        if (accessModifier != AccessModifier::BLOCK) {
             static const char* accessMap[] = {"public", "private", "protected", ""};
             os << ", " << accessMap[static_cast<int>(accessModifier)];
         }
@@ -1300,14 +1310,14 @@ public:
     AccessModifier accessModifier;
     bool isStatic;
 
-    ClassGetterNode(ASTNode* parent) : ASTNode(parent), returnType(nullptr), body(nullptr), accessModifier(AccessModifier::NONE), isStatic(false) {
+    ClassGetterNode(ASTNode* parent) : ASTNode(parent), returnType(nullptr), body(nullptr), accessModifier(AccessModifier::BLOCK), isStatic(false) {
         nodeType = ASTNodeType::CLASS_GETTER;
     }
 
     void print(std::ostream& os, int indent) const override {
         auto pad = [indent]() { return string(indent * 2, ' '); };
         os << pad() << "ClassGetter(" << name;
-        if (accessModifier != AccessModifier::NONE) {
+        if (accessModifier != AccessModifier::BLOCK) {
             static const char* accessMap[] = {"public", "private", "protected", ""};
             os << ", " << accessMap[static_cast<int>(accessModifier)];
         }
@@ -1326,14 +1336,14 @@ public:
     AccessModifier accessModifier;
     bool isStatic;
 
-    ClassSetterNode(ASTNode* parent) : ASTNode(parent), parameter(nullptr), body(nullptr), accessModifier(AccessModifier::NONE), isStatic(false) {
+    ClassSetterNode(ASTNode* parent) : ASTNode(parent), parameter(nullptr), body(nullptr), accessModifier(AccessModifier::BLOCK), isStatic(false) {
         nodeType = ASTNodeType::CLASS_SETTER;
     }
 
     void print(std::ostream& os, int indent) const override {
         auto pad = [indent]() { return string(indent * 2, ' '); };
         os << pad() << "ClassSetter(" << name;
-        if (accessModifier != AccessModifier::NONE) {
+        if (accessModifier != AccessModifier::BLOCK) {
             static const char* accessMap[] = {"public", "private", "protected", ""};
             os << ", " << accessMap[static_cast<int>(accessModifier)];
         }

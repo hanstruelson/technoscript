@@ -12,7 +12,7 @@ int main(int argc, char* argv[]) {
 
     std::cout << "DEBUG: Using built-in test program" << std::endl;
         std::string code = R"(
-var x: int = 42;
+var x: int64=42;
 print(x)
 )";
 // class Dog {
@@ -47,7 +47,6 @@ print(x)
 
     // Get registries from analyzer
     auto classReg = analyzer.getClassRegistry();
-    auto funcReg = analyzer.getFunctionRegistry();
 
     // Build class metadata registry (needed for GC tracing)
     std::cout << "DEBUG: Building class metadata registry..." << std::endl;
@@ -55,7 +54,7 @@ print(x)
     std::cout << "DEBUG: Class metadata registry built successfully" << std::endl;
 
     std::cout << "DEBUG: Starting code generation..." << std::endl;
-    codeGen.generateProgram(*ast, classReg, funcReg);
+    codeGen.generateProgram(*ast, classReg);
     std::cout << "DEBUG: Code generation completed successfully" << std::endl;
 
     // Directly run generated program for debugging

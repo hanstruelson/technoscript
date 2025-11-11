@@ -9,45 +9,45 @@
 // Async/await state handlers
 
 // "a" keyword detection
-inline void handleStateNoneA(ParserContext& ctx, char c) {
+inline void handleStateBlockA(ParserContext& ctx, char c) {
     if (c == 's') {
-        ctx.state = STATE::NONE_AS;
+        ctx.state = STATE::BLOCK_AS;
     } else if (c == 'w') {
-        ctx.state = STATE::NONE_AW;
+        ctx.state = STATE::BLOCK_AW;
     } else {
         throw std::runtime_error("Unexpected character after 'a': " + std::string(1, c));
     }
 }
 
 // "as" keyword continuation
-inline void handleStateNoneAS(ParserContext& ctx, char c) {
+inline void handleStateBlockAS(ParserContext& ctx, char c) {
     if (c == 'y') {
-        ctx.state = STATE::NONE_ASY;
+        ctx.state = STATE::BLOCK_ASY;
     } else {
         throw std::runtime_error("Expected 'y' after 'as': " + std::string(1, c));
     }
 }
 
 // "asy" keyword continuation
-inline void handleStateNoneASY(ParserContext& ctx, char c) {
+inline void handleStateBlockASY(ParserContext& ctx, char c) {
     if (c == 'n') {
-        ctx.state = STATE::NONE_ASYN;
+        ctx.state = STATE::BLOCK_ASYN;
     } else {
         throw std::runtime_error("Expected 'n' after 'asy': " + std::string(1, c));
     }
 }
 
 // "asyn" keyword continuation
-inline void handleStateNoneASYN(ParserContext& ctx, char c) {
+inline void handleStateBlockASYN(ParserContext& ctx, char c) {
     if (c == 'c') {
-        ctx.state = STATE::NONE_ASYN;
+        ctx.state = STATE::BLOCK_ASYN;
     } else {
         throw std::runtime_error("Expected 'c' after 'asyn': " + std::string(1, c));
     }
 }
 
 // "async" keyword completion
-inline void handleStateNoneASYNC(ParserContext& ctx, char c) {
+inline void handleStateBlockASYNC(ParserContext& ctx, char c) {
     if (c == ' ') {
         // Async function declaration
         auto* funcNode = new FunctionDeclarationNode(ctx.currentNode);
@@ -61,34 +61,34 @@ inline void handleStateNoneASYNC(ParserContext& ctx, char c) {
 }
 
 // "aw" keyword continuation
-inline void handleStateNoneAW(ParserContext& ctx, char c) {
+inline void handleStateBlockAW(ParserContext& ctx, char c) {
     if (c == 'a') {
-        ctx.state = STATE::NONE_AWA;
+        ctx.state = STATE::BLOCK_AWA;
     } else {
         throw std::runtime_error("Expected 'a' after 'aw': " + std::string(1, c));
     }
 }
 
 // "awa" keyword continuation
-inline void handleStateNoneAWA(ParserContext& ctx, char c) {
+inline void handleStateBlockAWA(ParserContext& ctx, char c) {
     if (c == 'i') {
-        ctx.state = STATE::NONE_AWAI;
+        ctx.state = STATE::BLOCK_AWAI;
     } else {
         throw std::runtime_error("Expected 'i' after 'awa': " + std::string(1, c));
     }
 }
 
 // "awai" keyword continuation
-inline void handleStateNoneAWAI(ParserContext& ctx, char c) {
+inline void handleStateBlockAWAI(ParserContext& ctx, char c) {
     if (c == 't') {
-        ctx.state = STATE::NONE_AWAIT;
+        ctx.state = STATE::BLOCK_AWAIT;
     } else {
         throw std::runtime_error("Expected 't' after 'awai': " + std::string(1, c));
     }
 }
 
 // "await" keyword completion
-inline void handleStateNoneAWAIT(ParserContext& ctx, char c) {
+inline void handleStateBlockAWAIT(ParserContext& ctx, char c) {
     if (c == ' ') {
         // Await expression
         ctx.state = STATE::EXPRESSION_AWAIT;

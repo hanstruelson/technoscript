@@ -35,7 +35,7 @@ inline bool handlePostOperand(ParserContext& ctx, char c) {
         ParenthesisExpressionNode::closeParenthesis(ctx);
         // Check if we just closed a print statement
         if (ctx.currentNode && ctx.currentNode->value == "print") {
-            ctx.state = STATE::NONE;
+            ctx.state = STATE::BLOCK;
         }
     } else if (c == '+') {
         // Check if this is postfix increment (++ after operand)
@@ -175,16 +175,16 @@ inline bool handlePostOperand(ParserContext& ctx, char c) {
                 return false;
             } else if (parent->nodeType == ASTNodeType::WHILE_STATEMENT) {
                 // End of while body single statement
-                ctx.state = STATE::NONE;
+                ctx.state = STATE::BLOCK;
                 return false;
             } else if (parent->nodeType == ASTNodeType::FOR_STATEMENT) {
                 // End of for body single statement
-                ctx.state = STATE::NONE;
+                ctx.state = STATE::BLOCK;
                 return false;
             }
         }
 
-        ctx.state = STATE::NONE;
+        ctx.state = STATE::BLOCK;
     } else {
         return true;
     }

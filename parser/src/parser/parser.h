@@ -47,65 +47,65 @@ inline ASTNode* parse(const std::string& code) {
         try {
             char c = code[ctx.index++];
             switch (ctx.state) {
-                case STATE::NONE:
-                    handleStateNone(ctx, c);
+                case STATE::BLOCK:
+                    handleStateBlock(ctx, c);
                     break;
-                case STATE::NONE_V:
-                    handleStateNoneV(ctx, c);
+                case STATE::BLOCK_V:
+                    handleStateBlockV(ctx, c);
                     break;
-                case STATE::NONE_VA:
-                    handleStateNoneVA(ctx, c);
+                case STATE::BLOCK_VA:
+                    handleStateBlockVA(ctx, c);
                     break;
-                case STATE::NONE_VAR:
-                    handleStateNoneVAR(ctx, c);
+                case STATE::BLOCK_VAR:
+                    handleStateBlockVAR(ctx, c);
                     break;
-                case STATE::NONE_C:
-                    handleStateNoneC(ctx, c);
+                case STATE::BLOCK_C:
+                    handleStateBlockC(ctx, c);
                     break;
-                case STATE::NONE_CO:
-                    handleStateNoneCO(ctx, c);
+                case STATE::BLOCK_CO:
+                    handleStateBlockCO(ctx, c);
                     break;
-                case STATE::NONE_CON:
-                    handleStateNoneCON(ctx, c);
+                case STATE::BLOCK_CON:
+                    handleStateBlockCON(ctx, c);
                     break;
-                case STATE::NONE_CONS:
-                    handleStateNoneCONS(ctx, c);
+                case STATE::BLOCK_CONS:
+                    handleStateBlockCONS(ctx, c);
                     break;
-                case STATE::NONE_CONST:
-                    handleStateNoneCONST(ctx, c);
+                case STATE::BLOCK_CONST:
+                    handleStateBlockCONST(ctx, c);
                     break;
-                case STATE::NONE_L:
-                    handleStateNoneL(ctx, c);
+                case STATE::BLOCK_L:
+                    handleStateBlockL(ctx, c);
                     break;
-                case STATE::NONE_LE:
-                    handleStateNoneLE(ctx, c);
+                case STATE::BLOCK_LE:
+                    handleStateBlockLE(ctx, c);
                     break;
-                case STATE::NONE_LET:
-                    handleStateNoneLET(ctx, c);
+                case STATE::BLOCK_LET:
+                    handleStateBlockLET(ctx, c);
                     break;
-                case STATE::NONE_F:
-                    handleStateNoneF(ctx, c);
+                case STATE::BLOCK_F:
+                    handleStateBlockF(ctx, c);
                     break;
-                case STATE::NONE_FU:
-                    handleStateNoneFU(ctx, c);
+                case STATE::BLOCK_FU:
+                    handleStateBlockFU(ctx, c);
                     break;
-                case STATE::NONE_FUN:
-                    handleStateNoneFUN(ctx, c);
+                case STATE::BLOCK_FUN:
+                    handleStateBlockFUN(ctx, c);
                     break;
-                case STATE::NONE_FUNC:
-                    handleStateNoneFUNC(ctx, c);
+                case STATE::BLOCK_FUNC:
+                    handleStateBlockFUNC(ctx, c);
                     break;
-                case STATE::NONE_FUNCT:
-                    handleStateNoneFUNCT(ctx, c);
+                case STATE::BLOCK_FUNCT:
+                    handleStateBlockFUNCT(ctx, c);
                     break;
-                case STATE::NONE_FUNCTI:
-                    handleStateNoneFUNCTI(ctx, c);
+                case STATE::BLOCK_FUNCTI:
+                    handleStateBlockFUNCTI(ctx, c);
                     break;
-                case STATE::NONE_FUNCTIO:
-                    handleStateNoneFUNCTIO(ctx, c);
+                case STATE::BLOCK_FUNCTIO:
+                    handleStateBlockFUNCTIO(ctx, c);
                     break;
-                case STATE::NONE_FUNCTION:
-                    handleStateNoneFUNCTION(ctx, c);
+                case STATE::BLOCK_FUNCTION:
+                    handleStateBlockFUNCTION(ctx, c);
                     break;
 
                 case STATE::EXPECT_IDENTIFIER:
@@ -247,9 +247,6 @@ inline ASTNode* parse(const std::string& code) {
                 case STATE::FUNCTION_BODY_START:
                     handleStateFunctionBodyStart(ctx, c);
                     break;
-                case STATE::FUNCTION_BODY:
-                    handleStateFunctionBody(ctx, c);
-                    break;
                 case STATE::ARROW_FUNCTION_PARAMETERS:
                     handleStateArrowFunctionParameters(ctx, c);
                     break;
@@ -286,35 +283,29 @@ inline ASTNode* parse(const std::string& code) {
                 case STATE::IF_CONDITION_START:
                     handleStateIfConditionStart(ctx, c);
                     break;
-                case STATE::IF_CONSEQUENT:
-                    handleStateIfConsequent(ctx, c);
-                    break;
                 case STATE::IF_ALTERNATE_START:
                     handleStateIfAlternateStart(ctx, c);
                     break;
                 case STATE::IF_ALTERNATE:
                     handleStateIfAlternate(ctx, c);
                     break;
-                case STATE::NONE_W:
-                    handleStateNoneW(ctx, c);
+                case STATE::BLOCK_W:
+                    handleStateBlockW(ctx, c);
                     break;
-                case STATE::NONE_WH:
-                    handleStateNoneWH(ctx, c);
+                case STATE::BLOCK_WH:
+                    handleStateBlockWH(ctx, c);
                     break;
-                case STATE::NONE_WHI:
-                    handleStateNoneWHI(ctx, c);
+                case STATE::BLOCK_WHI:
+                    handleStateBlockWHI(ctx, c);
                     break;
-                case STATE::NONE_WHIL:
-                    handleStateNoneWHIL(ctx, c);
+                case STATE::BLOCK_WHIL:
+                    handleStateBlockWHIL(ctx, c);
                     break;
-                case STATE::NONE_WHILE:
-                    handleStateNoneWHILE(ctx, c);
+                case STATE::BLOCK_WHILE:
+                    handleStateBlockWHILE(ctx, c);
                     break;
                 case STATE::WHILE_CONDITION_START:
                     handleStateWhileConditionStart(ctx, c);
-                    break;
-                case STATE::WHILE_BODY:
-                    handleStateWhileBody(ctx, c);
                     break;
                 case STATE::EXPRESSION_LESS:
                     handleStateExpressionLess(ctx, c);
@@ -449,26 +440,26 @@ inline ASTNode* parse(const std::string& code) {
                 case STATE::EXPRESSION_REGEXP_FLAGS:
                     handleStateExpressionRegExpFlags(ctx, c);
                     break;
-                case STATE::NONE_D:
-                    handleStateNoneD(ctx, c);
+                case STATE::BLOCK_D:
+                    handleStateBlockD(ctx, c);
                     break;
-                case STATE::NONE_DO:
-                    handleStateNoneDO(ctx, c);
+                case STATE::BLOCK_DO:
+                    handleStateBlockDO(ctx, c);
                     break;
-                case STATE::NONE_DOW:
-                    handleStateNoneDOW(ctx, c);
+                case STATE::BLOCK_DOW:
+                    handleStateBlockDOW(ctx, c);
                     break;
-                case STATE::NONE_DOWH:
-                    handleStateNoneDOWH(ctx, c);
+                case STATE::BLOCK_DOWH:
+                    handleStateBlockDOWH(ctx, c);
                     break;
-                case STATE::NONE_DOWHI:
-                    handleStateNoneDOWHI(ctx, c);
+                case STATE::BLOCK_DOWHI:
+                    handleStateBlockDOWHI(ctx, c);
                     break;
-                case STATE::NONE_DOWHIL:
-                    handleStateNoneDOWHIL(ctx, c);
+                case STATE::BLOCK_DOWHIL:
+                    handleStateBlockDOWHIL(ctx, c);
                     break;
-                case STATE::NONE_DOWHILE:
-                    handleStateNoneDOWHILE(ctx, c);
+                case STATE::BLOCK_DOWHILE:
+                    handleStateBlockDOWHILE(ctx, c);
                     break;
                 case STATE::DO_BODY_START:
                     handleStateDoBodyStart(ctx, c);
@@ -479,11 +470,11 @@ inline ASTNode* parse(const std::string& code) {
                 case STATE::DO_WHILE_CONDITION_START:
                     handleStateDoWhileConditionStart(ctx, c);
                     break;
-                case STATE::NONE_FO:
-                    handleStateNoneFO(ctx, c);
+                case STATE::BLOCK_FO:
+                    handleStateBlockFO(ctx, c);
                     break;
-                case STATE::NONE_FOR:
-                    handleStateNoneFOR(ctx, c);
+                case STATE::BLOCK_FOR:
+                    handleStateBlockFOR(ctx, c);
                     break;
                 case STATE::FOR_INIT_START:
                     handleStateForInitStart(ctx, c);
@@ -509,23 +500,23 @@ inline ASTNode* parse(const std::string& code) {
                 case STATE::FOR_BODY:
                     handleStateForBody(ctx, c);
                     break;
-                case STATE::NONE_S:
-                    handleStateNoneS(ctx, c);
+                case STATE::BLOCK_S:
+                    handleStateBlockS(ctx, c);
                     break;
-                case STATE::NONE_SW:
-                    handleStateNoneSW(ctx, c);
+                case STATE::BLOCK_SW:
+                    handleStateBlockSW(ctx, c);
                     break;
-                case STATE::NONE_SWI:
-                    handleStateNoneSWI(ctx, c);
+                case STATE::BLOCK_SWI:
+                    handleStateBlockSWI(ctx, c);
                     break;
-                case STATE::NONE_SWIT:
-                    handleStateNoneSWIT(ctx, c);
+                case STATE::BLOCK_SWIT:
+                    handleStateBlockSWIT(ctx, c);
                     break;
-                case STATE::NONE_SWITC:
-                    handleStateNoneSWITC(ctx, c);
+                case STATE::BLOCK_SWITC:
+                    handleStateBlockSWITC(ctx, c);
                     break;
-                case STATE::NONE_SWITCH:
-                    handleStateNoneSWITCH(ctx, c);
+                case STATE::BLOCK_SWITCH:
+                    handleStateBlockSWITCH(ctx, c);
                     break;
                 case STATE::SWITCH_CONDITION_START:
                     handleStateSwitchConditionStart(ctx, c);
@@ -548,35 +539,35 @@ inline ASTNode* parse(const std::string& code) {
                 case STATE::SWITCH_DEFAULT:
                     handleStateSwitchDefault(ctx, c);
                     break;
-                case STATE::NONE_E:
-                    handleStateNoneE(ctx, c);
+                case STATE::BLOCK_E:
+                    handleStateBlockE(ctx, c);
                     break;
-                case STATE::NONE_EL:
-                    handleStateNoneEL(ctx, c);
+                case STATE::BLOCK_EL:
+                    handleStateBlockEL(ctx, c);
                     break;
-                case STATE::NONE_ELS:
-                    handleStateNoneELS(ctx, c);
+                case STATE::BLOCK_ELS:
+                    handleStateBlockELS(ctx, c);
                     break;
-                case STATE::NONE_ELSE:
-                    handleStateNoneELSE(ctx, c);
+                case STATE::BLOCK_ELSE:
+                    handleStateBlockELSE(ctx, c);
                     break;
-                case STATE::NONE_T:
-                    handleStateNoneT(ctx, c);
+                case STATE::BLOCK_T:
+                    handleStateBlockT(ctx, c);
                     break;
-                case STATE::NONE_TR:
-                    handleStateNoneTR(ctx, c);
+                case STATE::BLOCK_TR:
+                    handleStateBlockTR(ctx, c);
                     break;
-                case STATE::NONE_TRY:
-                    handleStateNoneTRY(ctx, c);
+                case STATE::BLOCK_TRY:
+                    handleStateBlockTRY(ctx, c);
                     break;
-                case STATE::NONE_TY:
-                    handleStateNoneTY(ctx, c);
+                case STATE::BLOCK_TY:
+                    handleStateBlockTY(ctx, c);
                     break;
-                case STATE::NONE_TYP:
-                    handleStateNoneTYP(ctx, c);
+                case STATE::BLOCK_TYP:
+                    handleStateBlockTYP(ctx, c);
                     break;
-                case STATE::NONE_TYPE:
-                    handleStateNoneTYPE(ctx, c);
+                case STATE::BLOCK_TYPE:
+                    handleStateBlockTYPE(ctx, c);
                     break;
                 case STATE::TRY_BODY_START:
                     handleStateTryBodyStart(ctx, c);
@@ -641,20 +632,17 @@ inline ASTNode* parse(const std::string& code) {
                 case STATE::FUNCTION_EXPRESSION_BODY_START:
                     handleStateFunctionExpressionBodyStart(ctx, c);
                     break;
-                case STATE::FUNCTION_EXPRESSION_BODY:
-                    handleStateFunctionExpressionBody(ctx, c);
+                case STATE::BLOCK_CL:
+                    handleStateBlockCL(ctx, c);
                     break;
-                case STATE::NONE_CL:
-                    handleStateNoneCL(ctx, c);
+                case STATE::BLOCK_CLA:
+                    handleStateBlockCLA(ctx, c);
                     break;
-                case STATE::NONE_CLA:
-                    handleStateNoneCLA(ctx, c);
+                case STATE::BLOCK_CLAS:
+                    handleStateBlockCLAS(ctx, c);
                     break;
-                case STATE::NONE_CLAS:
-                    handleStateNoneCLAS(ctx, c);
-                    break;
-                case STATE::NONE_CLASS:
-                    handleStateNoneCLASS(ctx, c);
+                case STATE::BLOCK_CLASS:
+                    handleStateBlockCLASS(ctx, c);
                     break;
                 case STATE::CLASS_DECLARATION_NAME:
                     handleStateClassDeclarationName(ctx, c);
@@ -676,9 +664,6 @@ inline ASTNode* parse(const std::string& code) {
                     break;
                 case STATE::CLASS_BODY_START:
                     handleStateClassBodyStart(ctx, c);
-                    break;
-                case STATE::CLASS_BODY:
-                    handleStateClassBody(ctx, c);
                     break;
                 case STATE::CLASS_STATIC_START:
                     handleStateClassStaticStart(ctx, c);
@@ -703,9 +688,6 @@ inline ASTNode* parse(const std::string& code) {
                     break;
                 case STATE::CLASS_METHOD_BODY_START:
                     handleStateClassMethodBodyStart(ctx, c);
-                    break;
-                case STATE::CLASS_METHOD_BODY:
-                    handleStateClassMethodBody(ctx, c);
                     break;
                 // New class feature states
                 case STATE::CLASS_ACCESS_MODIFIER_PUBLIC:
@@ -747,38 +729,32 @@ inline ASTNode* parse(const std::string& code) {
                 case STATE::CLASS_SETTER_BODY_START:
                     handleStateClassSetterBodyStart(ctx, c);
                     break;
-                case STATE::CLASS_GETTER_BODY:
-                    handleStateClassGetterBody(ctx, c);
+                case STATE::BLOCK_I:
+                    handleStateBlockI(ctx, c);
                     break;
-                case STATE::CLASS_SETTER_BODY:
-                    handleStateClassSetterBody(ctx, c);
+                case STATE::BLOCK_IN:
+                    handleStateBlockIN(ctx, c);
                     break;
-                case STATE::NONE_I:
-                    handleStateNoneI(ctx, c);
+                case STATE::BLOCK_INT:
+                    handleStateBlockINT(ctx, c);
                     break;
-                case STATE::NONE_IN:
-                    handleStateNoneIN(ctx, c);
+                case STATE::BLOCK_INTE:
+                    handleStateBlockINTE(ctx, c);
                     break;
-                case STATE::NONE_INT:
-                    handleStateNoneINT(ctx, c);
+                case STATE::BLOCK_INTER:
+                    handleStateBlockINTER(ctx, c);
                     break;
-                case STATE::NONE_INTE:
-                    handleStateNoneINTE(ctx, c);
+                case STATE::BLOCK_INTERF:
+                    handleStateBlockINTERF(ctx, c);
                     break;
-                case STATE::NONE_INTER:
-                    handleStateNoneINTER(ctx, c);
+                case STATE::BLOCK_INTERFA:
+                    handleStateBlockINTERFA(ctx, c);
                     break;
-                case STATE::NONE_INTERF:
-                    handleStateNoneINTERF(ctx, c);
+                case STATE::BLOCK_INTERFAC:
+                    handleStateBlockINTERFAC(ctx, c);
                     break;
-                case STATE::NONE_INTERFA:
-                    handleStateNoneINTERFA(ctx, c);
-                    break;
-                case STATE::NONE_INTERFAC:
-                    handleStateNoneINTERFAC(ctx, c);
-                    break;
-                case STATE::NONE_INTERFACE:
-                    handleStateNoneINTERFACE(ctx, c);
+                case STATE::BLOCK_INTERFACE:
+                    handleStateBlockINTERFACE(ctx, c);
                     break;
                 case STATE::INTERFACE_DECLARATION_NAME:
                     handleStateInterfaceDeclarationName(ctx, c);
@@ -794,9 +770,6 @@ inline ASTNode* parse(const std::string& code) {
                     break;
                 case STATE::INTERFACE_BODY_START:
                     handleStateInterfaceBodyStart(ctx, c);
-                    break;
-                case STATE::INTERFACE_BODY:
-                    handleStateInterfaceBody(ctx, c);
                     break;
                 case STATE::INTERFACE_PROPERTY_KEY:
                     handleStateInterfacePropertyKey(ctx, c);
@@ -906,20 +879,20 @@ inline ASTNode* parse(const std::string& code) {
                     handleStateClassGenericParametersEnd(ctx, c);
                     break;
                 // Module import/export states
-                case STATE::NONE_IM:
-                    handleStateNoneIM(ctx, c);
+                case STATE::BLOCK_IM:
+                    handleStateBlockIM(ctx, c);
                     break;
-                case STATE::NONE_IMP:
-                    handleStateNoneIMP(ctx, c);
+                case STATE::BLOCK_IMP:
+                    handleStateBlockIMP(ctx, c);
                     break;
-                case STATE::NONE_IMPO:
-                    handleStateNoneIMPO(ctx, c);
+                case STATE::BLOCK_IMPO:
+                    handleStateBlockIMPO(ctx, c);
                     break;
-                case STATE::NONE_IMPOR:
-                    handleStateNoneIMPOR(ctx, c);
+                case STATE::BLOCK_IMPOR:
+                    handleStateBlockIMPOR(ctx, c);
                     break;
-                case STATE::NONE_IMPORT:
-                    handleStateNoneIMPORT(ctx, c);
+                case STATE::BLOCK_IMPORT:
+                    handleStateBlockIMPORT(ctx, c);
                     break;
                 case STATE::IMPORT_SPECIFIERS_START:
                     handleStateImportSpecifiersStart(ctx, c);
@@ -951,20 +924,20 @@ inline ASTNode* parse(const std::string& code) {
                 case STATE::IMPORT_SOURCE_END:
                     handleStateImportSourceEnd(ctx, c);
                     break;
-                case STATE::NONE_EX:
-                    handleStateNoneEX(ctx, c);
+                case STATE::BLOCK_EX:
+                    handleStateBlockEX(ctx, c);
                     break;
-                case STATE::NONE_EXP:
-                    handleStateNoneEXP(ctx, c);
+                case STATE::BLOCK_EXP:
+                    handleStateBlockEXP(ctx, c);
                     break;
-                case STATE::NONE_EXPO:
-                    handleStateNoneEXPO(ctx, c);
+                case STATE::BLOCK_EXPO:
+                    handleStateBlockEXPO(ctx, c);
                     break;
-                case STATE::NONE_EXPOR:
-                    handleStateNoneEXPOR(ctx, c);
+                case STATE::BLOCK_EXPOR:
+                    handleStateBlockEXPOR(ctx, c);
                     break;
-                case STATE::NONE_EXPORT:
-                    handleStateNoneEXPORT(ctx, c);
+                case STATE::BLOCK_EXPORT:
+                    handleStateBlockEXPORT(ctx, c);
                     break;
                 case STATE::EXPORT_SPECIFIERS_START:
                     handleStateExportSpecifiersStart(ctx, c);
@@ -1037,45 +1010,45 @@ inline ASTNode* parse(const std::string& code) {
                     handleStateObjectDestructuringRest(ctx, c);
                     break;
                 // Async/await states
-                case STATE::NONE_A:
-                    handleStateNoneA(ctx, c);
+                case STATE::BLOCK_A:
+                    handleStateBlockA(ctx, c);
                     break;
-                case STATE::NONE_AS:
-                    handleStateNoneAS(ctx, c);
+                case STATE::BLOCK_AS:
+                    handleStateBlockAS(ctx, c);
                     break;
-                case STATE::NONE_ASY:
-                    handleStateNoneASY(ctx, c);
+                case STATE::BLOCK_ASY:
+                    handleStateBlockASY(ctx, c);
                     break;
-                case STATE::NONE_ASYN:
-                    handleStateNoneASYN(ctx, c);
+                case STATE::BLOCK_ASYN:
+                    handleStateBlockASYN(ctx, c);
                     break;
-                case STATE::NONE_ASYNC:
-                    handleStateNoneASYNC(ctx, c);
+                case STATE::BLOCK_ASYNC:
+                    handleStateBlockASYNC(ctx, c);
                     break;
-                case STATE::NONE_AW:
-                    handleStateNoneAW(ctx, c);
+                case STATE::BLOCK_AW:
+                    handleStateBlockAW(ctx, c);
                     break;
-                case STATE::NONE_AWA:
-                    handleStateNoneAWA(ctx, c);
+                case STATE::BLOCK_AWA:
+                    handleStateBlockAWA(ctx, c);
                     break;
-                case STATE::NONE_AWAI:
-                    handleStateNoneAWAI(ctx, c);
+                case STATE::BLOCK_AWAI:
+                    handleStateBlockAWAI(ctx, c);
                     break;
-                case STATE::NONE_AWAIT:
-                    handleStateNoneAWAIT(ctx, c);
+                case STATE::BLOCK_AWAIT:
+                    handleStateBlockAWAIT(ctx, c);
                     break;
                 case STATE::EXPRESSION_AWAIT:
                     handleStateExpressionAwait(ctx, c);
                     break;
                 // Enum states
-                case STATE::NONE_ENUM_E:
-                    handleStateNoneEnumE(ctx, c);
+                case STATE::BLOCK_ENUM_E:
+                    handleStateBlockEnumE(ctx, c);
                     break;
-                case STATE::NONE_ENUM_EN:
-                    handleStateNoneEnumEN(ctx, c);
+                case STATE::BLOCK_ENUM_EN:
+                    handleStateBlockEnumEN(ctx, c);
                     break;
-                case STATE::NONE_ENUM_ENU:
-                    handleStateNoneEnumENU(ctx, c);
+                case STATE::BLOCK_ENUM_ENU:
+                    handleStateBlockEnumENU(ctx, c);
                     break;
                 case STATE::ENUM_DECLARATION_NAME:
                     handleStateEnumDeclarationName(ctx, c);
@@ -1426,107 +1399,107 @@ inline ASTNode* parse(const std::string& code) {
                     break;
 
                 // TechnoScript specific features
-                case STATE::NONE_P:
-                    handleStateNoneP(ctx, c);
+                case STATE::BLOCK_P:
+                    handleStateBlockP(ctx, c);
                     break;
-                case STATE::NONE_PR:
-                    handleStateNonePR(ctx, c);
+                case STATE::BLOCK_PR:
+                    handleStateBlockPR(ctx, c);
                     break;
-                case STATE::NONE_PRI:
-                    handleStateNonePRI(ctx, c);
+                case STATE::BLOCK_PRI:
+                    handleStateBlockPRI(ctx, c);
                     break;
-                case STATE::NONE_PRIN:
-                    handleStateNonePRIN(ctx, c);
+                case STATE::BLOCK_PRIN:
+                    handleStateBlockPRIN(ctx, c);
                     break;
-                case STATE::NONE_PRINT:
-                    handleStateNonePRINT(ctx, c);
+                case STATE::BLOCK_PRINT:
+                    handleStateBlockPRINT(ctx, c);
                     break;
-                case STATE::NONE_G:
-                    handleStateNoneG(ctx, c);
+                case STATE::BLOCK_G:
+                    handleStateBlockG(ctx, c);
                     break;
-                case STATE::NONE_GO:
-                    handleStateNoneGO(ctx, c);
+                case STATE::BLOCK_GO:
+                    handleStateBlockGO(ctx, c);
                     break;
-                case STATE::NONE_SE:
-                    handleStateNoneSE(ctx, c);
+                case STATE::BLOCK_SE:
+                    handleStateBlockSE(ctx, c);
                     break;
-                case STATE::NONE_SET:
-                    handleStateNoneSET(ctx, c);
+                case STATE::BLOCK_SET:
+                    handleStateBlockSET(ctx, c);
                     break;
-                case STATE::NONE_SETT:
-                    handleStateNoneSETT(ctx, c);
+                case STATE::BLOCK_SETT:
+                    handleStateBlockSETT(ctx, c);
                     break;
-                case STATE::NONE_SETTI:
-                    handleStateNoneSETTI(ctx, c);
+                case STATE::BLOCK_SETTI:
+                    handleStateBlockSETTI(ctx, c);
                     break;
-                case STATE::NONE_SETTIM:
-                    handleStateNoneSETTIM(ctx, c);
+                case STATE::BLOCK_SETTIM:
+                    handleStateBlockSETTIM(ctx, c);
                     break;
-                case STATE::NONE_SETTIMEO:
-                    handleStateNoneSETTIMEO(ctx, c);
+                case STATE::BLOCK_SETTIMEO:
+                    handleStateBlockSETTIMEO(ctx, c);
                     break;
-                case STATE::NONE_SETTIMEOU:
-                    handleStateNoneSETTIMEOU(ctx, c);
+                case STATE::BLOCK_SETTIMEOU:
+                    handleStateBlockSETTIMEOU(ctx, c);
                     break;
-                case STATE::NONE_SETTIMEOUT:
-                    handleStateNoneSETTIMEOUT(ctx, c);
+                case STATE::BLOCK_SETTIMEOUT:
+                    handleStateBlockSETTIMEOUT(ctx, c);
                     break;
-                case STATE::NONE_SL:
-                    handleStateNoneSL(ctx, c);
+                case STATE::BLOCK_SL:
+                    handleStateBlockSL(ctx, c);
                     break;
-                case STATE::NONE_SLE:
-                    handleStateNoneSLE(ctx, c);
+                case STATE::BLOCK_SLE:
+                    handleStateBlockSLE(ctx, c);
                     break;
-                case STATE::NONE_SLEE:
-                    handleStateNoneSLEE(ctx, c);
+                case STATE::BLOCK_SLEE:
+                    handleStateBlockSLEE(ctx, c);
                     break;
-                case STATE::NONE_SLEEP:
-                    handleStateNoneSLEEP(ctx, c);
+                case STATE::BLOCK_SLEEP:
+                    handleStateBlockSLEEP(ctx, c);
                     break;
-                case STATE::NONE_R:
-                    handleStateNoneR(ctx, c);
+                case STATE::BLOCK_R:
+                    handleStateBlockR(ctx, c);
                     break;
-                case STATE::NONE_RA:
-                    handleStateNoneRA(ctx, c);
+                case STATE::BLOCK_RA:
+                    handleStateBlockRA(ctx, c);
                     break;
-                case STATE::NONE_RAW:
-                    handleStateNoneRAW(ctx, c);
+                case STATE::BLOCK_RAW:
+                    handleStateBlockRAW(ctx, c);
                     break;
-                case STATE::NONE_RAWM:
-                    handleStateNoneRAWM(ctx, c);
+                case STATE::BLOCK_RAWM:
+                    handleStateBlockRAWM(ctx, c);
                     break;
-                case STATE::NONE_RAWME:
-                    handleStateNoneRAWME(ctx, c);
+                case STATE::BLOCK_RAWME:
+                    handleStateBlockRAWME(ctx, c);
                     break;
-                case STATE::NONE_RAWMEM:
-                    handleStateNoneRAWMEM(ctx, c);
+                case STATE::BLOCK_RAWMEM:
+                    handleStateBlockRAWMEM(ctx, c);
                     break;
-                case STATE::NONE_RAWMEMO:
-                    handleStateNoneRAWMEMO(ctx, c);
+                case STATE::BLOCK_RAWMEMO:
+                    handleStateBlockRAWMEMO(ctx, c);
                     break;
-                case STATE::NONE_RAWMEMOR:
-                    handleStateNoneRAWMEMOR(ctx, c);
+                case STATE::BLOCK_RAWMEMOR:
+                    handleStateBlockRAWMEMOR(ctx, c);
                     break;
-                case STATE::NONE_RAWMEMORY:
-                    handleStateNoneRAWMEMORY(ctx, c);
+                case STATE::BLOCK_RAWMEMORY:
+                    handleStateBlockRAWMEMORY(ctx, c);
                     break;
-                case STATE::NONE_TH:
-                    handleStateNoneTH(ctx, c);
+                case STATE::BLOCK_TH:
+                    handleStateBlockTH(ctx, c);
                     break;
-                case STATE::NONE_THI:
-                    handleStateNoneTHI(ctx, c);
+                case STATE::BLOCK_THI:
+                    handleStateBlockTHI(ctx, c);
                     break;
-                case STATE::NONE_THIS:
-                    handleStateNoneTHIS(ctx, c);
+                case STATE::BLOCK_THIS:
+                    handleStateBlockTHIS(ctx, c);
                     break;
-                case STATE::NONE_N:
-                    handleStateNoneN(ctx, c);
+                case STATE::BLOCK_N:
+                    handleStateBlockN(ctx, c);
                     break;
-                case STATE::NONE_NE:
-                    handleStateNoneNE(ctx, c);
+                case STATE::BLOCK_NE:
+                    handleStateBlockNE(ctx, c);
                     break;
-                case STATE::NONE_NEW:
-                    handleStateNoneNEW(ctx, c);
+                case STATE::BLOCK_NEW:
+                    handleStateBlockNEW(ctx, c);
                     break;
                 case STATE::EXPRESSION_MEMBER_ACCESS:
                     handleStateExpressionMemberAccess(ctx, c);
@@ -1557,6 +1530,10 @@ inline ASTNode* parse(const std::string& code) {
                     break;
                 case STATE::STATEMENT_SLEEP:
                     handleStateStatementSleep(ctx, c);
+                    break;
+                default:
+                    // Handle unused states that were removed
+                    throw std::runtime_error("Unhandled parser state: " + std::to_string(static_cast<int>(ctx.state)));
                     break;
             }
         } catch (const std::exception& e) {

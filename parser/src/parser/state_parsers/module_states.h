@@ -7,11 +7,11 @@
 #include "../lib/ast.h"
 
 // Forward declarations for module state handlers
-inline void handleStateNoneIM(ParserContext& ctx, char c);
-inline void handleStateNoneIMP(ParserContext& ctx, char c);
-inline void handleStateNoneIMPO(ParserContext& ctx, char c);
-inline void handleStateNoneIMPOR(ParserContext& ctx, char c);
-inline void handleStateNoneIMPORT(ParserContext& ctx, char c);
+inline void handleStateBlockIM(ParserContext& ctx, char c);
+inline void handleStateBlockIMP(ParserContext& ctx, char c);
+inline void handleStateBlockIMPO(ParserContext& ctx, char c);
+inline void handleStateBlockIMPOR(ParserContext& ctx, char c);
+inline void handleStateBlockIMPORT(ParserContext& ctx, char c);
 inline void handleStateImportSpecifiersStart(ParserContext& ctx, char c);
 inline void handleStateImportSpecifierName(ParserContext& ctx, char c);
 inline void handleStateImportSpecifierAs(ParserContext& ctx, char c);
@@ -22,11 +22,11 @@ inline void handleStateImportFrom(ParserContext& ctx, char c);
 inline void handleStateImportSourceStart(ParserContext& ctx, char c);
 inline void handleStateImportSource(ParserContext& ctx, char c);
 inline void handleStateImportSourceEnd(ParserContext& ctx, char c);
-inline void handleStateNoneEX(ParserContext& ctx, char c);
-inline void handleStateNoneEXP(ParserContext& ctx, char c);
-inline void handleStateNoneEXPO(ParserContext& ctx, char c);
-inline void handleStateNoneEXPOR(ParserContext& ctx, char c);
-inline void handleStateNoneEXPORT(ParserContext& ctx, char c);
+inline void handleStateBlockEX(ParserContext& ctx, char c);
+inline void handleStateBlockEXP(ParserContext& ctx, char c);
+inline void handleStateBlockEXPO(ParserContext& ctx, char c);
+inline void handleStateBlockEXPOR(ParserContext& ctx, char c);
+inline void handleStateBlockEXPORT(ParserContext& ctx, char c);
 inline void handleStateExportSpecifiersStart(ParserContext& ctx, char c);
 inline void handleStateExportSpecifierName(ParserContext& ctx, char c);
 inline void handleStateExportSpecifierAs(ParserContext& ctx, char c);
@@ -43,47 +43,47 @@ inline void handleStateExportDefault(ParserContext& ctx, char c);
 inline void handleStateExportAll(ParserContext& ctx, char c);
 inline void handleStateExportDeclaration(ParserContext& ctx, char c);
 
-// Note: handleStateNoneI is defined in control_flow_states.h
-// Note: handleStateNoneE is defined in common_states.h
+// Note: handleStateBlockI is defined in control_flow_states.h
+// Note: handleStateBlockE is defined in common_states.h
 
 // Import keyword continuation
-inline void handleStateNoneIM(ParserContext& ctx, char c) {
+inline void handleStateBlockIM(ParserContext& ctx, char c) {
     if (c == 'p') {
-        ctx.state = STATE::NONE_IMP;
+        ctx.state = STATE::BLOCK_IMP;
     } else {
         throw std::runtime_error("Expected 'p' after 'im': " + std::string(1, c));
     }
 }
 
 // Import keyword continuation
-inline void handleStateNoneIMP(ParserContext& ctx, char c) {
+inline void handleStateBlockIMP(ParserContext& ctx, char c) {
     if (c == 'o') {
-        ctx.state = STATE::NONE_IMPO;
+        ctx.state = STATE::BLOCK_IMPO;
     } else {
         throw std::runtime_error("Expected 'o' after 'imp': " + std::string(1, c));
     }
 }
 
 // Import keyword continuation
-inline void handleStateNoneIMPO(ParserContext& ctx, char c) {
+inline void handleStateBlockIMPO(ParserContext& ctx, char c) {
     if (c == 'r') {
-        ctx.state = STATE::NONE_IMPOR;
+        ctx.state = STATE::BLOCK_IMPOR;
     } else {
         throw std::runtime_error("Expected 'r' after 'impo': " + std::string(1, c));
     }
 }
 
 // Import keyword continuation
-inline void handleStateNoneIMPOR(ParserContext& ctx, char c) {
+inline void handleStateBlockIMPOR(ParserContext& ctx, char c) {
     if (c == 't') {
-        ctx.state = STATE::NONE_IMPORT;
+        ctx.state = STATE::BLOCK_IMPORT;
     } else {
         throw std::runtime_error("Expected 't' after 'impor': " + std::string(1, c));
     }
 }
 
 // Import keyword completion
-inline void handleStateNoneIMPORT(ParserContext& ctx, char c) {
+inline void handleStateBlockIMPORT(ParserContext& ctx, char c) {
     if (c == ' ') {
         auto* importDecl = new ImportDeclaration(ctx.currentNode);
         ctx.currentNode->children.push_back(importDecl);
@@ -355,7 +355,7 @@ inline void handleStateImportSourceEnd(ParserContext& ctx, char c) {
     if (c == ';') {
         // End of import statement
         ctx.currentNode = ctx.currentNode->parent;
-        ctx.state = STATE::NONE;
+        ctx.state = STATE::BLOCK;
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace
         return;
@@ -364,46 +364,46 @@ inline void handleStateImportSourceEnd(ParserContext& ctx, char c) {
     }
 }
 
-// Note: handleStateNoneE is defined in common_states.h
+// Note: handleStateBlockE is defined in common_states.h
 
 // Export keyword continuation
-inline void handleStateNoneEX(ParserContext& ctx, char c) {
+inline void handleStateBlockEX(ParserContext& ctx, char c) {
     if (c == 'p') {
-        ctx.state = STATE::NONE_EXP;
+        ctx.state = STATE::BLOCK_EXP;
     } else {
         throw std::runtime_error("Expected 'p' after 'ex': " + std::string(1, c));
     }
 }
 
 // Export keyword continuation
-inline void handleStateNoneEXP(ParserContext& ctx, char c) {
+inline void handleStateBlockEXP(ParserContext& ctx, char c) {
     if (c == 'o') {
-        ctx.state = STATE::NONE_EXPO;
+        ctx.state = STATE::BLOCK_EXPO;
     } else {
         throw std::runtime_error("Expected 'o' after 'exp': " + std::string(1, c));
     }
 }
 
 // Export keyword continuation
-inline void handleStateNoneEXPO(ParserContext& ctx, char c) {
+inline void handleStateBlockEXPO(ParserContext& ctx, char c) {
     if (c == 'r') {
-        ctx.state = STATE::NONE_EXPOR;
+        ctx.state = STATE::BLOCK_EXPOR;
     } else {
         throw std::runtime_error("Expected 'r' after 'expo': " + std::string(1, c));
     }
 }
 
 // Export keyword continuation
-inline void handleStateNoneEXPOR(ParserContext& ctx, char c) {
+inline void handleStateBlockEXPOR(ParserContext& ctx, char c) {
     if (c == 't') {
-        ctx.state = STATE::NONE_EXPORT;
+        ctx.state = STATE::BLOCK_EXPORT;
     } else {
         throw std::runtime_error("Expected 't' after 'expor': " + std::string(1, c));
     }
 }
 
 // Export keyword completion
-inline void handleStateNoneEXPORT(ParserContext& ctx, char c) {
+inline void handleStateBlockEXPORT(ParserContext& ctx, char c) {
     if (c == ' ') {
         ctx.state = STATE::EXPORT_SPECIFIERS_START;
     } else {
@@ -597,7 +597,7 @@ inline void handleStateExportDefault(ParserContext& ctx, char c) {
         ctx.currentNode->children.push_back(exportDecl);
         ctx.currentNode = exportDecl;
         // For now, just skip to the next state - would need expression parsing
-        ctx.state = STATE::NONE;
+        ctx.state = STATE::BLOCK;
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace
         return;
@@ -673,7 +673,7 @@ inline void handleStateExportSourceEnd(ParserContext& ctx, char c) {
     if (c == ';') {
         // End of export statement
         ctx.currentNode = ctx.currentNode->parent;
-        ctx.state = STATE::NONE;
+        ctx.state = STATE::BLOCK;
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace
         return;
@@ -687,7 +687,7 @@ inline void handleStateExportSpecifiersEnd(ParserContext& ctx, char c) {
     if (c == ';') {
         // End of export statement
         ctx.currentNode = ctx.currentNode->parent;
-        ctx.state = STATE::NONE;
+        ctx.state = STATE::BLOCK;
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace
         return;

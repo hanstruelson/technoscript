@@ -1,26 +1,26 @@
 #pragma once
 
 enum class STATE {
-    NONE,
-    NONE_V,
-    NONE_VA,
-    NONE_VAR,
-    NONE_C,
-    NONE_CO,
-    NONE_CON,
-    NONE_CONS,
-    NONE_CONST,
-    NONE_L,
-    NONE_LE,
-    NONE_LET,
-    NONE_F,
-    NONE_FU,
-    NONE_FUN,
-    NONE_FUNC,
-    NONE_FUNCT,
-    NONE_FUNCTI,
-    NONE_FUNCTIO,
-    NONE_FUNCTION,
+    BLOCK,
+    BLOCK_V,
+    BLOCK_VA,
+    BLOCK_VAR,
+    BLOCK_C,
+    BLOCK_CO,
+    BLOCK_CON,
+    BLOCK_CONS,
+    BLOCK_CONST,
+    BLOCK_L,
+    BLOCK_LE,
+    BLOCK_LET,
+    BLOCK_F,
+    BLOCK_FU,
+    BLOCK_FUN,
+    BLOCK_FUNC,
+    BLOCK_FUNCT,
+    BLOCK_FUNCTI,
+    BLOCK_FUNCTIO,
+    BLOCK_FUNCTION,
     EXPECT_IDENTIFIER,
     IDENTIFIER_NAME,
     IDENTIFIER_COMPLETE,
@@ -85,11 +85,11 @@ enum class STATE {
     IF_CONSEQUENT,
     IF_ALTERNATE_START,
     IF_ALTERNATE,
-    NONE_W,
-    NONE_WH,
-    NONE_WHI,
-    NONE_WHIL,
-    NONE_WHILE,
+    BLOCK_W,
+    BLOCK_WH,
+    BLOCK_WHI,
+    BLOCK_WHIL,
+    BLOCK_WHILE,
     WHILE_CONDITION_START,
     WHILE_BODY,
     // New states for missing TypeScript features
@@ -129,18 +129,18 @@ enum class STATE {
     EXPRESSION_REGEXP,
     EXPRESSION_REGEXP_ESCAPE,
     EXPRESSION_REGEXP_FLAGS,
-    NONE_D,
-    NONE_DO,
-    NONE_DOW,
-    NONE_DOWH,
-    NONE_DOWHI,
-    NONE_DOWHIL,
-    NONE_DOWHILE,
+    BLOCK_D,
+    BLOCK_DO,
+    BLOCK_DOW,
+    BLOCK_DOWH,
+    BLOCK_DOWHI,
+    BLOCK_DOWHIL,
+    BLOCK_DOWHILE,
     DO_BODY_START,
     DO_BODY,
     DO_WHILE_CONDITION_START,
-    NONE_FO,
-    NONE_FOR,
+    BLOCK_FO,
+    BLOCK_FOR,
     FOR_INIT_START,
     FOR_INIT,
     FOR_TEST_START,
@@ -149,12 +149,12 @@ enum class STATE {
     FOR_UPDATE,
     FOR_BODY_START,
     FOR_BODY,
-    NONE_S,
-    NONE_SW,
-    NONE_SWI,
-    NONE_SWIT,
-    NONE_SWITC,
-    NONE_SWITCH,
+    BLOCK_S,
+    BLOCK_SW,
+    BLOCK_SWI,
+    BLOCK_SWIT,
+    BLOCK_SWITC,
+    BLOCK_SWITCH,
     SWITCH_CONDITION_START,
     SWITCH_BODY_START,
     SWITCH_BODY,
@@ -162,13 +162,13 @@ enum class STATE {
     SWITCH_CASE,
     SWITCH_DEFAULT_START,
     SWITCH_DEFAULT,
-    NONE_E,
-    NONE_EL,
-    NONE_ELS,
-    NONE_ELSE,
-    NONE_T,
-    NONE_TR,
-    NONE_TRY,
+    BLOCK_E,
+    BLOCK_EL,
+    BLOCK_ELS,
+    BLOCK_ELSE,
+    BLOCK_T,
+    BLOCK_TR,
+    BLOCK_TRY,
     TRY_BODY_START,
     TRY_BODY,
     TRY_CATCH_START,
@@ -191,15 +191,15 @@ enum class STATE {
     FUNCTION_EXPRESSION_RETURN_TYPE_ANNOTATION,
     FUNCTION_EXPRESSION_BODY_START,
     FUNCTION_EXPRESSION_BODY,
-    NONE_I,
-    NONE_IN,
-    NONE_INT,
-    NONE_INTE,
-    NONE_INTER,
-    NONE_INTERF,
-    NONE_INTERFA,
-    NONE_INTERFAC,
-    NONE_INTERFACE,
+    BLOCK_I,
+    BLOCK_IN,
+    BLOCK_INT,
+    BLOCK_INTE,
+    BLOCK_INTER,
+    BLOCK_INTERF,
+    BLOCK_INTERFA,
+    BLOCK_INTERFAC,
+    BLOCK_INTERFACE,
     INTERFACE_DECLARATION_NAME,
     INTERFACE_AFTER_NAME_START,
     INTERFACE_AFTER_NAME_NAME,
@@ -233,10 +233,10 @@ enum class STATE {
     INTERFACE_CONSTRUCT_SIGNATURE_PARAMETERS_START,
     INTERFACE_CONSTRUCT_SIGNATURE_PARAMETERS_END,
     INTERFACE_CONSTRUCT_SIGNATURE_RETURN_TYPE,
-    NONE_CL,
-    NONE_CLA,
-    NONE_CLAS,
-    NONE_CLASS,
+    BLOCK_CL,
+    BLOCK_CLA,
+    BLOCK_CLAS,
+    BLOCK_CLASS,
     CLASS_DECLARATION_NAME,
     CLASS_AFTER_NAME_START,
     CLASS_AFTER_NAME_NAME,
@@ -293,11 +293,11 @@ enum class STATE {
     FUNCTION_GENERIC_PARAMETER_SEPARATOR,
     FUNCTION_GENERIC_PARAMETERS_END,
     // Module import/export states
-    NONE_IM,
-    NONE_IMP,
-    NONE_IMPO,
-    NONE_IMPOR,
-    NONE_IMPORT,
+    BLOCK_IM,
+    BLOCK_IMP,
+    BLOCK_IMPO,
+    BLOCK_IMPOR,
+    BLOCK_IMPORT,
     IMPORT_SPECIFIERS_START,
     IMPORT_SPECIFIER_NAME,
     IMPORT_SPECIFIER_LOCAL_NAME,
@@ -307,11 +307,11 @@ enum class STATE {
     IMPORT_SOURCE_START,
     IMPORT_SOURCE,
     IMPORT_SOURCE_END,
-    NONE_EX,
-    NONE_EXP,
-    NONE_EXPO,
-    NONE_EXPOR,
-    NONE_EXPORT,
+    BLOCK_EX,
+    BLOCK_EXP,
+    BLOCK_EXPO,
+    BLOCK_EXPOR,
+    BLOCK_EXPORT,
     EXPORT_SPECIFIERS_START,
     EXPORT_SPECIFIER_NAME,
     EXPORT_SPECIFIER_AS,
@@ -326,20 +326,20 @@ enum class STATE {
     EXPORT_ALL,
     EXPORT_DECLARATION,
     // Async/await states
-    NONE_A,
-    NONE_AS,
-    NONE_ASY,
-    NONE_ASYN,
-    NONE_ASYNC,
-    NONE_AW,
-    NONE_AWA,
-    NONE_AWAI,
-    NONE_AWAIT,
+    BLOCK_A,
+    BLOCK_AS,
+    BLOCK_ASY,
+    BLOCK_ASYN,
+    BLOCK_ASYNC,
+    BLOCK_AW,
+    BLOCK_AWA,
+    BLOCK_AWAI,
+    BLOCK_AWAIT,
     EXPRESSION_AWAIT,
     // Enum states
-    NONE_ENUM_E,
-    NONE_ENUM_EN,
-    NONE_ENUM_ENU,
+    BLOCK_ENUM_E,
+    BLOCK_ENUM_EN,
+    BLOCK_ENUM_ENU,
     ENUM_DECLARATION_NAME,
     ENUM_BODY_START,
     ENUM_BODY,
@@ -347,9 +347,9 @@ enum class STATE {
     ENUM_MEMBER_INITIALIZER,
     ENUM_MEMBER_SEPARATOR,
     // Type alias states
-    NONE_TY,
-    NONE_TYP,
-    NONE_TYPE,
+    BLOCK_TY,
+    BLOCK_TYP,
+    BLOCK_TYPE,
     TYPE_ALIAS_NAME,
     TYPE_ALIAS_GENERIC_PARAMETERS_START,
     TYPE_ALIAS_GENERIC_PARAMETER_NAME,
@@ -475,40 +475,40 @@ enum class STATE {
     EXPORT_IDENTIFIER,
 
     // TechnoScript specific features
-    NONE_P,
-    NONE_PR,
-    NONE_PRI,
-    NONE_PRIN,
-    NONE_PRINT,
-    NONE_G,
-    NONE_GO,
-    NONE_SE,
-    NONE_SET,
-    NONE_SETT,
-    NONE_SETTI,
-    NONE_SETTIM,
-    NONE_SETTIMEO,
-    NONE_SETTIMEOU,
-    NONE_SETTIMEOUT,
-    NONE_SL,
-    NONE_SLE,
-    NONE_SLEE,
-    NONE_SLEEP,
-    NONE_R,
-    NONE_RA,
-    NONE_RAW,
-    NONE_RAWM,
-    NONE_RAWME,
-    NONE_RAWMEM,
-    NONE_RAWMEMO,
-    NONE_RAWMEMOR,
-    NONE_RAWMEMORY,
-    NONE_TH,
-    NONE_THI,
-    NONE_THIS,
-    NONE_N,
-    NONE_NE,
-    NONE_NEW,
+    BLOCK_P,
+    BLOCK_PR,
+    BLOCK_PRI,
+    BLOCK_PRIN,
+    BLOCK_PRINT,
+    BLOCK_G,
+    BLOCK_GO,
+    BLOCK_SE,
+    BLOCK_SET,
+    BLOCK_SETT,
+    BLOCK_SETTI,
+    BLOCK_SETTIM,
+    BLOCK_SETTIMEO,
+    BLOCK_SETTIMEOU,
+    BLOCK_SETTIMEOUT,
+    BLOCK_SL,
+    BLOCK_SLE,
+    BLOCK_SLEE,
+    BLOCK_SLEEP,
+    BLOCK_R,
+    BLOCK_RA,
+    BLOCK_RAW,
+    BLOCK_RAWM,
+    BLOCK_RAWME,
+    BLOCK_RAWMEM,
+    BLOCK_RAWMEMO,
+    BLOCK_RAWMEMOR,
+    BLOCK_RAWMEMORY,
+    BLOCK_TH,
+    BLOCK_THI,
+    BLOCK_THIS,
+    BLOCK_N,
+    BLOCK_NE,
+    BLOCK_NEW,
     EXPRESSION_MEMBER_ACCESS,
     EXPRESSION_METHOD_CALL,
     EXPRESSION_BRACKET_ACCESS,
@@ -523,18 +523,18 @@ enum class STATE {
 
 inline const char* stateToString(STATE state) {
     switch (state) {
-        case STATE::NONE: return "NONE";
-        case STATE::NONE_V: return "V";
-        case STATE::NONE_VA: return "VA";
-        case STATE::NONE_VAR: return "VAR";
-        case STATE::NONE_C: return "C";
-        case STATE::NONE_CO: return "CO";
-        case STATE::NONE_CON: return "CON";
-        case STATE::NONE_CONS: return "CONS";
-        case STATE::NONE_CONST: return "CONST";
-        case STATE::NONE_L: return "L";
-        case STATE::NONE_LE: return "LE";
-        case STATE::NONE_LET: return "LET";
+        case STATE::BLOCK: return "BLOCK";
+        case STATE::BLOCK_V: return "V";
+        case STATE::BLOCK_VA: return "VA";
+        case STATE::BLOCK_VAR: return "VAR";
+        case STATE::BLOCK_C: return "C";
+        case STATE::BLOCK_CO: return "CO";
+        case STATE::BLOCK_CON: return "CON";
+        case STATE::BLOCK_CONS: return "CONS";
+        case STATE::BLOCK_CONST: return "CONST";
+        case STATE::BLOCK_L: return "L";
+        case STATE::BLOCK_LE: return "LE";
+        case STATE::BLOCK_LET: return "LET";
         case STATE::EXPECT_IDENTIFIER: return "AWAIT_IDENTIFIER";
         case STATE::IDENTIFIER_NAME: return "IDENTIFIER_NAME";
         case STATE::IDENTIFIER_COMPLETE: return "IDENTIFIER_COMPLETE";
@@ -563,14 +563,14 @@ inline const char* stateToString(STATE state) {
         case STATE::EXPECT_IMMEDIATE_IDENTIFIER: return "EXPECT_IMMEDIATE_IDENTIFIER";
         case STATE::VARIABLE_CREATE_IDENTIFIER_COMPLETE: return "VARIABLE_CREATE_IDENTIFIER_COMPLETE";
         case STATE::FUNCTION_PARAMETER_COMPLETE: return "FUNCTION_PARAMETER_COMPLETE";
-        case STATE::NONE_F: return "F";
-        case STATE::NONE_FU: return "FU";
-        case STATE::NONE_FUN: return "FUN";
-        case STATE::NONE_FUNC: return "FUNC";
-        case STATE::NONE_FUNCT: return "FUNCT";
-        case STATE::NONE_FUNCTI: return "FUNCTI";
-        case STATE::NONE_FUNCTIO: return "FUNCTIO";
-        case STATE::NONE_FUNCTION: return "FUNCTION";
+        case STATE::BLOCK_F: return "F";
+        case STATE::BLOCK_FU: return "FU";
+        case STATE::BLOCK_FUN: return "FUN";
+        case STATE::BLOCK_FUNC: return "FUNC";
+        case STATE::BLOCK_FUNCT: return "FUNCT";
+        case STATE::BLOCK_FUNCTI: return "FUNCTI";
+        case STATE::BLOCK_FUNCTIO: return "FUNCTIO";
+        case STATE::BLOCK_FUNCTION: return "FUNCTION";
         case STATE::FUNCTION_DECLARATION_NAME: return "FUNCTION_DECLARATION_NAME";
         case STATE::FUNCTION_PARAMETERS_START: return "FUNCTION_PARAMETERS_START";
         case STATE::FUNCTION_PARAMETER_NAME: return "FUNCTION_PARAMETER_NAME";
@@ -606,11 +606,11 @@ inline const char* stateToString(STATE state) {
         case STATE::IF_CONSEQUENT: return "IF_CONSEQUENT";
         case STATE::IF_ALTERNATE_START: return "IF_ALTERNATE_START";
         case STATE::IF_ALTERNATE: return "IF_ALTERNATE";
-        case STATE::NONE_W: return "W";
-        case STATE::NONE_WH: return "WH";
-        case STATE::NONE_WHI: return "WHI";
-        case STATE::NONE_WHIL: return "WHIL";
-        case STATE::NONE_WHILE: return "WHILE";
+        case STATE::BLOCK_W: return "W";
+        case STATE::BLOCK_WH: return "WH";
+        case STATE::BLOCK_WHI: return "WHI";
+        case STATE::BLOCK_WHIL: return "WHIL";
+        case STATE::BLOCK_WHILE: return "WHILE";
         case STATE::WHILE_CONDITION_START: return "WHILE_CONDITION_START";
         case STATE::WHILE_BODY: return "WHILE_BODY";
         // New states for missing TypeScript features
@@ -650,18 +650,18 @@ inline const char* stateToString(STATE state) {
         case STATE::EXPRESSION_REGEXP: return "EXPRESSION_REGEXP";
         case STATE::EXPRESSION_REGEXP_ESCAPE: return "EXPRESSION_REGEXP_ESCAPE";
         case STATE::EXPRESSION_REGEXP_FLAGS: return "EXPRESSION_REGEXP_FLAGS";
-        case STATE::NONE_D: return "D";
-        case STATE::NONE_DO: return "DO";
-        case STATE::NONE_DOW: return "DOW";
-        case STATE::NONE_DOWH: return "DOWH";
-        case STATE::NONE_DOWHI: return "DOWHI";
-        case STATE::NONE_DOWHIL: return "DOWHIL";
-        case STATE::NONE_DOWHILE: return "DOWHILE";
+        case STATE::BLOCK_D: return "D";
+        case STATE::BLOCK_DO: return "DO";
+        case STATE::BLOCK_DOW: return "DOW";
+        case STATE::BLOCK_DOWH: return "DOWH";
+        case STATE::BLOCK_DOWHI: return "DOWHI";
+        case STATE::BLOCK_DOWHIL: return "DOWHIL";
+        case STATE::BLOCK_DOWHILE: return "DOWHILE";
         case STATE::DO_BODY_START: return "DO_BODY_START";
         case STATE::DO_BODY: return "DO_BODY";
         case STATE::DO_WHILE_CONDITION_START: return "DO_WHILE_CONDITION_START";
-        case STATE::NONE_FO: return "FO";
-        case STATE::NONE_FOR: return "FOR";
+        case STATE::BLOCK_FO: return "FO";
+        case STATE::BLOCK_FOR: return "FOR";
         case STATE::FOR_INIT_START: return "FOR_INIT_START";
         case STATE::FOR_INIT: return "FOR_INIT";
         case STATE::FOR_TEST_START: return "FOR_TEST_START";
@@ -670,12 +670,12 @@ inline const char* stateToString(STATE state) {
         case STATE::FOR_UPDATE: return "FOR_UPDATE";
         case STATE::FOR_BODY_START: return "FOR_BODY_START";
         case STATE::FOR_BODY: return "FOR_BODY";
-        case STATE::NONE_S: return "S";
-        case STATE::NONE_SW: return "SW";
-        case STATE::NONE_SWI: return "SWI";
-        case STATE::NONE_SWIT: return "SWIT";
-        case STATE::NONE_SWITC: return "SWITC";
-        case STATE::NONE_SWITCH: return "SWITCH";
+        case STATE::BLOCK_S: return "S";
+        case STATE::BLOCK_SW: return "SW";
+        case STATE::BLOCK_SWI: return "SWI";
+        case STATE::BLOCK_SWIT: return "SWIT";
+        case STATE::BLOCK_SWITC: return "SWITC";
+        case STATE::BLOCK_SWITCH: return "SWITCH";
         case STATE::SWITCH_CONDITION_START: return "SWITCH_CONDITION_START";
         case STATE::SWITCH_BODY_START: return "SWITCH_BODY_START";
         case STATE::SWITCH_BODY: return "SWITCH_BODY";
@@ -683,13 +683,13 @@ inline const char* stateToString(STATE state) {
         case STATE::SWITCH_CASE: return "SWITCH_CASE";
         case STATE::SWITCH_DEFAULT_START: return "SWITCH_DEFAULT_START";
         case STATE::SWITCH_DEFAULT: return "SWITCH_DEFAULT";
-        case STATE::NONE_E: return "E";
-        case STATE::NONE_EL: return "EL";
-        case STATE::NONE_ELS: return "ELS";
-        case STATE::NONE_ELSE: return "ELSE";
-        case STATE::NONE_T: return "T";
-        case STATE::NONE_TR: return "TR";
-        case STATE::NONE_TRY: return "TRY";
+        case STATE::BLOCK_E: return "E";
+        case STATE::BLOCK_EL: return "EL";
+        case STATE::BLOCK_ELS: return "ELS";
+        case STATE::BLOCK_ELSE: return "ELSE";
+        case STATE::BLOCK_T: return "T";
+        case STATE::BLOCK_TR: return "TR";
+        case STATE::BLOCK_TRY: return "TRY";
         case STATE::TRY_BODY_START: return "TRY_BODY_START";
         case STATE::TRY_BODY: return "TRY_BODY";
         case STATE::TRY_CATCH_START: return "TRY_CATCH_START";
@@ -712,15 +712,15 @@ inline const char* stateToString(STATE state) {
         case STATE::FUNCTION_EXPRESSION_RETURN_TYPE_ANNOTATION: return "FUNCTION_EXPRESSION_RETURN_TYPE_ANNOTATION";
         case STATE::FUNCTION_EXPRESSION_BODY_START: return "FUNCTION_EXPRESSION_BODY_START";
         case STATE::FUNCTION_EXPRESSION_BODY: return "FUNCTION_EXPRESSION_BODY";
-        case STATE::NONE_I: return "I";
-        case STATE::NONE_IN: return "IN";
-        case STATE::NONE_INT: return "INT";
-        case STATE::NONE_INTE: return "INTE";
-        case STATE::NONE_INTER: return "INTER";
-        case STATE::NONE_INTERF: return "INTERF";
-        case STATE::NONE_INTERFA: return "INTERFA";
-        case STATE::NONE_INTERFAC: return "INTERFAC";
-        case STATE::NONE_INTERFACE: return "INTERFACE";
+        case STATE::BLOCK_I: return "I";
+        case STATE::BLOCK_IN: return "IN";
+        case STATE::BLOCK_INT: return "INT";
+        case STATE::BLOCK_INTE: return "INTE";
+        case STATE::BLOCK_INTER: return "INTER";
+        case STATE::BLOCK_INTERF: return "INTERF";
+        case STATE::BLOCK_INTERFA: return "INTERFA";
+        case STATE::BLOCK_INTERFAC: return "INTERFAC";
+        case STATE::BLOCK_INTERFACE: return "INTERFACE";
         case STATE::INTERFACE_DECLARATION_NAME: return "INTERFACE_DECLARATION_NAME";
         case STATE::INTERFACE_AFTER_NAME_START: return "INTERFACE_AFTER_NAME_START";
         case STATE::INTERFACE_AFTER_NAME_NAME: return "INTERFACE_AFTER_NAME_NAME";
@@ -754,10 +754,10 @@ inline const char* stateToString(STATE state) {
         case STATE::INTERFACE_CONSTRUCT_SIGNATURE_PARAMETERS_START: return "INTERFACE_CONSTRUCT_SIGNATURE_PARAMETERS_START";
         case STATE::INTERFACE_CONSTRUCT_SIGNATURE_PARAMETERS_END: return "INTERFACE_CONSTRUCT_SIGNATURE_PARAMETERS_END";
         case STATE::INTERFACE_CONSTRUCT_SIGNATURE_RETURN_TYPE: return "INTERFACE_CONSTRUCT_SIGNATURE_RETURN_TYPE";
-        case STATE::NONE_CL: return "CL";
-        case STATE::NONE_CLA: return "CLA";
-        case STATE::NONE_CLAS: return "CLAS";
-        case STATE::NONE_CLASS: return "CLASS";
+        case STATE::BLOCK_CL: return "CL";
+        case STATE::BLOCK_CLA: return "CLA";
+        case STATE::BLOCK_CLAS: return "CLAS";
+        case STATE::BLOCK_CLASS: return "CLASS";
         case STATE::CLASS_DECLARATION_NAME: return "CLASS_DECLARATION_NAME";
         case STATE::CLASS_AFTER_NAME_START: return "CLASS_AFTER_NAME_START";
         case STATE::CLASS_AFTER_NAME_NAME: return "CLASS_AFTER_NAME_NAME";
@@ -814,11 +814,11 @@ inline const char* stateToString(STATE state) {
         case STATE::FUNCTION_GENERIC_PARAMETER_SEPARATOR: return "FUNCTION_GENERIC_PARAMETER_SEPARATOR";
         case STATE::FUNCTION_GENERIC_PARAMETERS_END: return "FUNCTION_GENERIC_PARAMETERS_END";
         // Module import/export states
-        case STATE::NONE_IM: return "IM";
-        case STATE::NONE_IMP: return "IMP";
-        case STATE::NONE_IMPO: return "IMPO";
-        case STATE::NONE_IMPOR: return "IMPOR";
-        case STATE::NONE_IMPORT: return "IMPORT";
+        case STATE::BLOCK_IM: return "IM";
+        case STATE::BLOCK_IMP: return "IMP";
+        case STATE::BLOCK_IMPO: return "IMPO";
+        case STATE::BLOCK_IMPOR: return "IMPOR";
+        case STATE::BLOCK_IMPORT: return "IMPORT";
         case STATE::IMPORT_SPECIFIERS_START: return "IMPORT_SPECIFIERS_START";
         case STATE::IMPORT_SPECIFIER_NAME: return "IMPORT_SPECIFIER_NAME";
         case STATE::IMPORT_SPECIFIER_LOCAL_NAME: return "IMPORT_SPECIFIER_LOCAL_NAME";
@@ -828,11 +828,11 @@ inline const char* stateToString(STATE state) {
         case STATE::IMPORT_SOURCE_START: return "IMPORT_SOURCE_START";
         case STATE::IMPORT_SOURCE: return "IMPORT_SOURCE";
         case STATE::IMPORT_SOURCE_END: return "IMPORT_SOURCE_END";
-        case STATE::NONE_EX: return "EX";
-        case STATE::NONE_EXP: return "EXP";
-        case STATE::NONE_EXPO: return "EXPO";
-        case STATE::NONE_EXPOR: return "EXPOR";
-        case STATE::NONE_EXPORT: return "EXPORT";
+        case STATE::BLOCK_EX: return "EX";
+        case STATE::BLOCK_EXP: return "EXP";
+        case STATE::BLOCK_EXPO: return "EXPO";
+        case STATE::BLOCK_EXPOR: return "EXPOR";
+        case STATE::BLOCK_EXPORT: return "EXPORT";
         case STATE::EXPORT_SPECIFIERS_START: return "EXPORT_SPECIFIERS_START";
         case STATE::EXPORT_SPECIFIER_NAME: return "EXPORT_SPECIFIER_NAME";
         case STATE::EXPORT_SPECIFIER_AS: return "EXPORT_SPECIFIER_AS";
@@ -847,20 +847,20 @@ inline const char* stateToString(STATE state) {
         case STATE::EXPORT_ALL: return "EXPORT_ALL";
         case STATE::EXPORT_DECLARATION: return "EXPORT_DECLARATION";
         // Async/await states
-        case STATE::NONE_A: return "A";
-        case STATE::NONE_AS: return "AS";
-        case STATE::NONE_ASY: return "ASY";
-        case STATE::NONE_ASYN: return "ASYN";
-        case STATE::NONE_ASYNC: return "ASYNC";
-        case STATE::NONE_AW: return "AW";
-        case STATE::NONE_AWA: return "AWA";
-        case STATE::NONE_AWAI: return "AWAI";
-        case STATE::NONE_AWAIT: return "AWAIT";
+        case STATE::BLOCK_A: return "A";
+        case STATE::BLOCK_AS: return "AS";
+        case STATE::BLOCK_ASY: return "ASY";
+        case STATE::BLOCK_ASYN: return "ASYN";
+        case STATE::BLOCK_ASYNC: return "ASYNC";
+        case STATE::BLOCK_AW: return "AW";
+        case STATE::BLOCK_AWA: return "AWA";
+        case STATE::BLOCK_AWAI: return "AWAI";
+        case STATE::BLOCK_AWAIT: return "AWAIT";
         case STATE::EXPRESSION_AWAIT: return "EXPRESSION_AWAIT";
         // Enum states
-        case STATE::NONE_ENUM_E: return "NONE_ENUM_E";
-        case STATE::NONE_ENUM_EN: return "NONE_ENUM_EN";
-        case STATE::NONE_ENUM_ENU: return "NONE_ENUM_ENU";
+        case STATE::BLOCK_ENUM_E: return "BLOCK_ENUM_E";
+        case STATE::BLOCK_ENUM_EN: return "BLOCK_ENUM_EN";
+        case STATE::BLOCK_ENUM_ENU: return "BLOCK_ENUM_ENU";
         case STATE::ENUM_DECLARATION_NAME: return "ENUM_DECLARATION_NAME";
         case STATE::ENUM_BODY_START: return "ENUM_BODY_START";
         case STATE::ENUM_BODY: return "ENUM_BODY";
@@ -868,9 +868,9 @@ inline const char* stateToString(STATE state) {
         case STATE::ENUM_MEMBER_INITIALIZER: return "ENUM_MEMBER_INITIALIZER";
         case STATE::ENUM_MEMBER_SEPARATOR: return "ENUM_MEMBER_SEPARATOR";
         // Type alias states
-        case STATE::NONE_TY: return "TY";
-        case STATE::NONE_TYP: return "TYP";
-        case STATE::NONE_TYPE: return "TYPE";
+        case STATE::BLOCK_TY: return "TY";
+        case STATE::BLOCK_TYP: return "TYP";
+        case STATE::BLOCK_TYPE: return "TYPE";
         case STATE::TYPE_ALIAS_NAME: return "TYPE_ALIAS_NAME";
         case STATE::TYPE_ALIAS_GENERIC_PARAMETERS_START: return "TYPE_ALIAS_GENERIC_PARAMETERS_START";
         case STATE::TYPE_ALIAS_GENERIC_PARAMETER_NAME: return "TYPE_ALIAS_GENERIC_PARAMETER_NAME";
@@ -996,40 +996,40 @@ inline const char* stateToString(STATE state) {
         case STATE::EXPORT_IDENTIFIER: return "EXPORT_IDENTIFIER";
 
         // TechnoScript specific features
-        case STATE::NONE_P: return "P";
-        case STATE::NONE_PR: return "PR";
-        case STATE::NONE_PRI: return "PRI";
-        case STATE::NONE_PRIN: return "PRIN";
-        case STATE::NONE_PRINT: return "PRINT";
-        case STATE::NONE_G: return "G";
-        case STATE::NONE_GO: return "GO";
-        case STATE::NONE_SE: return "SE";
-        case STATE::NONE_SET: return "SET";
-        case STATE::NONE_SETT: return "SETT";
-        case STATE::NONE_SETTI: return "SETTI";
-        case STATE::NONE_SETTIM: return "SETTIM";
-        case STATE::NONE_SETTIMEO: return "SETTIMEO";
-        case STATE::NONE_SETTIMEOU: return "SETTIMEOU";
-        case STATE::NONE_SETTIMEOUT: return "SETTIMEOUT";
-        case STATE::NONE_SL: return "SL";
-        case STATE::NONE_SLE: return "SLE";
-        case STATE::NONE_SLEE: return "SLEE";
-        case STATE::NONE_SLEEP: return "SLEEP";
-        case STATE::NONE_R: return "R";
-        case STATE::NONE_RA: return "RA";
-        case STATE::NONE_RAW: return "RAW";
-        case STATE::NONE_RAWM: return "RAWM";
-        case STATE::NONE_RAWME: return "RAWME";
-        case STATE::NONE_RAWMEM: return "RAWMEM";
-        case STATE::NONE_RAWMEMO: return "RAWMEMO";
-        case STATE::NONE_RAWMEMOR: return "RAWMEMOR";
-        case STATE::NONE_RAWMEMORY: return "RAWMEMORY";
-        case STATE::NONE_TH: return "TH";
-        case STATE::NONE_THI: return "THI";
-        case STATE::NONE_THIS: return "THIS";
-        case STATE::NONE_N: return "N";
-        case STATE::NONE_NE: return "NE";
-        case STATE::NONE_NEW: return "NEW";
+        case STATE::BLOCK_P: return "P";
+        case STATE::BLOCK_PR: return "PR";
+        case STATE::BLOCK_PRI: return "PRI";
+        case STATE::BLOCK_PRIN: return "PRIN";
+        case STATE::BLOCK_PRINT: return "PRINT";
+        case STATE::BLOCK_G: return "G";
+        case STATE::BLOCK_GO: return "GO";
+        case STATE::BLOCK_SE: return "SE";
+        case STATE::BLOCK_SET: return "SET";
+        case STATE::BLOCK_SETT: return "SETT";
+        case STATE::BLOCK_SETTI: return "SETTI";
+        case STATE::BLOCK_SETTIM: return "SETTIM";
+        case STATE::BLOCK_SETTIMEO: return "SETTIMEO";
+        case STATE::BLOCK_SETTIMEOU: return "SETTIMEOU";
+        case STATE::BLOCK_SETTIMEOUT: return "SETTIMEOUT";
+        case STATE::BLOCK_SL: return "SL";
+        case STATE::BLOCK_SLE: return "SLE";
+        case STATE::BLOCK_SLEE: return "SLEE";
+        case STATE::BLOCK_SLEEP: return "SLEEP";
+        case STATE::BLOCK_R: return "R";
+        case STATE::BLOCK_RA: return "RA";
+        case STATE::BLOCK_RAW: return "RAW";
+        case STATE::BLOCK_RAWM: return "RAWM";
+        case STATE::BLOCK_RAWME: return "RAWME";
+        case STATE::BLOCK_RAWMEM: return "RAWMEM";
+        case STATE::BLOCK_RAWMEMO: return "RAWMEMO";
+        case STATE::BLOCK_RAWMEMOR: return "RAWMEMOR";
+        case STATE::BLOCK_RAWMEMORY: return "RAWMEMORY";
+        case STATE::BLOCK_TH: return "TH";
+        case STATE::BLOCK_THI: return "THI";
+        case STATE::BLOCK_THIS: return "THIS";
+        case STATE::BLOCK_N: return "N";
+        case STATE::BLOCK_NE: return "NE";
+        case STATE::BLOCK_NEW: return "NEW";
         case STATE::EXPRESSION_MEMBER_ACCESS: return "EXPRESSION_MEMBER_ACCESS";
         case STATE::EXPRESSION_METHOD_CALL: return "EXPRESSION_METHOD_CALL";
         case STATE::EXPRESSION_BRACKET_ACCESS: return "EXPRESSION_BRACKET_ACCESS";

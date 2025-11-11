@@ -28,7 +28,7 @@ inline void handleStateVariableCreateIdentifierComplete(ParserContext& ctx, char
         if (ctx.currentNode && ctx.currentNode->parent) {
             ctx.currentNode = ctx.currentNode->parent;
         }
-        ctx.state = STATE::NONE;
+        ctx.state = STATE::BLOCK;
     } else {
         throw std::runtime_error("Unexpected character" + std::string(1, c));
     }
@@ -70,7 +70,7 @@ inline void handleStateIdentifierComplete(ParserContext& ctx, char c) {
         if (parent) {
             parent->children.push_back(ctx.currentNode);
             ctx.currentNode = parent;
-            ctx.state = STATE::NONE;
+            ctx.state = STATE::BLOCK;
         } else {
             throw std::runtime_error("Identifier completion with no parent node");
         }

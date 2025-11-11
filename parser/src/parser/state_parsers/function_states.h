@@ -23,74 +23,74 @@ inline void handleStateArrowFunctionArrow(ParserContext& ctx, char c);
 inline void handleStateArrowFunctionBody(ParserContext& ctx, char c);
 
 // Function/for keyword detection
-inline void handleStateNoneF(ParserContext& ctx, char c) {
+inline void handleStateBlockF(ParserContext& ctx, char c) {
     if (c == 'u') {
         // "function" - continue with function parsing
-        ctx.state = STATE::NONE_FU;
+        ctx.state = STATE::BLOCK_FU;
     } else if (c == 'o') {
         // "for" - continue with for parsing
-        ctx.state = STATE::NONE_FO;
+        ctx.state = STATE::BLOCK_FO;
     } else {
         throw std::runtime_error("Unexpected character after 'f': " + std::string(1, c));
     }
 }
 
 // Function keyword continuation
-inline void handleStateNoneFU(ParserContext& ctx, char c) {
+inline void handleStateBlockFU(ParserContext& ctx, char c) {
     if (c == 'n') {
-        ctx.state = STATE::NONE_FUN;
+        ctx.state = STATE::BLOCK_FUN;
     } else {
         throw std::runtime_error("Expected 'n' after 'fu': " + std::string(1, c));
     }
 }
 
 // Function keyword continuation
-inline void handleStateNoneFUN(ParserContext& ctx, char c) {
+inline void handleStateBlockFUN(ParserContext& ctx, char c) {
     if (c == 'c') {
-        ctx.state = STATE::NONE_FUNC;
+        ctx.state = STATE::BLOCK_FUNC;
     } else {
         throw std::runtime_error("Expected 'c' after 'fun': " + std::string(1, c));
     }
 }
 
 // Function keyword continuation
-inline void handleStateNoneFUNC(ParserContext& ctx, char c) {
+inline void handleStateBlockFUNC(ParserContext& ctx, char c) {
     if (c == 't') {
-        ctx.state = STATE::NONE_FUNCT;
+        ctx.state = STATE::BLOCK_FUNCT;
     } else {
         throw std::runtime_error("Expected 't' after 'func': " + std::string(1, c));
     }
 }
 
 // Function keyword continuation
-inline void handleStateNoneFUNCT(ParserContext& ctx, char c) {
+inline void handleStateBlockFUNCT(ParserContext& ctx, char c) {
     if (c == 'i') {
-        ctx.state = STATE::NONE_FUNCTI;
+        ctx.state = STATE::BLOCK_FUNCTI;
     } else {
         throw std::runtime_error("Expected 'i' after 'funct': " + std::string(1, c));
     }
 }
 
 // Function keyword continuation
-inline void handleStateNoneFUNCTI(ParserContext& ctx, char c) {
+inline void handleStateBlockFUNCTI(ParserContext& ctx, char c) {
     if (c == 'o') {
-        ctx.state = STATE::NONE_FUNCTIO;
+        ctx.state = STATE::BLOCK_FUNCTIO;
     } else {
         throw std::runtime_error("Expected 'o' after 'functi': " + std::string(1, c));
     }
 }
 
 // Function keyword continuation
-inline void handleStateNoneFUNCTIO(ParserContext& ctx, char c) {
+inline void handleStateBlockFUNCTIO(ParserContext& ctx, char c) {
     if (c == 'n') {
-        ctx.state = STATE::NONE_FUNCTION;
+        ctx.state = STATE::BLOCK_FUNCTION;
     } else {
         throw std::runtime_error("Expected 'n' after 'functio': " + std::string(1, c));
     }
 }
 
 // Function keyword completion
-inline void handleStateNoneFUNCTION(ParserContext& ctx, char c) {
+inline void handleStateBlockFUNCTION(ParserContext& ctx, char c) {
     if (c == ' ') {
         auto* funcNode = new FunctionDeclarationNode(ctx.currentNode);
         ctx.currentNode->children.push_back(funcNode);
@@ -394,7 +394,7 @@ inline void handleStateFunctionBodyStart(ParserContext& ctx, char c) {
         // Set block scope to this block
         ctx.currentBlockScope = block;
 
-        ctx.state = STATE::NONE;
+        ctx.state = STATE::BLOCK;
     } else {
         throw std::runtime_error("Expected '{' for function body: " + std::string(1, c));
     }
@@ -403,7 +403,7 @@ inline void handleStateFunctionBodyStart(ParserContext& ctx, char c) {
 inline void handleStateFunctionBody(ParserContext& ctx, char c) {
     if (c == '}') {
         ctx.currentNode = ctx.currentNode->parent;
-        ctx.state = STATE::NONE;
+        ctx.state = STATE::BLOCK;
     } else {
         // Skip body content
     }
@@ -462,7 +462,7 @@ inline void handleStateArrowFunctionBody(ParserContext& ctx, char c) {
 // Function expression handlers
 inline void handleStateFunctionExpressionStart(ParserContext& ctx, char c) {
     if (c == 'f') {
-        ctx.state = STATE::NONE_F;
+        ctx.state = STATE::BLOCK_F;
         // Re-process this character
         ctx.index--;
     } else {

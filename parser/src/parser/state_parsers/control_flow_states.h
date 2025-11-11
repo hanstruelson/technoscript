@@ -7,13 +7,13 @@
 #include "../lib/ast.h"
 
 // Control flow parsing states
-inline void handleStateNoneI(ParserContext& ctx, char c) {
+inline void handleStateBlockI(ParserContext& ctx, char c) {
     if (c == 'f') {
         ctx.state = STATE::IF_CONDITION_START;
     } else if (c == 'n') {
-        ctx.state = STATE::NONE_IN;
+        ctx.state = STATE::BLOCK_IN;
     } else if (c == 'm') {
-        ctx.state = STATE::NONE_IM;
+        ctx.state = STATE::BLOCK_IM;
     } else {
         throw std::runtime_error("Expected 'f', 'n', or 'm' after 'i': " + std::string(1, c));
     }
@@ -54,7 +54,7 @@ inline void handleStateIfConsequent(ParserContext& ctx, char c) {
         auto* block = new BlockStatement(ctx.currentNode, false); // noBraces = false
         ctx.currentNode->addChild(block);
         ctx.currentNode = block;
-        ctx.state = STATE::NONE;
+        ctx.state = STATE::BLOCK;
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace
         return;
@@ -63,7 +63,7 @@ inline void handleStateIfConsequent(ParserContext& ctx, char c) {
         auto* block = new BlockStatement(ctx.currentNode, true); // noBraces = true
         ctx.currentNode->addChild(block);
         ctx.currentNode = block;
-        ctx.state = STATE::NONE;
+        ctx.state = STATE::BLOCK;
         ctx.index--; // Re-process this character
     }
 }
@@ -71,7 +71,7 @@ inline void handleStateIfConsequent(ParserContext& ctx, char c) {
 inline void handleStateIfAlternateStart(ParserContext& ctx, char c) {
     if (c == 'e') {
         // Start of "else" - let main loop handle it
-        ctx.state = STATE::NONE;
+        ctx.state = STATE::BLOCK;
         ctx.index--; // Re-process this character
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace
@@ -79,7 +79,7 @@ inline void handleStateIfAlternateStart(ParserContext& ctx, char c) {
     } else {
         // No else clause, end if statement
         ctx.currentNode = ctx.currentNode->parent;
-        ctx.state = STATE::NONE;
+        ctx.state = STATE::BLOCK;
         ctx.index--; // Re-process this character
     }
 }
@@ -100,13 +100,13 @@ inline void handleStateIfAlternate(ParserContext& ctx, char c) {
         elseClause->addChild(block);
         ctx.currentNode->addChild(elseClause);
         ctx.currentNode = block;
-        // Stay in NONE state to parse block contents
+        // Stay in BLOCK state to parse block contents
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace
         return;
     } else {
         // Single statement - create else clause with single statement
-        ctx.state = STATE::NONE;
+        ctx.state = STATE::BLOCK;
         ctx.index--; // Re-process this character
     }
 }
@@ -114,39 +114,39 @@ inline void handleStateIfAlternate(ParserContext& ctx, char c) {
 
 
 // While loop parsing states
-inline void handleStateNoneW(ParserContext& ctx, char c) {
+inline void handleStateBlockW(ParserContext& ctx, char c) {
     if (c == 'h') {
-        ctx.state = STATE::NONE_WH;
+        ctx.state = STATE::BLOCK_WH;
     } else {
         throw std::runtime_error("Expected 'h' after 'w': " + std::string(1, c));
     }
 }
 
-inline void handleStateNoneWH(ParserContext& ctx, char c) {
+inline void handleStateBlockWH(ParserContext& ctx, char c) {
     if (c == 'i') {
-        ctx.state = STATE::NONE_WHI;
+        ctx.state = STATE::BLOCK_WHI;
     } else {
         throw std::runtime_error("Expected 'i' after 'wh': " + std::string(1, c));
     }
 }
 
-inline void handleStateNoneWHI(ParserContext& ctx, char c) {
+inline void handleStateBlockWHI(ParserContext& ctx, char c) {
     if (c == 'l') {
-        ctx.state = STATE::NONE_WHIL;
+        ctx.state = STATE::BLOCK_WHIL;
     } else {
         throw std::runtime_error("Expected 'l' after 'whi': " + std::string(1, c));
     }
 }
 
-inline void handleStateNoneWHIL(ParserContext& ctx, char c) {
+inline void handleStateBlockWHIL(ParserContext& ctx, char c) {
     if (c == 'e') {
-        ctx.state = STATE::NONE_WHILE;
+        ctx.state = STATE::BLOCK_WHILE;
     } else {
         throw std::runtime_error("Expected 'e' after 'whil': " + std::string(1, c));
     }
 }
 
-inline void handleStateNoneWHILE(ParserContext& ctx, char c) {
+inline void handleStateBlockWHILE(ParserContext& ctx, char c) {
     if (c == '(') {
         // Create while statement node and start parsing condition
         auto* whileNode = new WhileStatement(ctx.currentNode);
@@ -191,7 +191,7 @@ inline void handleStateWhileBody(ParserContext& ctx, char c) {
         auto* block = new BlockStatement(ctx.currentNode, false); // noBraces = false
         ctx.currentNode->addChild(block);
         ctx.currentNode = block;
-        ctx.state = STATE::NONE;
+        ctx.state = STATE::BLOCK;
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace
         return;
@@ -200,22 +200,22 @@ inline void handleStateWhileBody(ParserContext& ctx, char c) {
         auto* block = new BlockStatement(ctx.currentNode, true); // noBraces = true
         ctx.currentNode->addChild(block);
         ctx.currentNode = block;
-        ctx.state = STATE::NONE;
+        ctx.state = STATE::BLOCK;
         // Re-process this character to parse the statement
         ctx.index--;
     }
 }
 
 // Do-while loop handlers
-inline void handleStateNoneD(ParserContext& ctx, char c) {
+inline void handleStateBlockD(ParserContext& ctx, char c) {
     if (c == 'o') {
-        ctx.state = STATE::NONE_DO;
+        ctx.state = STATE::BLOCK_DO;
     } else {
         throw std::runtime_error("Expected 'o' after 'd': " + std::string(1, c));
     }
 }
 
-inline void handleStateNoneDO(ParserContext& ctx, char c) {
+inline void handleStateBlockDO(ParserContext& ctx, char c) {
     if (c == '(') {
         // Create do-while statement node
         auto* doWhileNode = new DoWhileStatement(ctx.currentNode);
@@ -256,7 +256,7 @@ inline void handleStateDoBody(ParserContext& ctx, char c) {
     if (c == '}') {
         // End of body, expect 'while'
         ctx.currentNode = ctx.currentNode->parent;
-        ctx.state = STATE::NONE_DOWHILE;
+        ctx.state = STATE::BLOCK_DOWHILE;
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace
         return;
@@ -285,39 +285,39 @@ inline void handleStateDoWhileConditionStart(ParserContext& ctx, char c) {
 }
 
 // Missing do-while keyword handlers
-inline void handleStateNoneDOW(ParserContext& ctx, char c) {
+inline void handleStateBlockDOW(ParserContext& ctx, char c) {
     if (c == 'h') {
-        ctx.state = STATE::NONE_DOWH;
+        ctx.state = STATE::BLOCK_DOWH;
     } else {
         throw std::runtime_error("Expected 'h' after 'dow': " + std::string(1, c));
     }
 }
 
-inline void handleStateNoneDOWH(ParserContext& ctx, char c) {
+inline void handleStateBlockDOWH(ParserContext& ctx, char c) {
     if (c == 'i') {
-        ctx.state = STATE::NONE_DOWHI;
+        ctx.state = STATE::BLOCK_DOWHI;
     } else {
         throw std::runtime_error("Expected 'i' after 'dowh': " + std::string(1, c));
     }
 }
 
-inline void handleStateNoneDOWHI(ParserContext& ctx, char c) {
+inline void handleStateBlockDOWHI(ParserContext& ctx, char c) {
     if (c == 'l') {
-        ctx.state = STATE::NONE_DOWHIL;
+        ctx.state = STATE::BLOCK_DOWHIL;
     } else {
         throw std::runtime_error("Expected 'l' after 'dowhi': " + std::string(1, c));
     }
 }
 
-inline void handleStateNoneDOWHIL(ParserContext& ctx, char c) {
+inline void handleStateBlockDOWHIL(ParserContext& ctx, char c) {
     if (c == 'e') {
-        ctx.state = STATE::NONE_DOWHILE;
+        ctx.state = STATE::BLOCK_DOWHILE;
     } else {
         throw std::runtime_error("Expected 'e' after 'dowhil': " + std::string(1, c));
     }
 }
 
-inline void handleStateNoneDOWHILE(ParserContext& ctx, char c) {
+inline void handleStateBlockDOWHILE(ParserContext& ctx, char c) {
     if (c == '(') {
         // Start parsing condition expression
         auto* expr = new ExpressionNode(ctx.currentNode);
@@ -336,15 +336,15 @@ inline void handleStateNoneDOWHILE(ParserContext& ctx, char c) {
 }
 
 // For loop handlers
-inline void handleStateNoneFO(ParserContext& ctx, char c) {
+inline void handleStateBlockFO(ParserContext& ctx, char c) {
     if (c == 'r') {
-        ctx.state = STATE::NONE_FOR;
+        ctx.state = STATE::BLOCK_FOR;
     } else {
         throw std::runtime_error("Expected 'r' after 'fo': " + std::string(1, c));
     }
 }
 
-inline void handleStateNoneFOR(ParserContext& ctx, char c) {
+inline void handleStateBlockFOR(ParserContext& ctx, char c) {
     if (c == '(') {
         // Create for statement node
         auto* forNode = new ForStatement(ctx.currentNode);
@@ -365,17 +365,17 @@ inline void handleStateForInitStart(ParserContext& ctx, char c) {
         ctx.state = STATE::FOR_TEST_START;
     } else if (c == 'v') {
         // Variable declaration
-        ctx.state = STATE::NONE_V;
+        ctx.state = STATE::BLOCK_V;
         // Re-process this character
         ctx.index--;
     } else if (c == 'l') {
         // Let declaration
-        ctx.state = STATE::NONE_L;
+        ctx.state = STATE::BLOCK_L;
         // Re-process this character
         ctx.index--;
     } else if (c == 'c') {
         // Const declaration
-        ctx.state = STATE::NONE_C;
+        ctx.state = STATE::BLOCK_C;
         // Re-process this character
         ctx.index--;
     } else {
@@ -471,7 +471,7 @@ inline void handleStateForBody(ParserContext& ctx, char c) {
     if (c == '}') {
         // End of for loop
         ctx.currentNode = ctx.currentNode->parent;
-        ctx.state = STATE::NONE;
+        ctx.state = STATE::BLOCK;
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace
         return;
@@ -482,47 +482,47 @@ inline void handleStateForBody(ParserContext& ctx, char c) {
 }
 
 // Switch statement handlers
-inline void handleStateNoneS(ParserContext& ctx, char c) {
+inline void handleStateBlockS(ParserContext& ctx, char c) {
     if (c == 'w') {
-        ctx.state = STATE::NONE_SW;
+        ctx.state = STATE::BLOCK_SW;
     } else {
         throw std::runtime_error("Expected 'w' after 's': " + std::string(1, c));
     }
 }
 
-inline void handleStateNoneSW(ParserContext& ctx, char c) {
+inline void handleStateBlockSW(ParserContext& ctx, char c) {
     if (c == 'i') {
-        ctx.state = STATE::NONE_SWI;
+        ctx.state = STATE::BLOCK_SWI;
     } else {
         throw std::runtime_error("Expected 'i' after 'sw': " + std::string(1, c));
     }
 }
 
-inline void handleStateNoneSWI(ParserContext& ctx, char c) {
+inline void handleStateBlockSWI(ParserContext& ctx, char c) {
     if (c == 't') {
-        ctx.state = STATE::NONE_SWIT;
+        ctx.state = STATE::BLOCK_SWIT;
     } else {
         throw std::runtime_error("Expected 't' after 'swi': " + std::string(1, c));
     }
 }
 
-inline void handleStateNoneSWIT(ParserContext& ctx, char c) {
+inline void handleStateBlockSWIT(ParserContext& ctx, char c) {
     if (c == 'c') {
-        ctx.state = STATE::NONE_SWITC;
+        ctx.state = STATE::BLOCK_SWITC;
     } else {
         throw std::runtime_error("Expected 'c' after 'swit': " + std::string(1, c));
     }
 }
 
-inline void handleStateNoneSWITC(ParserContext& ctx, char c) {
+inline void handleStateBlockSWITC(ParserContext& ctx, char c) {
     if (c == 'h') {
-        ctx.state = STATE::NONE_SWITCH;
+        ctx.state = STATE::BLOCK_SWITCH;
     } else {
         throw std::runtime_error("Expected 'h' after 'switc': " + std::string(1, c));
     }
 }
 
-inline void handleStateNoneSWITCH(ParserContext& ctx, char c) {
+inline void handleStateBlockSWITCH(ParserContext& ctx, char c) {
     if (c == '(') {
         // Create switch statement node
         auto* switchNode = new SwitchStatement(ctx.currentNode);
@@ -570,7 +570,7 @@ inline void handleStateSwitchBody(ParserContext& ctx, char c) {
     if (c == '}') {
         // End of switch
         ctx.currentNode = ctx.currentNode->parent;
-        ctx.state = STATE::NONE;
+        ctx.state = STATE::BLOCK;
     } else if (c == 'c') {
         // Case statement
         ctx.state = STATE::SWITCH_CASE_START;
@@ -660,25 +660,25 @@ inline void handleStateSwitchDefault(ParserContext& ctx, char c) {
 }
 
 // Try-catch-finally handlers and type alias handlers
-inline void handleStateNoneT(ParserContext& ctx, char c) {
+inline void handleStateBlockT(ParserContext& ctx, char c) {
     if (c == 'r') {
-        ctx.state = STATE::NONE_TR;
+        ctx.state = STATE::BLOCK_TR;
     } else if (c == 'y') {
-        ctx.state = STATE::NONE_TY;
+        ctx.state = STATE::BLOCK_TY;
     } else {
         throw std::runtime_error("Expected 'r' or 'y' after 't': " + std::string(1, c));
     }
 }
 
-inline void handleStateNoneTR(ParserContext& ctx, char c) {
+inline void handleStateBlockTR(ParserContext& ctx, char c) {
     if (c == 'y') {
-        ctx.state = STATE::NONE_TRY;
+        ctx.state = STATE::BLOCK_TRY;
     } else {
         throw std::runtime_error("Expected 'y' after 'tr': " + std::string(1, c));
     }
 }
 
-inline void handleStateNoneTRY(ParserContext& ctx, char c) {
+inline void handleStateBlockTRY(ParserContext& ctx, char c) {
     if (c == '{') {
         // Create try statement node
         auto* tryNode = new TryStatement(ctx.currentNode);
@@ -748,7 +748,7 @@ inline void handleStateTryCatchStart(ParserContext& ctx, char c) {
     } else {
         // No catch or finally, end try statement
         ctx.currentNode = ctx.currentNode->parent;
-        ctx.state = STATE::NONE;
+        ctx.state = STATE::BLOCK;
     }
 }
 
@@ -833,7 +833,7 @@ inline void handleStateTryFinallyStart(ParserContext& ctx, char c) {
     } else {
         // No finally, end try statement
         ctx.currentNode = ctx.currentNode->parent;
-        ctx.state = STATE::NONE;
+        ctx.state = STATE::BLOCK;
     }
 }
 
@@ -885,7 +885,7 @@ inline void handleStateTryFinallyBody(ParserContext& ctx, char c) {
     if (c == '}') {
         // End of finally body and try statement
         ctx.currentNode = ctx.currentNode->parent->parent;
-        ctx.state = STATE::NONE;
+        ctx.state = STATE::BLOCK;
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace
         return;

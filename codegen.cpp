@@ -29,8 +29,8 @@ Codegen::~Codegen() {
     // Function cleanup is handled by asmjit runtime
 }
 
-void Codegen::generateProgram(ASTNode& root, const std::map<std::string, ClassDeclarationNode*>& classRegistry, std::vector<FunctionDeclarationNode*>& functionRegistry) {
-    generatedFunction = generator.generateCode(&root, classRegistry, functionRegistry);
+void Codegen::generateProgram(ASTNode& root, const std::map<std::string, ClassDeclarationNode*>& classRegistry) {
+    generatedFunction = generator.generateCode(&root, classRegistry);
 }
 
 void Codegen::run() {
@@ -63,7 +63,7 @@ CodeGenerator::~CodeGenerator() {
     cs_close(&capstoneHandle);
 }
 
-void* CodeGenerator::generateCode(ASTNode* root, const std::map<std::string, ClassDeclarationNode*>& classRegistry, std::vector<FunctionDeclarationNode*>& functionRegistry) {
+void* CodeGenerator::generateCode(ASTNode* root, const std::map<std::string, ClassDeclarationNode*>& classRegistry) {
     // Reset and initialize code holder
     code.reset();
     code.init(rt.environment(), rt.cpuFeatures());
@@ -76,58 +76,50 @@ void* CodeGenerator::generateCode(ASTNode* root, const std::map<std::string, Cla
 
     std::cout << "=== Generated Assembly Code ===" << std::endl;
 
-    // PRE-PROCESSING: Handle synthetic main creation for block statement roots
-    // This needs to happen before metadata initialization
-    // We create a synthetic main function that wraps the block statement for execution
+    // PRE-PROCESSING: Handle block statement roots by wrapping them in a main function
     if (root->nodeType == ASTNodeType::BLOCK_STATEMENT) {
-        std::cout << "Pre-processing: Creating synthetic main function wrapper for block statement root" << std::endl;
+        std::cout << "Pre-processing: Wrapping block statement root in main function" << std::endl;
 
-        // Create a synthetic main function that wraps the block statement
-        FunctionDeclarationNode* syntheticMain = new FunctionDeclarationNode(nullptr);
-        syntheticMain->name = "main";
-        syntheticMain->funcName = "main";
-        syntheticMain->body = static_cast<BlockStatement*>(root);
+        // Create a main function that wraps the block statement
+        FunctionDeclarationNode* mainFunc = new FunctionDeclarationNode(nullptr);
+        mainFunc->name = "main";
+        mainFunc->funcName = "main";
+        mainFunc->body = static_cast<BlockStatement*>(root);
 
-        // Copy variables from the root block statement to the synthetic main function
-        // The synthetic main should have access to all top-level variables
+        // Copy variables from the root block statement to the main function
         BlockStatement* rootBlock = static_cast<BlockStatement*>(root);
-        syntheticMain->variables = rootBlock->variables;
+        mainFunc->variables = rootBlock->variables;
 
-        // Calculate totalSize for the synthetic main function based on its variables
-        // Variables start at DATA_OFFSET (16), so totalSize is max offset + size
-        if (!syntheticMain->variables.empty()) {
+        // Calculate totalSize for the main function based on its variables
+        if (!mainFunc->variables.empty()) {
             int maxOffset = 0;
-            for (const auto& [name, varInfo] : syntheticMain->variables) {
+            for (const auto& [name, varInfo] : mainFunc->variables) {
                 maxOffset = std::max(maxOffset, varInfo.offset + varInfo.size);
             }
-            syntheticMain->totalSize = maxOffset;
+            mainFunc->totalSize = maxOffset;
         } else {
-            syntheticMain->totalSize = 16; // Minimum for metadata and flags
+            mainFunc->totalSize = 16; // Minimum for metadata and flags
         }
 
-        std::cout << "DEBUG: Synthetic main totalSize set to " << syntheticMain->totalSize << std::endl;
-        std::cout << "DEBUG: Synthetic main has " << syntheticMain->variables.size() << " variables" << std::endl;
+        std::cout << "DEBUG: Main function totalSize set to " << mainFunc->totalSize << std::endl;
+        std::cout << "DEBUG: Main function has " << mainFunc->variables.size() << " variables" << std::endl;
 
-        // Set the parent of the block to the synthetic main function
-        root->parent = syntheticMain;
+        // Create metadata for the main function
+        mainFunc->metadata = createScopeMetadata(mainFunc);
 
-        // Add the synthetic main to the function registry
-        functionRegistry.push_back(syntheticMain);
-        std::cout << "Added synthetic main function wrapper to registry during pre-processing" << std::endl;
+        // Set the parent of the block to the main function
+        root->parent = mainFunc;
+
+        // Replace root with the main function
+        root = mainFunc;
+
+        std::cout << "Wrapped block statement in main function" << std::endl;
     }
-
-    // INITIALIZATION: Create all scope metadata at compile time before generating any code
-    std::cout << "\n=== Initializing Scope Metadata (Compile Time) ===" << std::endl;
-    initializeAllScopeMetadata(root, functionRegistry);
-
-    // FIRST PASS: Generate all functions (including methods) upfront
-    std::cout << "\n=== First Pass: Generating All Functions ===" << std::endl;
-    generateAllFunctions(functionRegistry);
 
     // SECOND PASS: Generate the main program flow (this traverses the AST normally)
     // Classes will be emitted as they appear in the AST, creating closures for methods inline
-    std::cout << "\n=== Second Pass: Generating Main Program ===" << std::endl;
-    generateProgram(root, functionRegistry);
+    std::cout << "\n=== Generating Main Program ===" << std::endl;
+    generateProgram(root);
     
     std::cout << "Code size after program: " << code.codeSize() << std::endl;
     
@@ -163,80 +155,11 @@ void* CodeGenerator::generateCode(ASTNode* root, const std::map<std::string, Cla
     return executableFunc;
 }
 
-void CodeGenerator::declareExternalFunctions() {
-    // We'll resolve these at runtime by getting their addresses
-    printInt64Label = cb->newLabel();
-    mallocLabel = cb->newLabel();
-    freeLabel = cb->newLabel();
-    callocLabel = cb->newLabel();
-}
 
-void CodeGenerator::generateAllFunctions(const std::vector<FunctionDeclarationNode*>& functionRegistry) {
-    std::cout << "Generating " << functionRegistry.size() << " functions from registry" << std::endl;
-    
-    // Create labels for all functions first
-    for (auto* funcDecl : functionRegistry) {
-        createFunctionLabel(funcDecl);
-    }
-    
-    // Generate code for all functions
-    for (auto* funcDecl : functionRegistry) {
-        std::cout << "Generating function from registry: " << funcDecl->name << std::endl;
 
-        // Get the function label from our map
-        auto labelIt = functionLabels.find(funcDecl);
-        if (labelIt == functionLabels.end()) {
-            throw std::runtime_error("Function label not created for: " + funcDecl->name);
-        }
 
-        // Bind the function label
-        cb->bind(labelIt->second);
 
-        // Generate function prologue
-        generateFunctionPrologue(funcDecl);
-
-        // Set this function as current scope
-        LexicalScopeNode* previousScope = currentScope;
-        currentScope = funcDecl;
-
-        // Handle function hoisting - create closures for nested functions in this scope
-        for (const auto& [name, varInfo] : funcDecl->variables) {
-            if (varInfo.funcNode) {  // Check if it's a function reference
-                auto childFuncDecl = varInfo.funcNode;
-                // The label should already exist from the first loop above
-                storeFunctionAddressInClosure(childFuncDecl, funcDecl);
-            }
-        }
-
-        // Process the function body (skip nested functions and classes)
-        for (auto* child : funcDecl->children) {
-            if (child->nodeType != ASTNodeType::FUNCTION_DECLARATION && child->nodeType != ASTNodeType::CLASS_DECLARATION) {
-                visitNode(child);
-            }
-        }
-
-        // For main function, set return value
-        if (funcDecl->name == "main") {
-            cb->mov(x86::eax, 0);
-        }
-
-        // Generate function epilogue
-        generateFunctionEpilogue(funcDecl);
-
-        // Restore previous scope
-        currentScope = previousScope;
-    }
-    
-    // Generate AsmLibrary utility functions
-    if (asmLibrary) {
-        std::cout << "Generating AsmLibrary utility functions" << std::endl;
-        asmLibrary->emitAllFunctionDefinitions();
-    }
-    
-    std::cout << "Finished generating all functions from registry" << std::endl;
-}
-
-void CodeGenerator::generateProgram(ASTNode* root, std::vector<FunctionDeclarationNode*>& functionRegistry) {
+void CodeGenerator::generateProgram(ASTNode* root) {
     if (!root) {
         throw std::runtime_error("Null program root");
     }
@@ -245,78 +168,44 @@ void CodeGenerator::generateProgram(ASTNode* root, std::vector<FunctionDeclarati
 
     // Handle different root node types
     if (root->nodeType == ASTNodeType::FUNCTION_DECLARATION) {
-        // Root is already a function (legacy case)
+        // Root is a function - generate it
         FunctionDeclarationNode* mainFunc = static_cast<FunctionDeclarationNode*>(root);
 
-        // The main function should already have been generated in generateAllFunctions
-        if (!mainFunc->asmjitLabel) {
-            throw std::runtime_error("Main function label should have been created in generateAllFunctions");
-        }
+        // Create label and bind it
+        createFunctionLabel(mainFunc);
+        cb->bind(functionLabels[mainFunc]);
 
-        // Process any classes in the main function's children
-        for (auto* child : root->children) {
-            if (child->nodeType == ASTNodeType::CLASS_DECLARATION) {
-                std::cout << "Skipping class in second pass (methods already generated)" << std::endl;
+        // Generate function prologue
+        generateFunctionPrologue(mainFunc);
+
+        // Set current scope
+        currentScope = mainFunc;
+
+        // Generate code for the function body
+        for (auto* child : mainFunc->children) {
+            if (child->nodeType != ASTNodeType::FUNCTION_DECLARATION && child->nodeType != ASTNodeType::CLASS_DECLARATION) {
+                visitNode(child);
             }
-        }
-    } else if (root->nodeType == ASTNodeType::BLOCK_STATEMENT) {
-        // Root is a block statement - this is the new parser format
-        // The synthetic main function wrapper was already created in generateCode pre-processing
-        std::cout << "Processing block statement root with pre-created synthetic main wrapper" << std::endl;
-
-        // Find the synthetic main function in the registry (already created in generateCode)
-        FunctionDeclarationNode* syntheticMain = nullptr;
-        for (auto* func : functionRegistry) {
-            if (func->name == "main") {
-                syntheticMain = func;
-                break;
-            }
-        }
-
-        if (!syntheticMain) {
-            throw std::runtime_error("Synthetic main function not found in registry");
-        }
-
-        // Generate the synthetic main function (label already created and bound in generateAllFunctions)
-        // No need to bind the label again here
-
-        // Generate prologue for synthetic main
-        generateFunctionPrologue(syntheticMain);
-
-        // Set current scope to synthetic main
-        LexicalScopeNode* previousScope = currentScope;
-        currentScope = syntheticMain;
-
-        // Generate code for the block statement
-        for (auto* child : root->children) {
-            visitNode(child);
         }
 
         // For main function, set return value
         cb->mov(x86::eax, 0);
 
-        // Generate epilogue
-        generateFunctionEpilogue(syntheticMain);
-
-        // Restore previous scope
-        currentScope = previousScope;
-
-        // Process any classes in the block
-        for (auto* child : root->children) {
-            if (child->nodeType == ASTNodeType::CLASS_DECLARATION) {
-                std::cout << "Skipping class in second pass (methods already generated)" << std::endl;
-            }
-        }
-
-        // Clean up synthetic main (but don't delete it as it may be referenced)
-        // The function registry owns it now
+        // Generate function epilogue
+        generateFunctionEpilogue(mainFunc);
     } else {
-        throw std::runtime_error("Invalid program root node type - expected FUNCTION_DECLARATION or BLOCK_STATEMENT");
+        throw std::runtime_error("Invalid program root node type - expected FUNCTION_DECLARATION");
     }
 }
 
 void CodeGenerator::visitNode(ASTNode* node) {
     if (!node) return;
+
+    // Handle print statements
+    if (node->value == "print") {
+        generatePrintStmt(node);
+        return;
+    }
 
     switch (node->nodeType) {
         case ASTNodeType::VARIABLE_DEFINITION:
@@ -447,27 +336,7 @@ ScopeMetadata* CodeGenerator::createScopeMetadata(LexicalScopeNode* scope) {
     return metadata;
 }
 
-void CodeGenerator::initializeAllScopeMetadata(ASTNode* root, const std::vector<FunctionDeclarationNode*>& functionRegistry) {
-    std::cout << "Initializing scope metadata for all scopes at compile time..." << std::endl;
-    std::cout << "DEBUG: Processing " << functionRegistry.size() << " functions in registry" << std::endl;
 
-    // Process all functions in the registry (includes methods)
-    for (auto* funcDecl : functionRegistry) {
-        std::cout << "DEBUG: Processing function: " << funcDecl->name << std::endl;
-        // Create metadata for the function scope itself
-        if (!funcDecl->metadata) {
-            std::cout << "DEBUG: Creating metadata for function: " << funcDecl->name << std::endl;
-            funcDecl->metadata = createScopeMetadata(funcDecl);
-        } else {
-            std::cout << "DEBUG: Function " << funcDecl->name << " already has metadata" << std::endl;
-        }
-
-        // Recursively process all nested scopes (blocks) within this function
-        initializeScopeMetadataRecursive(funcDecl);
-    }
-
-    std::cout << "Scope metadata initialization complete!" << std::endl;
-}
 
 void CodeGenerator::initializeScopeMetadataRecursive(ASTNode* node) {
     if (!node) return;
@@ -492,15 +361,18 @@ void CodeGenerator::initializeScopeMetadataRecursive(ASTNode* node) {
 void CodeGenerator::generateVarDecl(VariableDefinitionNode* varDecl) {
     // For now, we expect a literal assignment
     // var x: int64 = 10
-    if (varDecl->children.empty()) {
-        throw std::runtime_error("Variable declaration without assignment not supported");
+    if (!varDecl->initializer) {
+        // Variable declaration without assignment, set to 0
+        cb->mov(x86::rax, 0);
+        storeVariableInScope(varDecl->name, x86::rax, currentScope, nullptr);
+        return;
     }
 
     if (varDecl->isArray) {
         // For now, assume arrays are not supported - we'll need to update this
         throw std::runtime_error("Array variables not implemented yet");
     } else {
-        ASTNode* valueNode = varDecl->children[0];
+        ASTNode* valueNode = varDecl->initializer;
         // For now, assume all variables are INT64 - we'll need to update this for proper type handling
         loadValue(valueNode, x86::rax, x86::r15, DataType::INT64);
         storeVariableInScope(varDecl->name, x86::rax, currentScope, valueNode);
@@ -530,20 +402,7 @@ void CodeGenerator::generateLetDecl(VariableDefinitionNode* letDecl) {
 void CodeGenerator::loadValue(ASTNode* valueNode, x86::Gp destReg, x86::Gp sourceScopeReg, std::optional<DataType> expectedType) {
     if (!valueNode) return;
 
-    std::cout << "DEBUG loadValue: ENTERING FUNCTION" << std::endl;
-    std::cout << "DEBUG loadValue: node type = " << static_cast<int>(valueNode->nodeType) << std::endl;
-    std::cout << "DEBUG: ASTNodeType::EXPRESSION = " << static_cast<int>(ASTNodeType::EXPRESSION) << std::endl;
-    // Print the node type name if possible
-    std::cout << "DEBUG loadValue: ABOUT TO ENTER SWITCH" << std::endl;
-    switch (valueNode->nodeType) {
-        case ASTNodeType::EXPRESSION: std::cout << "  -> EXPRESSION" << std::endl; break;
-        case ASTNodeType::LITERAL_EXPRESSION: std::cout << "  -> LITERAL_EXPRESSION" << std::endl; break;
-        case ASTNodeType::IDENTIFIER_EXPRESSION: std::cout << "  -> IDENTIFIER_EXPRESSION" << std::endl; break;
-        case ASTNodeType::MEMBER_ACCESS: std::cout << "  -> MEMBER_ACCESS" << std::endl; break;
-        case ASTNodeType::NEW_EXPR: std::cout << "  -> NEW_EXPR" << std::endl; break;
-        case ASTNodeType::THIS_EXPR: std::cout << "  -> THIS_EXPR" << std::endl; break;
-        default: std::cout << "  -> UNKNOWN" << std::endl; break;
-    }
+    // std::cout << "DEBUG loadValue: node type = " << static_cast<int>(valueNode->nodeType) << std::endl;
 
     switch (valueNode->nodeType) {
         case ASTNodeType::LITERAL_EXPRESSION: {
@@ -622,6 +481,11 @@ void CodeGenerator::loadValue(ASTNode* valueNode, x86::Gp destReg, x86::Gp sourc
 
             // Load 'this' from scope (using provided source scope register)
             loadVariableFromScope(&tempIdentifier, destReg, 0, sourceScopeReg);
+            break;
+        }
+        case ASTNodeType::TYPE_ANNOTATION: {
+            // Type annotations are not values and should not be passed to loadValue
+            throw std::runtime_error("Type annotation node passed to loadValue - this is a parser/codegen bug");
             break;
         }
         default:
@@ -850,8 +714,12 @@ void CodeGenerator::generatePrintStmt(ASTNode* printStmt) {
     if (printStmt->children.empty()) {
         throw std::runtime_error("Print statement without argument");
     }
-    
+
     ASTNode* arg = printStmt->children[0];
+    // Unwrap parenthesis expression
+    if (arg->nodeType == ASTNodeType::PARENTHESIS_EXPRESSION && !arg->children.empty()) {
+        arg = arg->children[0];
+    }
     
     DataType detectedType = DataType::INT64;
     if (arg->nodeType == ASTNodeType::LITERAL_EXPRESSION) {
