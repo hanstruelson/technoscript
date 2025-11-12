@@ -40,7 +40,6 @@ print(x)
     std::cout << "DEBUG: Starting parsing..." << std::endl;
     ASTNode* ast = parse(code);
     std::cout << "DEBUG: Parsing completed successfully" << std::endl;
-    std::cout << "DEBUG: Root node type: " << static_cast<int>(ast->nodeType) << std::endl;
 
     // Print AST for debugging
     std::cout << "\n=== AST ===" << std::endl;

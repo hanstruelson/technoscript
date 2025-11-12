@@ -113,7 +113,7 @@ inline void handleStateInterfaceDeclarationName(ParserContext& ctx, char c) {
         // Check if we've started parsing the interface name
         if (ctx.stringStart > 0) {
             // Interface name complete, extract it
-            std::string interfaceName = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
+            std::string interfaceName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
             if (auto* interfaceNode = dynamic_cast<InterfaceDeclarationNode*>(ctx.currentNode)) {
                 interfaceNode->name = interfaceName;
             }
@@ -124,7 +124,7 @@ inline void handleStateInterfaceDeclarationName(ParserContext& ctx, char c) {
         }
     } else if (ctx.stringStart == 0 && isIdentifierStart(c)) {
         // Start of interface name
-        ctx.stringStart = ctx.index - 1;
+        ctx.stringStart = ctx.index;
         // Stay in this state to continue parsing
     } else if (isIdentifierPart(c)) {
         // Continue parsing interface name - accumulate characters
@@ -132,7 +132,7 @@ inline void handleStateInterfaceDeclarationName(ParserContext& ctx, char c) {
     } else if (c == '<') {
         // Generic parameters start
         if (ctx.stringStart > 0 && ctx.stringStart < ctx.index) {
-            std::string interfaceName = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
+            std::string interfaceName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
             if (auto* interfaceNode = dynamic_cast<InterfaceDeclarationNode*>(ctx.currentNode)) {
                 interfaceNode->name = interfaceName;
             }
@@ -142,7 +142,7 @@ inline void handleStateInterfaceDeclarationName(ParserContext& ctx, char c) {
     } else if (c == '{') {
         // Interface name complete, extract it
         if (ctx.stringStart > 0 && ctx.stringStart < ctx.index) {
-            std::string interfaceName = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
+            std::string interfaceName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
             if (auto* interfaceNode = dynamic_cast<InterfaceDeclarationNode*>(ctx.currentNode)) {
                 if (interfaceNode->name.empty()) {
                     interfaceNode->name = interfaceName;
@@ -154,7 +154,7 @@ inline void handleStateInterfaceDeclarationName(ParserContext& ctx, char c) {
     } else if (c == 'e') {
         // Interface name complete, extract it
         if (ctx.stringStart > 0 && ctx.stringStart < ctx.index) {
-            std::string interfaceName = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
+            std::string interfaceName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
             if (auto* interfaceNode = dynamic_cast<InterfaceDeclarationNode*>(ctx.currentNode)) {
                 interfaceNode->name = interfaceName;
             }
@@ -187,14 +187,14 @@ inline void handleStateInterfaceAfterNameName(ParserContext& ctx, char c) {
         return;
     } else if (c == ',') {
         // End of interface name, add to extends list
-        std::string extendsInterface = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
+        std::string extendsInterface = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
         if (auto* interfaceNode = dynamic_cast<InterfaceDeclarationNode*>(ctx.currentNode)) {
             interfaceNode->addExtendsInterface(extendsInterface);
         }
         ctx.state = STATE::INTERFACE_AFTER_NAME_SEPARATOR;
     } else if (c == '{') {
         // End of interface name, add to extends list, go to body
-        std::string extendsInterface = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
+        std::string extendsInterface = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
         if (auto* interfaceNode = dynamic_cast<InterfaceDeclarationNode*>(ctx.currentNode)) {
             interfaceNode->addExtendsInterface(extendsInterface);
         }
@@ -211,7 +211,7 @@ inline void handleStateInterfaceAfterNameName(ParserContext& ctx, char c) {
 inline void handleStateInterfaceAfterNameSeparator(ParserContext& ctx, char c) {
     if (isalnum(c) || c == '_') {
         // Next interface name
-        ctx.stringStart = ctx.index - 1;
+        ctx.stringStart = ctx.index;
         ctx.state = STATE::INTERFACE_AFTER_NAME_NAME;
     } else if (c == '{') {
         // End of extends, go to body
@@ -258,7 +258,7 @@ inline void handleStateInterfaceBody(ParserContext& ctx, char c) {
             ctx.state = STATE::INTERFACE_MEMBER_R;
         } else {
             // Property or method name
-            ctx.stringStart = ctx.index - 1;
+            ctx.stringStart = ctx.index;
             ctx.state = STATE::INTERFACE_PROPERTY_KEY;
         }
     } else if (std::isspace(static_cast<unsigned char>(c)) || c == ';') {
@@ -274,7 +274,7 @@ inline void handleStateInterfacePropertyKey(ParserContext& ctx, char c) {
         return;
     } else if (c == ':' || c == '(') {
         // End of property/method name
-        std::string propName = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
+        std::string propName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
 
         if (c == ':') {
             // This is a property
@@ -319,7 +319,7 @@ inline void handleStateInterfacePropertyKey(ParserContext& ctx, char c) {
             char nextChar = ctx.code[lookaheadIndex];
             if (nextChar == '(') {
                 // Optional method: name?(params)
-                std::string methodName = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
+                std::string methodName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
                 auto* methodNode = new ASTNode(ctx.currentNode);
                 methodNode->nodeType = ASTNodeType::INTERFACE_METHOD;
                 methodNode->value = methodName;
@@ -329,7 +329,7 @@ inline void handleStateInterfacePropertyKey(ParserContext& ctx, char c) {
                 ctx.state = STATE::INTERFACE_METHOD_PARAMETERS_START;
             } else if (nextChar == ':') {
                 // Optional property: name?: Type
-                std::string propName = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
+                std::string propName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
                 InterfacePropertyNode* propNode;
 
                 // Check if we already have a property node (from readonly parsing)
@@ -369,7 +369,7 @@ inline void handleStateInterfaceReadonlyStart(ParserContext& ctx, char c) {
         return;
     } else if (isIdentifierStart(c)) {
         // Start of property name after readonly
-        ctx.stringStart = ctx.index - 1;
+        ctx.stringStart = ctx.index;
         ctx.state = STATE::INTERFACE_PROPERTY_KEY;
     } else {
         reportParseError(ctx.code, ctx.index, "Expected property name after 'readonly'", ctx.state);
@@ -389,7 +389,7 @@ inline void handleStateInterfacePropertyType(ParserContext& ctx, char c) {
         ctx.index--; // Re-process this character
     } else if (isIdentifierStart(c)) {
         // Start of type name
-        ctx.stringStart = ctx.index - 1;
+        ctx.stringStart = ctx.index;
         ctx.state = STATE::INTERFACE_PROPERTY_TYPE_NAME;
     } else {
         // Type annotation parsing - for now, just consume identifier characters
@@ -451,7 +451,7 @@ inline void handleStateInterfacePropertyReadonly(ParserContext& ctx, char c) {
         return;
     } else if (isIdentifierStart(c)) {
         // Start of property name after readonly
-        ctx.stringStart = ctx.index - 1;
+        ctx.stringStart = ctx.index;
         ctx.state = STATE::INTERFACE_PROPERTY_KEY;
     } else {
         reportParseError(ctx.code, ctx.index, "Expected property name after 'readonly'", ctx.state);
@@ -478,7 +478,7 @@ inline void handleStateInterfaceIndexSignatureStart(ParserContext& ctx, char c) 
 
 inline void handleStateInterfaceIndexSignatureKey(ParserContext& ctx, char c) {
     if (isIdentifierStart(c)) {
-        ctx.stringStart = ctx.index - 1;
+        ctx.stringStart = ctx.index;
         ctx.state = STATE::INTERFACE_INDEX_SIGNATURE_KEY_NAME;
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace
@@ -493,7 +493,7 @@ inline void handleStateInterfaceIndexSignatureKeyName(ParserContext& ctx, char c
         return;
     } else if (c == ':') {
         // End of key name, now parse key type
-        std::string keyName = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
+        std::string keyName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
         if (auto* indexSigNode = dynamic_cast<InterfaceIndexSignatureNode*>(ctx.currentNode)) {
             indexSigNode->keyName = keyName;
         }
@@ -508,7 +508,7 @@ inline void handleStateInterfaceIndexSignatureKeyName(ParserContext& ctx, char c
 inline void handleStateInterfaceIndexSignatureKeyType(ParserContext& ctx, char c) {
     if (isIdentifierStart(c)) {
         // Start of key type name
-        ctx.stringStart = ctx.index - 1;
+        ctx.stringStart = ctx.index;
         ctx.state = STATE::INTERFACE_INDEX_SIGNATURE_KEY_TYPE_NAME;
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         // Skip whitespace
@@ -523,7 +523,7 @@ inline void handleStateInterfaceIndexSignatureKeyTypeName(ParserContext& ctx, ch
         return;
     } else if (c == ']') {
         // End of key type, now parse value type
-        std::string keyTypeName = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
+        std::string keyTypeName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
         // Create type annotation for key type
         auto* keyTypeNode = new TypeAnnotationNode(ctx.currentNode);
         if (keyTypeName == "string") {
@@ -541,7 +541,7 @@ inline void handleStateInterfaceIndexSignatureKeyTypeName(ParserContext& ctx, ch
         ctx.state = STATE::INTERFACE_INDEX_SIGNATURE_READONLY;
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         // End of key type name
-        std::string keyTypeName = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
+        std::string keyTypeName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
         // Create type annotation for key type
         auto* keyTypeNode = new TypeAnnotationNode(ctx.currentNode);
         if (keyTypeName == "string") {
@@ -579,7 +579,7 @@ inline void handleStateInterfaceIndexSignatureValueType(ParserContext& ctx, char
         // Skip whitespace
     } else if (isIdentifierStart(c)) {
         // Start of value type name
-        ctx.stringStart = ctx.index - 1;
+        ctx.stringStart = ctx.index;
         ctx.state = STATE::INTERFACE_INDEX_SIGNATURE_VALUE_TYPE_NAME;
     } else {
         // Type parsing would go here
@@ -593,7 +593,7 @@ inline void handleStateInterfaceIndexSignatureValueTypeName(ParserContext& ctx, 
         return;
     } else if (c == ']') {
         // End of type name and index signature key part
-        std::string valueTypeName = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
+        std::string valueTypeName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
         // Create type annotation for value type
         auto* valueTypeNode = new TypeAnnotationNode(ctx.currentNode);
         if (valueTypeName == "string") {
@@ -611,7 +611,7 @@ inline void handleStateInterfaceIndexSignatureValueTypeName(ParserContext& ctx, 
         ctx.state = STATE::INTERFACE_INDEX_SIGNATURE_READONLY;
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         // End of type name
-        std::string valueTypeName = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
+        std::string valueTypeName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
         // Create type annotation for value type
         auto* valueTypeNode = new TypeAnnotationNode(ctx.currentNode);
         if (valueTypeName == "string") {
@@ -860,7 +860,7 @@ inline void handleStateInterfacePropertyTypeName(ParserContext& ctx, char c) {
         return;
     } else if (c == ';') {
         // End of type name
-        std::string typeName = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
+        std::string typeName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
         // Create type annotation
         auto* typeNode = new TypeAnnotationNode(ctx.currentNode);
         if (typeName == "string") {
@@ -879,7 +879,7 @@ inline void handleStateInterfacePropertyTypeName(ParserContext& ctx, char c) {
         ctx.state = STATE::INTERFACE_BODY;
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         // End of type name
-        std::string typeName = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
+        std::string typeName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
         // Create type annotation
         auto* typeNode = new TypeAnnotationNode(ctx.currentNode);
         if (typeName == "string") {

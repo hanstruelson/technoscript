@@ -12,20 +12,19 @@
 // Define in order of dependency - handleStateVariableCreateIdentifierComplete first
 inline void handleStateVariableCreateIdentifierComplete(ParserContext& ctx, char c) {
     if (std::isspace(static_cast<unsigned char>(c))) {
+        // Set variable name and transition to whitespace state
         std::string varName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
-        varName.erase(varName.find_last_not_of(" \t\n\r\f\v") + 1);
         auto* varDef = static_cast<VariableDefinitionNode*>(ctx.currentNode);
         varDef->name = varName;
-        ctx.state = STATE::EXPECT_TYPE_ANNOTATION;
+        ctx.state = STATE::IDENTIFIER_COMPLETE_WHITESPACE;
+        return;
     } else if (c == ':') {
         std::string varName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
-        varName.erase(varName.find_last_not_of(" \t\n\r\f\v") + 1);
         auto* varDef = static_cast<VariableDefinitionNode*>(ctx.currentNode);
         varDef->name = varName;
         ctx.state = STATE::EXPECT_TYPE_ANNOTATION;
     } else if (c == '=') {
         std::string varName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
-        varName.erase(varName.find_last_not_of(" \t\n\r\f\v") + 1);
         auto* varDef = static_cast<VariableDefinitionNode*>(ctx.currentNode);
         varDef->name = varName;
         auto* varNode = dynamic_cast<VariableDefinitionNode*>(ctx.currentNode);
@@ -38,7 +37,6 @@ inline void handleStateVariableCreateIdentifierComplete(ParserContext& ctx, char
         ctx.state = STATE::EXPRESSION_EXPECT_OPERAND;
     } else if (c == ';') {
         std::string varName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
-        varName.erase(varName.find_last_not_of(" \t\n\r\f\v") + 1);
         auto* varDef = static_cast<VariableDefinitionNode*>(ctx.currentNode);
         varDef->name = varName;
         if (ctx.currentNode && ctx.currentNode->parent) {
@@ -97,7 +95,8 @@ inline void handleStateIdentifierComplete(ParserContext& ctx, char c) {
 
 inline void handleStateExpectIdentifier(ParserContext& ctx, char c) {
     if (isIdentifierStart(c)) {
-        ctx.stringStart = ctx.index - 1;
+        std::cout << "DEBUG: ExpectIdentifier current node type " << static_cast<int>(ctx.currentNode->nodeType) << std::endl;
+        ctx.stringStart = ctx.index;
         ctx.state = STATE::IDENTIFIER_NAME;
     } else if (c == '[') {
         // Array destructuring
@@ -127,9 +126,7 @@ inline void handleStateIdentifierName(ParserContext& ctx, char c) {
         return;
     }
 
-    std::string identifier = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
-    // Trim trailing whitespace
-    identifier.erase(identifier.find_last_not_of(" \t\n\r\f\v") + 1);
+    std::string identifier = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
     if (ctx.currentNode->nodeType == ASTNodeType::VARIABLE_DEFINITION) {
         auto* varDefNode = dynamic_cast<VariableDefinitionNode*>(ctx.currentNode);
         varDefNode->name = identifier;
@@ -142,18 +139,12 @@ inline void handleStateIdentifierName(ParserContext& ctx, char c) {
             varInfo.type = DataType::INT64;
             varInfo.size = 8;
 
-            if (varDefNode->varType == VariableDefinitionType::VAR) {
-                // Add to function scope
-                if (ctx.currentFunctionScope) {
-                    varInfo.definingScope = ctx.currentFunctionScope;
-                    ctx.currentFunctionScope->variables[identifier] = varInfo;
-                }
+            if (varDefNode->varType == VariableDefinitionType::VAR && ctx.currentFunctionScope) {
+                varInfo.definingScope = ctx.currentFunctionScope;
+                ctx.currentFunctionScope->variables[identifier] = varInfo;
             } else {
-                // Add to block scope (let/const)
-                if (ctx.currentBlockScope) {
-                    varInfo.definingScope = ctx.currentBlockScope;
-                    ctx.currentBlockScope->variables[identifier] = varInfo;
-                }
+                varInfo.definingScope = ctx.currentBlockScope;
+                ctx.currentBlockScope->variables[identifier] = varInfo;
             }
         }
 
@@ -165,9 +156,20 @@ inline void handleStateIdentifierName(ParserContext& ctx, char c) {
     }
 }
 
+inline void handleStateIdentifierCompleteWhitespace(ParserContext& ctx, char c) {
+    if (std::isspace(static_cast<unsigned char>(c))) {
+        // Continue consuming whitespace
+        return;
+    }
+
+    // Non-whitespace character encountered, process it in IDENTIFIER_COMPLETE
+    ctx.index--; // Re-process this character
+    ctx.state = STATE::IDENTIFIER_COMPLETE;
+}
+
 inline void handleStateExpectImmediateIdentifier(ParserContext& ctx, char c) {
     if (isIdentifierStart(c)) {
-        ctx.stringStart = ctx.index - 1;
+        ctx.stringStart = ctx.index;
         ctx.state = STATE::IDENTIFIER_NAME;
     } else {
         throw std::runtime_error("Expected identifier start character, got: " + std::string(1, c));

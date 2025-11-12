@@ -139,7 +139,7 @@ inline void handleStateImportSpecifierName(ParserContext& ctx, char c) {
     }
 
     if (ctx.stringStart == 0) {
-        ctx.stringStart = ctx.index - 1;
+        ctx.stringStart = ctx.index;
     }
 
     if (isalnum(c) || c == '_') {
@@ -431,7 +431,7 @@ inline void handleStateExportSpecifiersStart(ParserContext& ctx, char c) {
         ctx.state = STATE::EXPORT_DEFAULT_D;
     } else if (isIdentifierStart(c)) {
         // Identifier to export (could be keyword like const/let/var/function or regular identifier)
-        ctx.stringStart = ctx.index - 1;
+        ctx.stringStart = ctx.index;
         ctx.state = STATE::EXPORT_IDENTIFIER;
         ctx.index--; // Re-process this character
     } else if (std::isspace(static_cast<unsigned char>(c))) {
@@ -450,7 +450,7 @@ inline void handleStateExportSpecifierName(ParserContext& ctx, char c) {
     }
 
     if (ctx.stringStart == 0) {
-        ctx.stringStart = ctx.index - 1;
+        ctx.stringStart = ctx.index;
     }
 
     if (isalnum(c) || c == '_') {

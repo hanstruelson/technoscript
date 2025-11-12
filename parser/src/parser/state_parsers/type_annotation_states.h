@@ -33,12 +33,45 @@ inline void handleStateExpectTypeAnnotation(ParserContext& ctx, char c) {
     if (std::isspace(static_cast<unsigned char>(c))) {
 
     } else if (std::isalnum(static_cast<unsigned char>(c)) != 0 || c == '_') {
-        ctx.stringStart = ctx.index - 1;
+        ctx.stringStart = ctx.index;
         ctx.state = STATE::TYPE_ANNOTATION;
     } else {
         std::cout << "doing await type annotation";
         throw std::runtime_error("Unexpected character" + std::string(1, c));
     }
+}
+
+inline void handleStateTypeAnnotationWhitespace(ParserContext& ctx, char c) {
+    if (std::isspace(static_cast<unsigned char>(c))) {
+        // Continue consuming whitespace
+        return;
+    }
+
+    // Non-whitespace character encountered, go back to TYPE_ANNOTATION
+    ctx.index--; // Re-process this character
+    ctx.state = STATE::TYPE_ANNOTATION;
+}
+
+inline void handleStateTypeUnionSeparatorWhitespace(ParserContext& ctx, char c) {
+    if (std::isspace(static_cast<unsigned char>(c))) {
+        // Continue consuming whitespace
+        return;
+    }
+
+    // Non-whitespace character encountered, start next type in union
+    ctx.index--; // Re-process this character
+    ctx.state = STATE::TYPE_ANNOTATION;
+}
+
+inline void handleStateTypeIntersectionSeparatorWhitespace(ParserContext& ctx, char c) {
+    if (std::isspace(static_cast<unsigned char>(c))) {
+        // Continue consuming whitespace
+        return;
+    }
+
+    // Non-whitespace character encountered, start next type in intersection
+    ctx.index--; // Re-process this character
+    ctx.state = STATE::TYPE_ANNOTATION;
 }
 
 inline void handleStateTypeAnnotation(ParserContext& ctx, char c) {
@@ -47,7 +80,8 @@ inline void handleStateTypeAnnotation(ParserContext& ctx, char c) {
     }
 
     if (std::isspace(static_cast<unsigned char>(c))) {
-        // Skip whitespace
+        // Transition to whitespace state instead of skipping
+        ctx.state = STATE::TYPE_ANNOTATION_WHITESPACE;
         return;
     }
 
@@ -92,9 +126,7 @@ inline void handleStateTypeAnnotation(ParserContext& ctx, char c) {
 
     if (c == '|') {
         // Union type - create union type node if not already created
-        std::string currentType = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
-        // Trim trailing whitespace
-        currentType.erase(currentType.find_last_not_of(" \t\n\r\f\v") + 1);
+        std::string currentType = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
 
         // Find the variable definition node
         ASTNode* current = ctx.currentNode;
@@ -128,22 +160,14 @@ inline void handleStateTypeAnnotation(ParserContext& ctx, char c) {
         }
         unionType->addType(typeNode);
 
-        // Continue parsing next type in union
-        ctx.state = STATE::TYPE_ANNOTATION;
-        // Skip whitespace after | and set stringStart for next type
-        std::size_t nextStart = ctx.index;
-        while (nextStart < ctx.code.length() && std::isspace(static_cast<unsigned char>(ctx.code[nextStart]))) {
-            nextStart++;
-        }
-        ctx.stringStart = nextStart;
+        // Continue parsing next type in union after whitespace
+        ctx.state = STATE::TYPE_UNION_SEPARATOR_WHITESPACE;
         return;
     }
 
     if (c == '&') {
         // Intersection type - create intersection type node if not already created
-        std::string currentType = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
-        // Trim trailing whitespace
-        currentType.erase(currentType.find_last_not_of(" \t\n\r\f\v") + 1);
+        std::string currentType = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
 
         // Find the variable definition node
         ASTNode* current = ctx.currentNode;
@@ -177,21 +201,20 @@ inline void handleStateTypeAnnotation(ParserContext& ctx, char c) {
         }
         intersectionType->addType(typeNode);
 
-        // Continue parsing next type in intersection
-        ctx.state = STATE::TYPE_ANNOTATION;
-        // Skip whitespace after & and set stringStart for next type
-        std::size_t nextStart = ctx.index;
-        while (nextStart < ctx.code.length() && std::isspace(static_cast<unsigned char>(ctx.code[nextStart]))) {
-            nextStart++;
-        }
-        ctx.stringStart = nextStart;
+        // Continue parsing next type in intersection after whitespace
+        ctx.state = STATE::TYPE_INTERSECTION_SEPARATOR_WHITESPACE;
         return;
     }
 
     // End of type annotation (encountered = or other terminator)
-    std::string typeAnnotation = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
-    // Trim trailing whitespace
-    typeAnnotation.erase(typeAnnotation.find_last_not_of(" \t\n\r\f\v") + 1);
+    std::string typeAnnotation = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
+    // Trim surrounding whitespace to avoid trailing spaces from annotations like ": int64"
+    auto firstNonSpace = typeAnnotation.find_first_not_of(" \t\n\r\f\v");
+    if (firstNonSpace == std::string::npos) {
+        throw std::runtime_error("Empty type annotation");
+    }
+    auto lastNonSpace = typeAnnotation.find_last_not_of(" \t\n\r\f\v");
+    typeAnnotation = typeAnnotation.substr(firstNonSpace, lastNonSpace - firstNonSpace + 1);
 
     // Find the appropriate node (variable definition or function)
     ASTNode* current = ctx.currentNode;
@@ -234,6 +257,9 @@ inline void handleStateTypeAnnotation(ParserContext& ctx, char c) {
             intersectionType->addType(typeNode);
         }
 
+        // Call the callback when type annotation is complete
+        varDefNode->onTypeAnnotationComplete(ctx);
+
         ctx.state = STATE::EXPECT_EQUALS;
     } else if (auto* funcDeclNode = dynamic_cast<FunctionDeclarationNode*>(current)) {
         // Handle function return type annotation
@@ -252,6 +278,9 @@ inline void handleStateTypeAnnotation(ParserContext& ctx, char c) {
             funcDeclNode->returnType = typeNode;
             funcDeclNode->children.push_back(typeNode);
         }
+
+        // Call the callback when type annotation is complete
+        funcDeclNode->onTypeAnnotationComplete(ctx);
 
         ctx.state = STATE::FUNCTION_BODY_START;
     } else if (auto* funcExprNode = dynamic_cast<FunctionExpressionNode*>(current)) {
@@ -272,6 +301,9 @@ inline void handleStateTypeAnnotation(ParserContext& ctx, char c) {
             funcExprNode->children.push_back(typeNode);
         }
 
+        // Call the callback when type annotation is complete
+        funcExprNode->onTypeAnnotationComplete(ctx);
+
         ctx.state = STATE::FUNCTION_BODY_START;
     } else if (auto* arrowFuncNode = dynamic_cast<ArrowFunctionExpressionNode*>(current)) {
         // Handle arrow function return type annotation
@@ -290,6 +322,9 @@ inline void handleStateTypeAnnotation(ParserContext& ctx, char c) {
             arrowFuncNode->returnType = typeNode;
             arrowFuncNode->children.push_back(typeNode);
         }
+
+        // Call the callback when type annotation is complete
+        arrowFuncNode->onTypeAnnotationComplete(ctx);
 
         ctx.state = STATE::ARROW_FUNCTION_BODY;
     } else {

@@ -94,7 +94,7 @@ inline void handleStateEnumDeclarationName(ParserContext& ctx, char c) {
     if (std::isalnum(static_cast<unsigned char>(c)) != 0 || c == '_') {
         // If this is the first character of the name, set stringStart
         if (ctx.stringStart == 0) {
-            ctx.stringStart = ctx.index - 1;
+            ctx.stringStart = ctx.index;
         }
         return;  // Continue collecting enum name
     }
@@ -105,7 +105,7 @@ inline void handleStateEnumDeclarationName(ParserContext& ctx, char c) {
 
     if (c == '{') {
         // End of enum name, start enum body
-        std::string enumName = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
+        std::string enumName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
         // Trim whitespace
         enumName.erase(enumName.find_last_not_of(" \t\n\r\f\v") + 1);
 
@@ -141,7 +141,7 @@ inline void handleStateEnumBodyStart(ParserContext& ctx, char c) {
 
     if (std::isalnum(static_cast<unsigned char>(c)) != 0 || c == '_') {
         // Start of enum member name
-        ctx.stringStart = ctx.index - 1;
+        ctx.stringStart = ctx.index;
         ctx.state = STATE::ENUM_MEMBER_NAME;
         return;
     }
@@ -160,7 +160,7 @@ inline void handleStateEnumMemberName(ParserContext& ctx, char c) {
 
     if (c == '=') {
         // Member has initializer
-        std::string memberName = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
+        std::string memberName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
         memberName.erase(memberName.find_last_not_of(" \t\n\r\f\v") + 1);
 
         // Create enum member
@@ -176,7 +176,7 @@ inline void handleStateEnumMemberName(ParserContext& ctx, char c) {
         ctx.state = STATE::ENUM_MEMBER_INITIALIZER;
     } else if (c == ',' || c == '}') {
         // Member without initializer
-        std::string memberName = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
+        std::string memberName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
         memberName.erase(memberName.find_last_not_of(" \t\n\r\f\v") + 1);
 
         // Create enum member
@@ -240,7 +240,7 @@ inline void handleStateEnumBody(ParserContext& ctx, char c) {
         ctx.state = STATE::BLOCK;
     } else if (std::isalnum(static_cast<unsigned char>(c)) != 0 || c == '_') {
         // Next enum member
-        ctx.stringStart = ctx.index - 1;
+        ctx.stringStart = ctx.index;
         ctx.state = STATE::ENUM_MEMBER_NAME;
     } else {
         throw std::runtime_error("Unexpected character in enum body: " + std::string(1, c));
@@ -420,7 +420,7 @@ inline void handleStateInterfaceMemberReadonly(ParserContext& ctx, char c) {
             interfaceNode->addInterfaceProperty(propNode);
         }
         ctx.currentNode = propNode;
-        ctx.stringStart = ctx.index - 1;
+        ctx.stringStart = ctx.index;
         ctx.state = STATE::INTERFACE_PROPERTY_KEY;
     } else {
         // Not valid after "readonly", treat as property name
@@ -498,7 +498,7 @@ inline void handleStateClassAfterNameName(ParserContext& ctx, char c) {
 
     if (c == '{') {
         // End of name, set extends class
-        std::string name = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
+        std::string name = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
         name.erase(name.find_last_not_of(" \t\n\r\f\v") + 1);
 
         // Set class extends

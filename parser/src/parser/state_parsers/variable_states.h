@@ -2,6 +2,7 @@
 
 #include <stdexcept>
 #include <string>
+#include <iostream>
 
 #include "../lib/parser_context.h"
 #include "../lib/ast.h"
@@ -11,6 +12,7 @@ inline void handleStateExpectIdentifier(ParserContext& ctx, char c);
 
 // var keyword parsing - define in order of dependency
 inline void handleStateBlockVAR(ParserContext& ctx, char c) {
+    std::cout << "DEBUG: handleStateBlockVAR saw '" << c << "'\n";
     if (c == ' ') {
         auto* parent = ctx.currentNode;
         auto* variable = new VariableDefinitionNode(parent, VariableDefinitionType::VAR);

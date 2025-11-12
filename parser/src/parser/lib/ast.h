@@ -310,6 +310,10 @@ public:
 
     ~VariableDefinitionNode() override = default;
 
+    virtual void onTypeAnnotationComplete(ParserContext& ctx) {
+        // Default: do nothing, can be overridden by subclasses
+    }
+
     virtual void walk() override {
         std::cout << "walkVariableDefinition" << std::endl;
         if (typeAnnotation) typeAnnotation->walk();
@@ -673,6 +677,10 @@ public:
         funcName = name; // Sync with name
     }
 
+    virtual void onTypeAnnotationComplete(ParserContext& ctx) {
+        // Default: do nothing, can be overridden by subclasses
+    }
+
     void walk() override {
         std::cout << "walkFunctionDeclaration" << std::endl;
         for (auto child : children) {
@@ -705,6 +713,10 @@ public:
         nodeType = ASTNodeType::FUNCTION_EXPRESSION;
     }
 
+    virtual void onTypeAnnotationComplete(ParserContext& ctx) {
+        // Default: do nothing, can be overridden by subclasses
+    }
+
     void print(std::ostream& os, int indent) const override {
         auto pad = [indent]() { return string(indent * 2, ' '); };
         os << pad() << "FunctionExpression\n";
@@ -726,6 +738,10 @@ public:
 
     ArrowFunctionExpressionNode(ASTNode* parent) : ExpressionNode(parent), parameters(nullptr), returnType(nullptr), body(nullptr) {
         nodeType = ASTNodeType::ARROW_FUNCTION_EXPRESSION;
+    }
+
+    virtual void onTypeAnnotationComplete(ParserContext& ctx) {
+        // Default: do nothing, can be overridden by subclasses
     }
 
     void print(std::ostream& os, int indent) const override {

@@ -118,7 +118,7 @@ inline void handleStateFunctionDeclarationName(ParserContext& ctx, char c) {
         return;
     } else if (c == '<') {
         // Function name complete, extract it and check for generics
-        std::string funcName = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
+        std::string funcName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
         if (auto* funcNode = dynamic_cast<FunctionDeclarationNode*>(ctx.currentNode)) {
             funcNode->name = funcName;
         }
@@ -240,7 +240,7 @@ inline void handleStateFunctionParameterTypeAnnotation(ParserContext& ctx, char 
 
     // Start parsing type name
     if ((isalpha(c) || c == '_') && !startedParsing) {
-        ctx.stringStart = ctx.index - 1; // Include current character
+        ctx.stringStart = ctx.index; // Start at current character
         startedParsing = true;
         // Continue in this state to accumulate type name
         return;
@@ -253,7 +253,7 @@ inline void handleStateFunctionParameterTypeAnnotation(ParserContext& ctx, char 
 
     // End of type name - process it
     if (c == ',' || c == ')') {
-        std::string typeName = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
+        std::string typeName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
         // Trim trailing whitespace
         typeName.erase(typeName.find_last_not_of(" \t\n\r\f\v") + 1);
 

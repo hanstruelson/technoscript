@@ -45,7 +45,7 @@ inline void handleStateTypeAliasName(ParserContext& ctx, char c) {
         // Check if we've started parsing the type alias name
         if (ctx.stringStart > 0) {
             // Type alias name complete, extract it
-            std::string typeAliasName = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
+            std::string typeAliasName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
             if (auto* typeAliasNode = dynamic_cast<TypeAliasNode*>(ctx.currentNode)) {
                 typeAliasNode->name = typeAliasName;
             }
@@ -56,7 +56,7 @@ inline void handleStateTypeAliasName(ParserContext& ctx, char c) {
         }
     } else if (ctx.stringStart == 0 && isIdentifierStart(c)) {
         // Start of type alias name
-        ctx.stringStart = ctx.index - 1;
+        ctx.stringStart = ctx.index;
         // Stay in this state to continue parsing
     } else if (isIdentifierPart(c)) {
         // Continue parsing type alias name - accumulate characters
@@ -64,7 +64,7 @@ inline void handleStateTypeAliasName(ParserContext& ctx, char c) {
     } else if (c == '<') {
         // Generic parameters start
         if (ctx.stringStart > 0 && ctx.stringStart < ctx.index) {
-            std::string typeAliasName = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
+            std::string typeAliasName = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
             if (auto* typeAliasNode = dynamic_cast<TypeAliasNode*>(ctx.currentNode)) {
                 typeAliasNode->name = typeAliasName;
             }

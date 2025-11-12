@@ -6,13 +6,7 @@
 #include <vector>
 #include <map>
 
-// Information about an unknown variable reference
-struct UnknownVariableInfo {
-    std::string name;
-    ASTNode* referenceNode;
-    int scopeDepth;
-    LexicalScopeNode* scope;
-};
+
 
 // Scope layout constants
 namespace ScopeLayout {
@@ -58,8 +52,7 @@ namespace VariablePacking {
 class AnalyzerContext {
 public:
     std::stack<LexicalScopeNode*> scopeStack;
-    std::unordered_map<std::string, VariableInfo> activeVariables; // identifier -> info
-    std::unordered_map<std::string, std::vector<UnknownVariableInfo>> unknownVariables; // identifier -> list of references
+    std::unordered_map<std::string, std::vector<VariableInfo*>> activeVariables; // identifier -> vector of infos (most recent first)
     std::map<std::string, ClassDeclarationNode*> classRegistry; // class name -> class
     int currentScopeDepth;
 
@@ -76,55 +69,22 @@ public:
             scopeStack.pop();
             currentScopeDepth--;
 
-            // Remove variables defined in this scope from activeVariables
-            // and check for unknown variables that might now be resolved
+            // Remove variables defined in this scope from the front of their vectors
             std::vector<std::string> toRemove;
             for (auto& pair : activeVariables) {
-                if (pair.second.definingScope == poppedScope) {
-                    toRemove.push_back(pair.first);
+                if (!pair.second.empty() && pair.second[0]->definingScope == poppedScope) {
+                    // Remove from front of vector (VariableInfo objects are managed by the scope)
+                    pair.second.erase(pair.second.begin());
+
+                    // If vector is now empty, mark for removal
+                    if (pair.second.empty()) {
+                        toRemove.push_back(pair.first);
+                    }
                 }
             }
 
-            // Check if any popped variables resolve unknown references
+            // Remove empty vectors
             for (const std::string& varName : toRemove) {
-                auto it = unknownVariables.find(varName);
-                if (it != unknownVariables.end()) {
-                    // Check if any unknown references can be resolved
-                    std::vector<UnknownVariableInfo> stillUnknown;
-                    for (const auto& unknown : it->second) {
-                        bool canResolve = false;
-                        if (unknown.scopeDepth >= activeVariables[varName].scopeDepth) {
-                            // Check if the defining scope is an ancestor of the unknown reference's scope
-                            LexicalScopeNode* checkScope = unknown.scope;
-                            while (checkScope != nullptr) {
-                                if (checkScope == activeVariables[varName].definingScope) {
-                                    canResolve = true;
-                                    break;
-                                }
-                                // Find parent scope by walking up the AST
-                                ASTNode* parent = checkScope->parent;
-                                while (parent && dynamic_cast<LexicalScopeNode*>(parent) == nullptr) {
-                                    parent = parent->parent;
-                                }
-                                checkScope = dynamic_cast<LexicalScopeNode*>(parent);
-                            }
-                        }
-
-                        if (canResolve) {
-                            // This reference can be resolved
-                            std::cout << "Resolved unknown variable '" << varName
-                                    << "' at depth " << unknown.scopeDepth
-                                    << " to definition at depth " << activeVariables[varName].scopeDepth << std::endl;
-                        } else {
-                            stillUnknown.push_back(unknown);
-                        }
-                    }
-                    if (stillUnknown.empty()) {
-                        unknownVariables.erase(it);
-                    } else {
-                        it->second = stillUnknown;
-                    }
-                }
                 activeVariables.erase(varName);
             }
         }
@@ -134,69 +94,19 @@ public:
         return scopeStack.empty() ? nullptr : scopeStack.top();
     }
 
-    void defineVariable(const std::string& name, VariableDefinitionType varType, LexicalScopeNode* scope) {
-        VariableInfo info;
-        info.name = name;
-        info.varType = varType;
-        info.definingScope = scope;
-        info.scopeDepth = currentScopeDepth;
-        info.isDefined = true;
-        activeVariables[name] = info;
-
-        // Check if this resolves any unknown references
-        auto it = unknownVariables.find(name);
-        if (it != unknownVariables.end()) {
-            std::vector<UnknownVariableInfo> stillUnknown;
-            for (const auto& unknown : it->second) {
-                // Only resolve if the unknown reference is in a descendant scope of the defining scope
-                bool canResolve = false;
-                if (unknown.scopeDepth > currentScopeDepth) {  // Must be deeper in the hierarchy
-                    // Check if the defining scope is an ancestor of the unknown reference's scope
-                    // Walk up from the unknown scope to see if we reach the defining scope
-                    LexicalScopeNode* checkScope = unknown.scope;
-                    while (checkScope != nullptr) {
-                        if (checkScope == scope) {
-                            canResolve = true;
-                            break;
-                        }
-                        // Find parent scope by walking up the AST
-                        ASTNode* parent = checkScope->parent;
-                        while (parent && dynamic_cast<LexicalScopeNode*>(parent) == nullptr) {
-                            parent = parent->parent;
-                        }
-                        checkScope = dynamic_cast<LexicalScopeNode*>(parent);
-                    }
-                }
-
-                if (canResolve) {
-                    // This reference can be resolved
-                    std::cout << "Resolved unknown variable '" << name
-                            << "' at depth " << unknown.scopeDepth
-                            << " to definition at depth " << currentScopeDepth << std::endl;
-                } else {
-                    stillUnknown.push_back(unknown);
-                }
-            }
-            if (stillUnknown.empty()) {
-                unknownVariables.erase(it);
-            } else {
-                it->second = stillUnknown;
-            }
-        }
+    void defineVariable(VariableInfo* varInfo) {
+        // Prepend to the vector (most recent first)
+        activeVariables[varInfo->name].insert(activeVariables[varInfo->name].begin(), varInfo);
     }
 
     VariableInfo* findVariable(const std::string& name) {
         auto it = activeVariables.find(name);
-        if (it != activeVariables.end()) {
-            return &it->second;
+        // Since we properly collect all variable definitions in the parser, this should always find the variable
+        if (it != activeVariables.end() && !it->second.empty()) {
+            return it->second[0]; // Return the most recent (first) variable
         }
-        return nullptr;
-    }
-
-    void addUnknownVariable(const std::string& name, ASTNode* node, LexicalScopeNode* scope) {
-        UnknownVariableInfo info{name, node, currentScopeDepth, scope};
-        unknownVariables[name].push_back(info);
-        std::cout << "Added unknown variable '" << name << "' at depth " << currentScopeDepth << std::endl;
+        // This should never happen with proper variable collection
+        throw std::runtime_error("Variable '" + name + "' not found - this indicates a parser bug");
     }
 
     ClassDeclarationNode* findClass(const std::string& className) {
@@ -220,7 +130,7 @@ private:
     ClassDeclarationNode* currentClassContext = nullptr;     // Track which class the current method belongs to
 
     // Single-pass analysis method that does everything efficiently
-    void analyzeNodeSinglePass(ASTNode* node, LexicalScopeNode* parentScope, int depth) {
+    void analyzeNodeSinglePass(ASTNode* node, LexicalScopeNode* parentScope, LexicalScopeNode* currentFunctionScope, int depth) {
         if (!node) return;
 
         // Set depth on lexical scopes
@@ -247,7 +157,7 @@ private:
 
                 // Analyze function body with function as parent scope
                 if (funcNode->body) {
-                    analyzeNodeSinglePass(funcNode->body, funcNode, depth + 1);
+                    analyzeNodeSinglePass(funcNode->body, funcNode, funcNode, depth + 1);
                 }
 
                 context.popScope();
@@ -285,7 +195,7 @@ private:
 
                 // Analyze children with block as parent scope
                 for (auto* child : node->children) {
-                    analyzeNodeSinglePass(child, blockNode, depth + 1);
+                    analyzeNodeSinglePass(child, blockNode, currentFunctionScope, depth + 1);
                 }
 
                 context.popScope();
@@ -304,36 +214,31 @@ private:
                 auto* varDef = static_cast<VariableDefinitionNode*>(node);
 
                 if (!varDef->name.empty() && parentScope) {
-                    context.defineVariable(varDef->name, varDef->varType, parentScope);
-
                     VariableInfo varInfo;
                     varInfo.name = varDef->name;
                     varInfo.varType = varDef->varType;
                     varInfo.type = DataType::INT64; // Default type
                     varInfo.size = 8;
                     varInfo.definingScope = parentScope;
+                    varInfo.scopeDepth = context.currentScopeDepth;
+                    varInfo.isDefined = true;
 
-                    if (varDef->varType == VariableDefinitionType::VAR) {
-                        // Hoist var to function scope
-                        LexicalScopeNode* funcScope = parentScope;
-                        while (funcScope && funcScope->nodeType != ASTNodeType::FUNCTION_DECLARATION) {
-                            funcScope = funcScope->parentFunctionScope;
-                        }
-                        if (funcScope) {
-                            funcScope->variables[varDef->name] = varInfo;
-                        } else {
-                            // Fallback to current scope if no function scope found
-                            parentScope->variables[varDef->name] = varInfo;
-                        }
+                    VariableInfo* storedVarInfo;
+                    if (varDef->varType == VariableDefinitionType::VAR && currentFunctionScope) {
+                        currentFunctionScope->variables[varDef->name] = varInfo;
+                        storedVarInfo = &currentFunctionScope->variables[varDef->name];
                     } else {
                         // let/const stay in current scope
                         parentScope->variables[varDef->name] = varInfo;
+                        storedVarInfo = &parentScope->variables[varDef->name];
                     }
+
+                    context.defineVariable(storedVarInfo);
                 }
 
                 // Analyze initializer
                 if (varDef->initializer) {
-                    analyzeNodeSinglePass(varDef->initializer, parentScope, depth);
+                    analyzeNodeSinglePass(varDef->initializer, parentScope, currentFunctionScope, depth);
                 }
 
                 break;
@@ -342,20 +247,15 @@ private:
             case ASTNodeType::IDENTIFIER_EXPRESSION: {
                 auto* identNode = static_cast<IdentifierExpressionNode*>(node);
 
-                // Resolve variable reference
+                // Resolve variable reference - since we properly collect all definitions in parser, this should never be null
                 VariableInfo* varInfo = context.findVariable(identNode->name);
-                if (varInfo) {
-                    identNode->varRef = varInfo;
-                    identNode->accessedIn = parentScope;
+                identNode->varRef = varInfo;
+                identNode->accessedIn = parentScope;
 
-                    // Track dependencies for closure analysis
-                    if (varInfo->definingScope != parentScope) {
-                        addParentDep(parentScope, varInfo->definingScope->depth);
-                        addDescendantDep(varInfo->definingScope, parentScope->depth);
-                    }
-                } else {
-                    // Unresolved variable - this might be a global or error
-                    std::cout << "Warning: Unresolved identifier '" << identNode->name << "' at depth " << depth << std::endl;
+                // Track dependencies for closure analysis
+                if (varInfo->definingScope != parentScope) {
+                    addParentDep(parentScope, varInfo->definingScope->depth);
+                    addDescendantDep(varInfo->definingScope, parentScope->depth);
                 }
 
                 break;
@@ -366,7 +266,7 @@ private:
 
                 // Analyze object expression
                 if (memberAccess->object) {
-                    analyzeNodeSinglePass(memberAccess->object, parentScope, depth);
+                    analyzeNodeSinglePass(memberAccess->object, parentScope, currentFunctionScope, depth);
                 }
 
                 // Resolve member access if object is a known class instance
@@ -401,12 +301,12 @@ private:
 
                 // Analyze object expression
                 if (methodCall->object) {
-                    analyzeNodeSinglePass(methodCall->object, parentScope, depth);
+                    analyzeNodeSinglePass(methodCall->object, parentScope, currentFunctionScope, depth);
                 }
 
                 // Analyze arguments
                 for (auto* arg : methodCall->args) {
-                    analyzeNodeSinglePass(arg, parentScope, depth);
+                    analyzeNodeSinglePass(arg, parentScope, currentFunctionScope, depth);
                 }
 
                 // Resolve method if object is a known class instance
@@ -452,7 +352,7 @@ private:
 
                 // Analyze constructor arguments
                 for (auto* arg : newExpr->args) {
-                    analyzeNodeSinglePass(arg, parentScope, depth);
+                    analyzeNodeSinglePass(arg, parentScope, currentFunctionScope, depth);
                 }
 
                 break;
@@ -476,12 +376,12 @@ private:
 
                         // Analyze method body
                         if (method->body) {
-                            analyzeNodeSinglePass(method->body, classDecl, depth + 1);
+                            analyzeNodeSinglePass(method->body, classDecl, static_cast<LexicalScopeNode*>(method->body), depth + 1);
                         }
 
                         currentMethodContext = prevMethodContext;
                     } else {
-                        analyzeNodeSinglePass(child, parentScope, depth);
+                        analyzeNodeSinglePass(child, parentScope, currentFunctionScope, depth);
                     }
                 }
 
@@ -492,35 +392,14 @@ private:
             default: {
                 // For all other node types, just recursively analyze children
                 for (auto* child : node->children) {
-                    analyzeNodeSinglePass(child, parentScope, depth);
+                    analyzeNodeSinglePass(child, parentScope, currentFunctionScope, depth);
                 }
                 break;
             }
         }
     }
 
-    // Variable resolution (still needed)
-    VariableInfo* findVariable(const std::string& name, LexicalScopeNode* scope) {
-        if (!scope) return nullptr;
 
-        // Check current scope
-        auto it = scope->variables.find(name);
-        if (it != scope->variables.end()) {
-            return &it->second;
-        }
-
-        // Check parent scopes recursively
-        LexicalScopeNode* parent = scope->parentFunctionScope;
-        while (parent) {
-            auto parentIt = parent->variables.find(name);
-            if (parentIt != parent->variables.end()) {
-                return &parentIt->second;
-            }
-            parent = parent->parentFunctionScope;
-        }
-
-        return nullptr;
-    }
 
     // Class inheritance helpers (called once per class during first pass)
     void resolveClassInheritance(ClassDeclarationNode* classDecl) {
@@ -689,7 +568,7 @@ public:
         buildClassLayoutsAndMethods();
 
         // Third pass: analyze all expressions and resolve variables/methods
-        analyzeNodeSinglePass(root, nullptr, 0);
+        analyzeNodeSinglePass(root, nullptr, nullptr, 0);
     }
 
     // Getters for registries
@@ -742,22 +621,14 @@ void testAnalyzer() {
         auto* block = new BlockStatement(func);
         func->body = block;
 
-        // Add an identifier reference BEFORE definition (should be unknown initially)
-        auto* ident1 = new IdentifierExpressionNode(block, "x");
-        block->addChild(ident1);
-
         // Add a variable definition in the block
         auto* varDef = new VariableDefinitionNode(block, VariableDefinitionType::LET);
         varDef->name = "x";
         block->addChild(varDef);
 
-        // Add another identifier reference AFTER definition
-        auto* ident2 = new IdentifierExpressionNode(block, "x");
-        block->addChild(ident2);
-
-        // Add reference to undefined variable
-        auto* ident3 = new IdentifierExpressionNode(block, "undefinedVar");
-        block->addChild(ident3);
+        // Add identifier reference AFTER definition
+        auto* ident1 = new IdentifierExpressionNode(block, "x");
+        block->addChild(ident1);
 
         // Add the function to root
         root->addChild(func);
@@ -866,6 +737,11 @@ void testAnalyzer() {
 
         auto* test2Block = new BlockStatement(test2Func);
         test2Func->body = test2Block;
+
+        // Define y in test2
+        auto* yDef2 = new VariableDefinitionNode(test2Block, VariableDefinitionType::VAR);
+        yDef2->name = "y";
+        test2Block->addChild(yDef2);
 
         // Reference to y in test2
         auto* yRef = new IdentifierExpressionNode(test2Block, "y");

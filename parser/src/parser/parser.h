@@ -42,10 +42,9 @@ inline ASTNode* parse(const std::string& code) {
     // Set initial block scope to the root block
     ctx.currentBlockScope = root;
 
-    ctx.index = 0;
-    while (ctx.index < code.length()) {
+    for (ctx.index = 0; ctx.index < code.length(); ctx.index++) {
         try {
-            char c = code[ctx.index++];
+            char c = code[ctx.index];
             switch (ctx.state) {
                 case STATE::BLOCK:
                     handleStateBlock(ctx, c);
@@ -123,11 +122,23 @@ inline ASTNode* parse(const std::string& code) {
                 case STATE::IDENTIFIER_COMPLETE:
                     handleStateIdentifierComplete(ctx, c);
                     break;
+                case STATE::IDENTIFIER_COMPLETE_WHITESPACE:
+                    handleStateIdentifierCompleteWhitespace(ctx, c);
+                    break;
                 case STATE::EXPECT_TYPE_ANNOTATION:
                     handleStateExpectTypeAnnotation(ctx, c);
                     break;
                 case STATE::TYPE_ANNOTATION:
                     handleStateTypeAnnotation(ctx, c);
+                    break;
+                case STATE::TYPE_ANNOTATION_WHITESPACE:
+                    handleStateTypeAnnotationWhitespace(ctx, c);
+                    break;
+                case STATE::TYPE_UNION_SEPARATOR_WHITESPACE:
+                    handleStateTypeUnionSeparatorWhitespace(ctx, c);
+                    break;
+                case STATE::TYPE_INTERSECTION_SEPARATOR_WHITESPACE:
+                    handleStateTypeIntersectionSeparatorWhitespace(ctx, c);
                     break;
                 case STATE::TYPE_GENERIC_PARAMETERS_START:
                     handleStateTypeGenericParametersStart(ctx, c);
@@ -1537,11 +1548,11 @@ inline ASTNode* parse(const std::string& code) {
                     break;
             }
         } catch (const std::exception& e) {
-            reportParseError(code, ctx.index - 1, e.what(), ctx.state);
+            reportParseError(code, ctx.index, e.what(), ctx.state);
             delete root;
             return nullptr;
         } catch (...) {
-            reportParseError(code, ctx.index - 1, "Unknown parser error", ctx.state);
+            reportParseError(code, ctx.index, "Unknown parser error", ctx.state);
             delete root;
             return nullptr;
         }

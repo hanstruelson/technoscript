@@ -59,7 +59,7 @@ inline void handleStateClassDeclarationName(ParserContext& ctx, char c) {
         // Check if we've started parsing the class name
         if (ctx.stringStart > 0) {
             // Class name complete, extract it
-            std::string className = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
+            std::string className = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
             if (auto* classNode = dynamic_cast<ClassDeclarationNode*>(ctx.currentNode)) {
                 classNode->name = className;
             }
@@ -70,7 +70,7 @@ inline void handleStateClassDeclarationName(ParserContext& ctx, char c) {
         }
     } else if (ctx.stringStart == 0 && isIdentifierStart(c)) {
         // Start of class name
-        ctx.stringStart = ctx.index - 1;
+        ctx.stringStart = ctx.index;
         // Stay in this state to continue parsing
     } else if (isIdentifierPart(c)) {
         // Continue parsing class name - accumulate characters
@@ -78,7 +78,7 @@ inline void handleStateClassDeclarationName(ParserContext& ctx, char c) {
     } else if (c == '<') {
         // Generic parameters start
         if (ctx.stringStart > 0 && ctx.stringStart < ctx.index) {
-            std::string className = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
+            std::string className = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
             if (auto* classNode = dynamic_cast<ClassDeclarationNode*>(ctx.currentNode)) {
                 classNode->name = className;
             }
@@ -88,7 +88,7 @@ inline void handleStateClassDeclarationName(ParserContext& ctx, char c) {
     } else if (c == '{') {
         // Class name complete (or anonymous class), extract it
         if (ctx.stringStart > 0 && ctx.stringStart < ctx.index) {
-            std::string className = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
+            std::string className = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
             if (auto* classNode = dynamic_cast<ClassDeclarationNode*>(ctx.currentNode)) {
                 if (classNode->name.empty()) {
                     classNode->name = className;
@@ -124,7 +124,7 @@ inline void handleStateClassExtendsName(ParserContext& ctx, char c) {
         return;
     } else if (std::isspace(static_cast<unsigned char>(c))) {
         // End of class name
-        std::string extendsClass = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
+        std::string extendsClass = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
         if (auto* classNode = dynamic_cast<ClassDeclarationNode*>(ctx.currentNode)) {
             classNode->extendsClass = extendsClass;
         }
@@ -132,7 +132,7 @@ inline void handleStateClassExtendsName(ParserContext& ctx, char c) {
         ctx.state = STATE::CLASS_IMPLEMENTS_START;
     } else if (c == '{') {
         // End of class name, go to body
-        std::string extendsClass = ctx.code.substr(ctx.stringStart, (ctx.index - 1) - ctx.stringStart);
+        std::string extendsClass = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
         if (auto* classNode = dynamic_cast<ClassDeclarationNode*>(ctx.currentNode)) {
             classNode->extendsClass = extendsClass;
         }
@@ -243,7 +243,7 @@ inline void handleStateClassBody(ParserContext& ctx, char c) {
         ctx.state = STATE::CLASS_SETTER_START;
     } else if (isIdentifierStart(c)) {
         // Property or method name
-        ctx.stringStart = ctx.index - 1; // ctx.index was already incremented, so subtract 1
+        ctx.stringStart = ctx.index;
         ctx.state = STATE::CLASS_PROPERTY_KEY;
     } else if (std::isspace(static_cast<unsigned char>(c)) || c == ';') {
         // Skip whitespace and empty statements
@@ -256,11 +256,11 @@ inline void handleStateClassStaticStart(ParserContext& ctx, char c) {
     if (c == 't') {
         // Continue checking 'static'
         // For now, just skip ahead
-        ctx.stringStart = ctx.index - 2; // 's' was at index-2, 't' is at index-1
+        ctx.stringStart = ctx.index - 1; // 's' was at index-1, current char is at index
         ctx.state = STATE::CLASS_PROPERTY_KEY;
     } else {
         // Not 'static', treat as regular identifier
-        ctx.stringStart = ctx.index - 2; // 's' was at index-2, current char is at index-1
+        ctx.stringStart = ctx.index - 1; // 's' was at index-1, current char is at index
         ctx.state = STATE::CLASS_PROPERTY_KEY;
         ctx.index--; // Re-process current character
     }
@@ -382,7 +382,7 @@ inline void handleStateClassAccessModifierPublic(ParserContext& ctx, char c) {
         ctx.state = STATE::CLASS_ACCESS_MODIFIER_PRIVATE;
     } else {
         // Not 'public' or 'private', treat as regular identifier
-        ctx.stringStart = ctx.index - 2; // 'p' was at index-2, current char is at index-1
+        ctx.stringStart = ctx.index - 1; // 'p' was at index-1, current char is at index
         ctx.state = STATE::CLASS_PROPERTY_KEY;
         ctx.index--; // Re-process current character
     }
@@ -395,7 +395,7 @@ inline void handleStateClassAccessModifierPrivate(ParserContext& ctx, char c) {
         ctx.state = STATE::CLASS_PROPERTY_KEY;
     } else {
         // Not 'private', treat as regular identifier
-        ctx.stringStart = ctx.index - 2; // 'p' was at index-2, current char is at index-1
+        ctx.stringStart = ctx.index - 1; // 'p' was at index-1, current char is at index
         ctx.state = STATE::CLASS_PROPERTY_KEY;
         ctx.index--; // Re-process current character
     }
@@ -408,7 +408,7 @@ inline void handleStateClassAccessModifierProtected(ParserContext& ctx, char c) 
         ctx.state = STATE::CLASS_PROPERTY_KEY;
     } else {
         // Not 'protected', treat as regular identifier
-        ctx.stringStart = ctx.index - 2; // 'p' was at index-2, current char is at index-1
+        ctx.stringStart = ctx.index - 1; // 'p' was at index-1, current char is at index
         ctx.state = STATE::CLASS_PROPERTY_KEY;
         ctx.index--; // Re-process current character
     }
@@ -433,7 +433,7 @@ inline void handleStateClassAbstractModifier(ParserContext& ctx, char c) {
         ctx.state = STATE::CLASS_PROPERTY_KEY;
     } else {
         // Not 'abstract', treat as regular identifier
-        ctx.stringStart = ctx.index - 2; // 'a' was at index-2, current char is at index-1
+        ctx.stringStart = ctx.index - 1; // 'a' was at index-1, current char is at index
         ctx.state = STATE::CLASS_PROPERTY_KEY;
         ctx.index--; // Re-process current character
     }
@@ -445,7 +445,7 @@ inline void handleStateClassGetterStart(ParserContext& ctx, char c) {
         ctx.state = STATE::CLASS_GETTER_NAME;
     } else {
         // Not 'get', treat as regular identifier
-        ctx.stringStart = ctx.index - 2; // 'g' was at index-2, current char is at index-1
+        ctx.stringStart = ctx.index - 1; // 'g' was at index-1, current char is at index
         ctx.state = STATE::CLASS_PROPERTY_KEY;
         ctx.index--; // Re-process current character
     }
@@ -457,7 +457,7 @@ inline void handleStateClassSetterStart(ParserContext& ctx, char c) {
         ctx.state = STATE::CLASS_SETTER_NAME;
     } else {
         // Not 'set', treat as regular identifier
-        ctx.stringStart = ctx.index - 2; // 'S' was at index-2, current char is at index-1
+        ctx.stringStart = ctx.index - 1; // 'S' was at index-1, current char is at index
         ctx.state = STATE::CLASS_PROPERTY_KEY;
         ctx.index--; // Re-process current character
     }
@@ -469,7 +469,7 @@ inline void handleStateClassGetterName(ParserContext& ctx, char c) {
         return;
     } else if (isIdentifierStart(c)) {
         // Start of getter name
-        ctx.stringStart = ctx.index - 1;
+        ctx.stringStart = ctx.index;
         ctx.state = STATE::CLASS_GETTER_PARAMETERS_START;
     } else {
         reportParseError(ctx.code, ctx.index, "Expected getter name", ctx.state);
@@ -482,7 +482,7 @@ inline void handleStateClassSetterName(ParserContext& ctx, char c) {
         return;
     } else if (isIdentifierStart(c)) {
         // Start of setter name
-        ctx.stringStart = ctx.index - 1;
+        ctx.stringStart = ctx.index;
         ctx.state = STATE::CLASS_SETTER_PARAMETERS_START;
     } else {
         reportParseError(ctx.code, ctx.index, "Expected setter name", ctx.state);
