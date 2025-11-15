@@ -747,6 +747,10 @@ void CodeGenerator::generatePrintStmt(ASTNode* printStmt) {
     if (arg->nodeType == ASTNodeType::PARENTHESIS_EXPRESSION && !arg->children.empty()) {
         arg = arg->children[0];
     }
+    // Unwrap expression wrapper
+    if (arg->nodeType == ASTNodeType::EXPRESSION && !arg->children.empty()) {
+        arg = arg->children[0];
+    }
 
     DataType detectedType = DataType::INT64;
     if (arg->nodeType == ASTNodeType::LITERAL_EXPRESSION) {

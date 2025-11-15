@@ -207,126 +207,15 @@ inline void handleStateTypeAnnotation(ParserContext& ctx, char c) {
     }
 
     // End of type annotation (encountered = or other terminator)
-    std::string typeAnnotation = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
-    // Trim surrounding whitespace to avoid trailing spaces from annotations like ": int64"
-    auto firstNonSpace = typeAnnotation.find_first_not_of(" \t\n\r\f\v");
-    if (firstNonSpace == std::string::npos) {
-        throw std::runtime_error("Empty type annotation");
-    }
-    auto lastNonSpace = typeAnnotation.find_last_not_of(" \t\n\r\f\v");
-    typeAnnotation = typeAnnotation.substr(firstNonSpace, lastNonSpace - firstNonSpace + 1);
-
-    // Find the appropriate node (variable definition or function)
+    // Find the appropriate node that needs type annotation
     ASTNode* current = ctx.currentNode;
-    while (current && current->nodeType != ASTNodeType::VARIABLE_DEFINITION &&
-           current->nodeType != ASTNodeType::FUNCTION_DECLARATION &&
-           current->nodeType != ASTNodeType::FUNCTION_EXPRESSION &&
-           current->nodeType != ASTNodeType::ARROW_FUNCTION_EXPRESSION) {
+    while (current && !dynamic_cast<NeedsTypeNode*>(current)) {
         current = current->parent;
     }
 
-    if (auto* varDefNode = dynamic_cast<VariableDefinitionNode*>(current)) {
-        // Handle variable type annotation
-        if (!varDefNode->typeAnnotation) {
-            // Simple type annotation
-            auto* typeNode = new TypeAnnotationNode(varDefNode);
-            if (typeAnnotation == "int64" || typeAnnotation == "int") {
-                typeNode->dataType = DataType::INT64;
-            } else {
-                throw std::runtime_error("Unknown type annotation: " + typeAnnotation);
-            }
-            varDefNode->typeAnnotation = typeNode;
-            varDefNode->children.push_back(typeNode);
-        } else if (auto* unionType = dynamic_cast<UnionTypeNode*>(varDefNode->typeAnnotation)) {
-            // Adding the last type to union
-            auto* typeNode = new TypeAnnotationNode(unionType);
-            if (typeAnnotation == "int64" || typeAnnotation == "int") {
-                typeNode->dataType = DataType::INT64;
-            } else {
-                throw std::runtime_error("Unknown type annotation: " + typeAnnotation);
-            }
-            unionType->addType(typeNode);
-        } else if (auto* intersectionType = dynamic_cast<IntersectionTypeNode*>(varDefNode->typeAnnotation)) {
-            // Adding the last type to intersection
-            auto* typeNode = new TypeAnnotationNode(intersectionType);
-            if (typeAnnotation == "int64" || typeAnnotation == "int") {
-                typeNode->dataType = DataType::INT64;
-            } else {
-                throw std::runtime_error("Unknown type annotation: " + typeAnnotation);
-            }
-            intersectionType->addType(typeNode);
-        }
-
-        // Call the callback when type annotation is complete
-        varDefNode->onTypeAnnotationComplete(ctx);
-
-        ctx.state = STATE::EXPECT_EQUALS;
-    } else if (auto* funcDeclNode = dynamic_cast<FunctionDeclarationNode*>(current)) {
-        // Handle function return type annotation
-        if (!funcDeclNode->returnType) {
-            auto* typeNode = new TypeAnnotationNode(funcDeclNode);
-            if (typeAnnotation == "int64") {
-                typeNode->dataType = DataType::INT64;
-            } else if (typeAnnotation == "string") {
-                typeNode->dataType = DataType::STRING;
-            } else if (typeAnnotation == "float64") {
-                typeNode->dataType = DataType::FLOAT64;
-            } else {
-                // Default to object for unknown types
-                typeNode->dataType = DataType::OBJECT;
-            }
-            funcDeclNode->returnType = typeNode;
-            funcDeclNode->children.push_back(typeNode);
-        }
-
-        // Call the callback when type annotation is complete
-        funcDeclNode->onTypeAnnotationComplete(ctx);
-
-        ctx.state = STATE::FUNCTION_BODY_START;
-    } else if (auto* funcExprNode = dynamic_cast<FunctionExpressionNode*>(current)) {
-        // Handle function expression return type annotation
-        if (!funcExprNode->returnType) {
-            auto* typeNode = new TypeAnnotationNode(funcExprNode);
-            if (typeAnnotation == "int64") {
-                typeNode->dataType = DataType::INT64;
-            } else if (typeAnnotation == "string") {
-                typeNode->dataType = DataType::STRING;
-            } else if (typeAnnotation == "float64") {
-                typeNode->dataType = DataType::FLOAT64;
-            } else {
-                // Default to object for unknown types
-                typeNode->dataType = DataType::OBJECT;
-            }
-            funcExprNode->returnType = typeNode;
-            funcExprNode->children.push_back(typeNode);
-        }
-
-        // Call the callback when type annotation is complete
-        funcExprNode->onTypeAnnotationComplete(ctx);
-
-        ctx.state = STATE::FUNCTION_BODY_START;
-    } else if (auto* arrowFuncNode = dynamic_cast<ArrowFunctionExpressionNode*>(current)) {
-        // Handle arrow function return type annotation
-        if (!arrowFuncNode->returnType) {
-            auto* typeNode = new TypeAnnotationNode(arrowFuncNode);
-            if (typeAnnotation == "int64") {
-                typeNode->dataType = DataType::INT64;
-            } else if (typeAnnotation == "string") {
-                typeNode->dataType = DataType::STRING;
-            } else if (typeAnnotation == "float64") {
-                typeNode->dataType = DataType::FLOAT64;
-            } else {
-                // Default to object for unknown types
-                typeNode->dataType = DataType::OBJECT;
-            }
-            arrowFuncNode->returnType = typeNode;
-            arrowFuncNode->children.push_back(typeNode);
-        }
-
-        // Call the callback when type annotation is complete
-        arrowFuncNode->onTypeAnnotationComplete(ctx);
-
-        ctx.state = STATE::ARROW_FUNCTION_BODY;
+    if (auto* needsTypeNode = dynamic_cast<NeedsTypeNode*>(current)) {
+        // Use polymorphism to handle type annotation completion
+        needsTypeNode->onTypeAnnotationComplete(ctx);
     } else {
         throw std::runtime_error("Invalid context for type annotation");
     }

@@ -9,6 +9,27 @@
 #include "../lib/ast.h"
 #include "type_annotation_states.h"
 
+// Stub definitions for missing types/functions
+enum class TypeResolutionMode {
+    LOOSE,
+    STRICT
+};
+
+inline TypeAnnotationNode* createTypeAnnotationNode(ASTNode* parent, const std::string& typeName, TypeResolutionMode mode) {
+    auto* typeNode = new TypeAnnotationNode(parent);
+    if (typeName == "int64" || typeName == "int") {
+        typeNode->dataType = DataType::INT64;
+    } else if (typeName == "string") {
+        typeNode->dataType = DataType::STRING;
+    } else if (typeName == "float64") {
+        typeNode->dataType = DataType::FLOAT64;
+    } else {
+        // Default to object for unknown types
+        typeNode->dataType = DataType::OBJECT;
+    }
+    return typeNode;
+}
+
 // Generic type parameter parsing: <T, U, V>
 inline void handleStateTypeGenericParametersStart(ParserContext& ctx, char c) {
     if (std::isspace(static_cast<unsigned char>(c))) {
@@ -222,18 +243,7 @@ inline void handleStateTypeGenericTypeArguments(ParserContext& ctx, char c) {
             throw std::runtime_error("Expected GenericTypeNode");
         }
 
-        // Create a simple type annotation for the argument
-        auto* typeNode = new TypeAnnotationNode(genericType);
-        if (typeArg == "int64") {
-            typeNode->dataType = DataType::INT64;
-        } else if (typeArg == "float64") {
-            typeNode->dataType = DataType::FLOAT64;
-        } else if (typeArg == "string") {
-            typeNode->dataType = DataType::STRING;
-        } else {
-            // For unknown types, default to object
-            typeNode->dataType = DataType::OBJECT;
-        }
+        auto* typeNode = createTypeAnnotationNode(genericType, typeArg, TypeResolutionMode::LOOSE);
         genericType->addTypeArgument(typeNode);
 
         ctx.state = STATE::TYPE_GENERIC_TYPE_ARGUMENTS;
@@ -251,18 +261,7 @@ inline void handleStateTypeGenericTypeArguments(ParserContext& ctx, char c) {
             throw std::runtime_error("Expected GenericTypeNode");
         }
 
-        // Create a simple type annotation for the argument
-        auto* typeNode = new TypeAnnotationNode(genericType);
-        if (typeArg == "int64") {
-            typeNode->dataType = DataType::INT64;
-        } else if (typeArg == "float64") {
-            typeNode->dataType = DataType::FLOAT64;
-        } else if (typeArg == "string") {
-            typeNode->dataType = DataType::STRING;
-        } else {
-            // For unknown types, default to object
-            typeNode->dataType = DataType::OBJECT;
-        }
+        auto* typeNode = createTypeAnnotationNode(genericType, typeArg, TypeResolutionMode::LOOSE);
         genericType->addTypeArgument(typeNode);
 
         // Move back to parent - the generic type is now complete
@@ -280,7 +279,11 @@ inline void handleStateTypeGenericTypeArguments(ParserContext& ctx, char c) {
         }
 
         // We've consumed the '>' character, now set state for what comes next
-        ctx.state = STATE::EXPECT_EQUALS;
+        STATE nextState = STATE::EXPECT_EQUALS;
+        if (varDefNode) {
+            nextState = varDefNode->consumeAfterTypeState(STATE::EXPECT_EQUALS);
+        }
+        ctx.state = nextState;
         return;
     }
 

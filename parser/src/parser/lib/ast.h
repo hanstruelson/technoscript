@@ -177,6 +177,8 @@ class ASTNode;
 class GenericTypeParametersNode;
 class ParameterListNode;
 class TypeAnnotationNode;
+class UnionTypeNode;
+class IntersectionTypeNode;
 
 class ASTNode {
 public:
@@ -218,6 +220,19 @@ public:
         if(!value.empty()) os<<"("<<value<<")";
         os<<"\n";
         for(auto child:children) if(child) child->print(os,indent+1);
+    }
+};
+
+// Interface for nodes that need type annotations
+class NeedsTypeNode {
+public:
+    virtual void onTypeAnnotationComplete(ParserContext& ctx) = 0;
+    virtual ~NeedsTypeNode() = default;
+
+    // Common implementation for type annotation completion
+    static void handleTypeAnnotationComplete(NeedsTypeNode* node, ParserContext& ctx, const std::string& typeAnnotation) {
+        // This method will be implemented to handle the common logic
+        // For now, it's a placeholder - the actual implementation will be in the derived classes
     }
 };
 
@@ -281,7 +296,9 @@ public:
     }
 };
 
-class VariableDefinitionNode : public ASTNode {
+
+
+class VariableDefinitionNode : public ASTNode, public NeedsTypeNode {
 public:
     string name;
     VariableDefinitionType varType;
@@ -310,8 +327,11 @@ public:
 
     ~VariableDefinitionNode() override = default;
 
-    virtual void onTypeAnnotationComplete(ParserContext& ctx) {
-        // Default: do nothing, can be overridden by subclasses
+    virtual void onTypeAnnotationComplete(ParserContext& ctx) override;
+
+    // Method to determine next state after type annotation
+    STATE consumeAfterTypeState(STATE defaultState) {
+        return defaultState; // For now, just return the default
     }
 
     virtual void walk() override {
@@ -652,7 +672,7 @@ public:
 
 
 
-class FunctionDeclarationNode : public LexicalScopeNode {
+class FunctionDeclarationNode : public LexicalScopeNode, public NeedsTypeNode {
 public:
     std::string name;
     GenericTypeParametersNode* genericParameters;
@@ -703,7 +723,7 @@ public:
     }
 };
 
-class FunctionExpressionNode : public ExpressionNode {
+class FunctionExpressionNode : public ExpressionNode, public NeedsTypeNode {
 public:
     ParameterListNode* parameters;
     TypeAnnotationNode* returnType;
@@ -730,7 +750,7 @@ public:
     }
 };
 
-class ArrowFunctionExpressionNode : public ExpressionNode {
+class ArrowFunctionExpressionNode : public ExpressionNode, public NeedsTypeNode {
 public:
     ParameterListNode* parameters;
     TypeAnnotationNode* returnType;
@@ -2370,3 +2390,46 @@ public:
         for (auto arg : args) if (arg) arg->print(os, indent + 1);
     }
 };
+
+// Implementation of VariableDefinitionNode::onTypeAnnotationComplete
+void VariableDefinitionNode::onTypeAnnotationComplete(ParserContext& ctx) {
+    // Get the type annotation from the parser context
+    std::string typeAnnotation = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
+    // Trim surrounding whitespace
+    auto firstNonSpace = typeAnnotation.find_first_not_of(" \t\n\r\f\v");
+    if (firstNonSpace == std::string::npos) {
+        throw std::runtime_error("Empty type annotation");
+    }
+    auto lastNonSpace = typeAnnotation.find_last_not_of(" \t\n\r\f\v");
+    typeAnnotation = typeAnnotation.substr(firstNonSpace, lastNonSpace - firstNonSpace + 1);
+
+    // Create type annotation node
+    auto* typeNode = new TypeAnnotationNode(this);
+    if (typeAnnotation == "int64" || typeAnnotation == "int") {
+        typeNode->dataType = DataType::INT64;
+    } else if (typeAnnotation == "string") {
+        typeNode->dataType = DataType::STRING;
+    } else if (typeAnnotation == "float64") {
+        typeNode->dataType = DataType::FLOAT64;
+    } else {
+        // Default to object for unknown types
+        typeNode->dataType = DataType::OBJECT;
+    }
+
+    // Handle union/intersection types
+    if (this->typeAnnotation && this->typeAnnotation->nodeType == ASTNodeType::UNION_TYPE) {
+        // Adding the last type to union
+        auto* unionType = dynamic_cast<UnionTypeNode*>(this->typeAnnotation);
+        unionType->addType(typeNode);
+    } else if (this->typeAnnotation && this->typeAnnotation->nodeType == ASTNodeType::INTERSECTION_TYPE) {
+        // Adding the last type to intersection
+        auto* intersectionType = dynamic_cast<IntersectionTypeNode*>(this->typeAnnotation);
+        intersectionType->addType(typeNode);
+    } else {
+        // Simple type annotation
+        this->typeAnnotation = typeNode;
+        this->children.push_back(typeNode);
+    }
+
+    ctx.state = STATE::EXPECT_EQUALS;
+}
