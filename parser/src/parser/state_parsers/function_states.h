@@ -151,24 +151,16 @@ inline void handleStateFunctionParametersStart(ParserContext& ctx, char c) {
     } else if (c == ')') {
         // Empty parameter list
         auto* paramList = new ParameterListNode(ctx.currentNode);
-        if (auto* funcNode = dynamic_cast<FunctionDeclarationNode*>(ctx.currentNode)) {
-            funcNode->parameters = paramList;
-        } else if (auto* funcExpr = dynamic_cast<FunctionExpressionNode*>(ctx.currentNode)) {
-            funcExpr->parameters = paramList;
-        } else if (auto* arrowFunc = dynamic_cast<ArrowFunctionExpressionNode*>(ctx.currentNode)) {
-            arrowFunc->parameters = paramList;
+        if (auto* funcNode = dynamic_cast<HasParametersNode*>(ctx.currentNode)) {
+            funcNode->setParameters(paramList);
         }
         ctx.currentNode->children.push_back(paramList);
         ctx.state = STATE::FUNCTION_PARAMETERS_END;
     } else {
         // Start parsing parameter expression
         auto* paramList = new ParameterListNode(ctx.currentNode);
-        if (auto* funcNode = dynamic_cast<FunctionDeclarationNode*>(ctx.currentNode)) {
-            funcNode->parameters = paramList;
-        } else if (auto* funcExpr = dynamic_cast<FunctionExpressionNode*>(ctx.currentNode)) {
-            funcExpr->parameters = paramList;
-        } else if (auto* arrowFunc = dynamic_cast<ArrowFunctionExpressionNode*>(ctx.currentNode)) {
-            arrowFunc->parameters = paramList;
+        if (auto* funcNode = dynamic_cast<HasParametersNode*>(ctx.currentNode)) {
+            funcNode->setParameters(paramList);
         }
         ctx.currentNode->children.push_back(paramList);
         ctx.currentNode = paramList;
@@ -381,12 +373,8 @@ inline void handleStateFunctionBodyStart(ParserContext& ctx, char c) {
     if (c == '{') {
         // Create function body block
         auto* block = new BlockStatement(ctx.currentNode);
-        if (auto* funcNode = dynamic_cast<FunctionDeclarationNode*>(ctx.currentNode)) {
-            funcNode->body = block;
-        } else if (auto* funcExpr = dynamic_cast<FunctionExpressionNode*>(ctx.currentNode)) {
-            funcExpr->body = block;
-        } else if (auto* arrowFunc = dynamic_cast<ArrowFunctionExpressionNode*>(ctx.currentNode)) {
-            arrowFunc->body = block;
+        if (auto* funcNode = dynamic_cast<HasBodyNode*>(ctx.currentNode)) {
+            funcNode->setBody(block);
         }
         ctx.currentNode->children.push_back(block);
         ctx.currentNode = block;

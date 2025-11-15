@@ -31,6 +31,16 @@ inline void ParenthesisExpressionNode::closeParenthesis(ParserContext& ctx) {
 }
 
 inline void handleStateExpressionAfterOperand(ParserContext& ctx, char c) {
+    // Check if we're in a context that needs special handling
+    auto* node = ctx.currentNode;
+    while (node) {
+        if (auto* contextNode = dynamic_cast<ExpressionContextNode*>(node)) {
+            contextNode->handleExpressionContext(ctx, c);
+            return;
+        }
+        node = node->parent;
+    }
+
     // Check if we're parsing an enum member initializer and see ',' or '}'
     auto* enumMemberNode = ctx.currentNode;
     while (enumMemberNode && enumMemberNode->nodeType != ASTNodeType::ENUM_MEMBER) {
@@ -60,48 +70,12 @@ inline void handleStateExpressionAfterOperand(ParserContext& ctx, char c) {
         return;
     }
 
-    // Check if we're parsing a parameter pattern and see ':'
-    if (c == ':' && ctx.currentNode && ctx.currentNode->parent &&
-        ctx.currentNode->parent->nodeType == ASTNodeType::PARAMETER) {
-        auto* param = static_cast<ParameterNode*>(ctx.currentNode->parent);
-        if (!param->pattern) {
-            // We're parsing the parameter pattern
-            param->pattern = ctx.currentNode;
-        }
-        // Move back to parameter
-        ctx.currentNode = param;
-        ctx.state = STATE::FUNCTION_PARAMETER_TYPE_ANNOTATION;
-        return;
-    }
-
-    // Check if we're parsing a parameter pattern or default value and see ',' or ')'
-    if ((c == ',' || c == ')') && ctx.currentNode && ctx.currentNode->parent &&
-        ctx.currentNode->parent->nodeType == ASTNodeType::PARAMETER) {
-        auto* param = static_cast<ParameterNode*>(ctx.currentNode->parent);
-        if (!param->pattern) {
-            // We're parsing the parameter pattern
-            param->pattern = ctx.currentNode;
-        } else {
-            // We're parsing a default value
-            param->defaultValue = ctx.currentNode;
-        }
-        // Move back to parameter list
-        ctx.currentNode = param->parent;
-        if (c == ',') {
-            ctx.state = STATE::FUNCTION_PARAMETER_SEPARATOR;
-        } else {
-            ctx.state = STATE::FUNCTION_PARAMETERS_END;
-        }
-        return;
-    }
-
     // Check if we're inside template literal interpolation and see '}'
     if (c == '}') {
-        auto* node = ctx.currentNode;
-        while (node) {
-            if (node->nodeType == ASTNodeType::TEMPLATE_LITERAL) {
+        auto* templateNode = ctx.currentNode;
+        while (templateNode) {
+            if (templateNode->nodeType == ASTNodeType::TEMPLATE_LITERAL) {
                 // We're inside template literal, treat '}' as end of interpolation
-                auto* templateNode = node;
                 // Add the current expression to the template literal
                 if (ctx.currentNode && dynamic_cast<ExpressionNode*>(ctx.currentNode)) {
                     static_cast<TemplateLiteralNode*>(templateNode)->addExpression(static_cast<ExpressionNode*>(ctx.currentNode));
@@ -113,7 +87,7 @@ inline void handleStateExpressionAfterOperand(ParserContext& ctx, char c) {
                 ctx.state = STATE::EXPRESSION_TEMPLATE_LITERAL;
                 return;
             }
-            node = node->parent;
+            templateNode = templateNode->parent;
         }
     }
 

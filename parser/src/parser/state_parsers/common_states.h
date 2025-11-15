@@ -26,10 +26,7 @@ inline void handleStateBlock(ParserContext& ctx, char c) {
     }
 
     // Check if we're expecting a body for a control statement
-    if (ctx.currentNode && (ctx.currentNode->nodeType == ASTNodeType::IF_STATEMENT ||
-                            ctx.currentNode->nodeType == ASTNodeType::WHILE_STATEMENT ||
-                            ctx.currentNode->nodeType == ASTNodeType::FOR_STATEMENT ||
-                            ctx.currentNode->nodeType == ASTNodeType::DO_WHILE_STATEMENT)) {
+    if (ctx.currentNode && dynamic_cast<ControlStatementNode*>(ctx.currentNode)) {
         if (c == '{') {
             // Block statement for body
             auto* block = new BlockStatement(ctx.currentNode, false); // noBraces = false
@@ -71,10 +68,7 @@ inline void handleStateBlock(ParserContext& ctx, char c) {
         // Statement terminator - check if we need to exit a single-statement block
         if (ctx.currentNode && ctx.currentNode->nodeType == ASTNodeType::BLOCK_STATEMENT) {
             // Check if this block was created for a single statement (has a control statement parent)
-            if (ctx.currentNode->parent &&
-                (ctx.currentNode->parent->nodeType == ASTNodeType::IF_STATEMENT ||
-                 ctx.currentNode->parent->nodeType == ASTNodeType::WHILE_STATEMENT ||
-                 ctx.currentNode->parent->nodeType == ASTNodeType::FOR_STATEMENT)) {
+            if (ctx.currentNode->parent && dynamic_cast<ControlStatementNode*>(ctx.currentNode->parent)) {
                 // Exit the block
                 ctx.currentNode = ctx.currentNode->parent;
                 // Call onBlockComplete

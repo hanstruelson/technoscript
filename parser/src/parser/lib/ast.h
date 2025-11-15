@@ -236,6 +236,41 @@ public:
     }
 };
 
+// Interface for nodes that can have parameters set
+class HasParametersNode {
+public:
+    virtual void setParameters(ParameterListNode* parameters) = 0;
+    virtual ~HasParametersNode() = default;
+};
+
+// Interface for nodes that can have a body set
+class HasBodyNode {
+public:
+    virtual void setBody(ASTNode* body) = 0;
+    virtual ~HasBodyNode() = default;
+};
+
+// Interface for nodes that can have a return type set
+class HasReturnTypeNode {
+public:
+    virtual void setReturnType(TypeAnnotationNode* returnType) = 0;
+    virtual ~HasReturnTypeNode() = default;
+};
+
+// Interface for control statements that need block creation behavior
+class ControlStatementNode {
+public:
+    virtual bool needsBlockBody() const = 0;
+    virtual ~ControlStatementNode() = default;
+};
+
+// Interface for expression context handling
+class ExpressionContextNode {
+public:
+    virtual void handleExpressionContext(ParserContext& ctx, char c) = 0;
+    virtual ~ExpressionContextNode() = default;
+};
+
 // Forward declaration for ScopeMetadata
 class ScopeMetadata;
 
@@ -613,7 +648,7 @@ public:
     static void closeParenthesis(ParserContext& ctx);
 };
 
-class ParameterNode : public ASTNode {
+class ParameterNode : public ASTNode, public ExpressionContextNode {
 public:
     ASTNode* pattern;  // Expression pattern (identifier, destructuring, rest, etc.)
     TypeAnnotationNode* typeAnnotation;
@@ -621,6 +656,33 @@ public:
 
     ParameterNode(ASTNode* parent) : ASTNode(parent), pattern(nullptr), typeAnnotation(nullptr), defaultValue(nullptr) {
         nodeType = ASTNodeType::PARAMETER;
+    }
+
+    virtual void handleExpressionContext(ParserContext& ctx, char c) override {
+        // Handle parameter context: ':' for type annotation, ',' or ')' to end parameter
+        if (c == ':' && !typeAnnotation) {
+            ctx.currentNode = this;
+            ctx.state = STATE::FUNCTION_PARAMETER_TYPE_ANNOTATION;
+            return;
+        }
+        if ((c == ',' || c == ')') && !defaultValue) {
+            // Parameter complete, move back to parameter list
+            ctx.currentNode = this->parent;
+            if (c == ',') {
+                ctx.state = STATE::FUNCTION_PARAMETER_SEPARATOR;
+            } else {
+                ctx.state = STATE::FUNCTION_PARAMETERS_END;
+            }
+            return;
+        }
+        if (c == '=' && !defaultValue) {
+            ctx.currentNode = this;
+            ctx.state = STATE::FUNCTION_PARAMETER_DEFAULT_VALUE;
+            return;
+        }
+        // Default handling
+        ctx.state = STATE::EXPRESSION_AFTER_OPERAND;
+        ctx.index--; // Re-process this character
     }
 
     void print(std::ostream& os, int indent) const override {
@@ -672,7 +734,7 @@ public:
 
 
 
-class FunctionDeclarationNode : public LexicalScopeNode, public NeedsTypeNode {
+class FunctionDeclarationNode : public LexicalScopeNode, public NeedsTypeNode, public HasParametersNode, public HasBodyNode, public HasReturnTypeNode {
 public:
     std::string name;
     GenericTypeParametersNode* genericParameters;
@@ -697,8 +759,20 @@ public:
         funcName = name; // Sync with name
     }
 
-    virtual void onTypeAnnotationComplete(ParserContext& ctx) {
+    virtual void onTypeAnnotationComplete(ParserContext& ctx) override {
         // Default: do nothing, can be overridden by subclasses
+    }
+
+    virtual void setParameters(ParameterListNode* params) override {
+        parameters = params;
+    }
+
+    virtual void setBody(ASTNode* funcBody) override {
+        body = funcBody;
+    }
+
+    virtual void setReturnType(TypeAnnotationNode* retType) override {
+        returnType = retType;
     }
 
     void walk() override {
@@ -723,7 +797,7 @@ public:
     }
 };
 
-class FunctionExpressionNode : public ExpressionNode, public NeedsTypeNode {
+class FunctionExpressionNode : public ExpressionNode, public NeedsTypeNode, public HasParametersNode, public HasBodyNode, public HasReturnTypeNode {
 public:
     ParameterListNode* parameters;
     TypeAnnotationNode* returnType;
@@ -733,8 +807,20 @@ public:
         nodeType = ASTNodeType::FUNCTION_EXPRESSION;
     }
 
-    virtual void onTypeAnnotationComplete(ParserContext& ctx) {
+    virtual void onTypeAnnotationComplete(ParserContext& ctx) override {
         // Default: do nothing, can be overridden by subclasses
+    }
+
+    virtual void setParameters(ParameterListNode* params) override {
+        parameters = params;
+    }
+
+    virtual void setBody(ASTNode* funcBody) override {
+        body = funcBody;
+    }
+
+    virtual void setReturnType(TypeAnnotationNode* retType) override {
+        returnType = retType;
     }
 
     void print(std::ostream& os, int indent) const override {
@@ -750,7 +836,7 @@ public:
     }
 };
 
-class ArrowFunctionExpressionNode : public ExpressionNode, public NeedsTypeNode {
+class ArrowFunctionExpressionNode : public ExpressionNode, public NeedsTypeNode, public HasParametersNode, public HasBodyNode, public HasReturnTypeNode {
 public:
     ParameterListNode* parameters;
     TypeAnnotationNode* returnType;
@@ -760,8 +846,20 @@ public:
         nodeType = ASTNodeType::ARROW_FUNCTION_EXPRESSION;
     }
 
-    virtual void onTypeAnnotationComplete(ParserContext& ctx) {
+    virtual void onTypeAnnotationComplete(ParserContext& ctx) override {
         // Default: do nothing, can be overridden by subclasses
+    }
+
+    virtual void setParameters(ParameterListNode* params) override {
+        parameters = params;
+    }
+
+    virtual void setBody(ASTNode* funcBody) override {
+        body = funcBody;
+    }
+
+    virtual void setReturnType(TypeAnnotationNode* retType) override {
+        returnType = retType;
     }
 
     void print(std::ostream& os, int indent) const override {
@@ -906,11 +1004,15 @@ public:
     }
 };
 
-class IfStatement : public ControlStatement {
+class IfStatement : public ControlStatement, public ControlStatementNode {
 public:
     ExpressionNode* condition;
 
     IfStatement(ASTNode* parent) : ControlStatement(parent, ASTNodeType::IF_STATEMENT), condition(nullptr) {
+    }
+
+    virtual bool needsBlockBody() const override {
+        return true; // If statements typically need block bodies
     }
 
     void onBlockComplete(ParserContext& ctx) override {
@@ -2390,46 +2492,3 @@ public:
         for (auto arg : args) if (arg) arg->print(os, indent + 1);
     }
 };
-
-// Implementation of VariableDefinitionNode::onTypeAnnotationComplete
-void VariableDefinitionNode::onTypeAnnotationComplete(ParserContext& ctx) {
-    // Get the type annotation from the parser context
-    std::string typeAnnotation = ctx.code.substr(ctx.stringStart, ctx.index - ctx.stringStart);
-    // Trim surrounding whitespace
-    auto firstNonSpace = typeAnnotation.find_first_not_of(" \t\n\r\f\v");
-    if (firstNonSpace == std::string::npos) {
-        throw std::runtime_error("Empty type annotation");
-    }
-    auto lastNonSpace = typeAnnotation.find_last_not_of(" \t\n\r\f\v");
-    typeAnnotation = typeAnnotation.substr(firstNonSpace, lastNonSpace - firstNonSpace + 1);
-
-    // Create type annotation node
-    auto* typeNode = new TypeAnnotationNode(this);
-    if (typeAnnotation == "int64" || typeAnnotation == "int") {
-        typeNode->dataType = DataType::INT64;
-    } else if (typeAnnotation == "string") {
-        typeNode->dataType = DataType::STRING;
-    } else if (typeAnnotation == "float64") {
-        typeNode->dataType = DataType::FLOAT64;
-    } else {
-        // Default to object for unknown types
-        typeNode->dataType = DataType::OBJECT;
-    }
-
-    // Handle union/intersection types
-    if (this->typeAnnotation && this->typeAnnotation->nodeType == ASTNodeType::UNION_TYPE) {
-        // Adding the last type to union
-        auto* unionType = dynamic_cast<UnionTypeNode*>(this->typeAnnotation);
-        unionType->addType(typeNode);
-    } else if (this->typeAnnotation && this->typeAnnotation->nodeType == ASTNodeType::INTERSECTION_TYPE) {
-        // Adding the last type to intersection
-        auto* intersectionType = dynamic_cast<IntersectionTypeNode*>(this->typeAnnotation);
-        intersectionType->addType(typeNode);
-    } else {
-        // Simple type annotation
-        this->typeAnnotation = typeNode;
-        this->children.push_back(typeNode);
-    }
-
-    ctx.state = STATE::EXPECT_EQUALS;
-}
